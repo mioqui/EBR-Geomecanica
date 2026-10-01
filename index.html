@@ -504,6 +504,38 @@ $("closePhotoModal").onclick=closePhotoModal;
 $("photoModal").onclick=e=>{if(e.target===$("photoModal"))closePhotoModal();};
 
 
+const geoCorrections=[
+  [/rocha/gi,"roca"],
+  [/r m r/gi,"RMR"],
+  [/erre eme erre/gi,"RMR"],
+  [/r q d/gi,"RQD"],
+  [/erre cu de/gi,"RQD"],
+  [/geo mec[aá]nica/gi,"geomecánica"],
+  [/geo mec[aá]nico/gi,"geomecánico"],
+  [/sostenimento/gi,"sostenimiento"],
+  [/fracturacion/gi,"fracturación"],
+  [/discontinuidades/gi,"discontinuidades"],
+  [/buzamento/gi,"buzamiento"]
+];
+function matchCase(original,replacement){
+  if(original===original.toUpperCase())return replacement.toUpperCase();
+  if(original[0]===original[0].toUpperCase())return replacement.charAt(0).toUpperCase()+replacement.slice(1);
+  return replacement;
+}
+function correctGeoText(value){
+  let out=value;
+  geoCorrections.forEach(([rx,repl])=>{out=out.replace(rx,m=>matchCase(m,repl));});
+  return out;
+}
+const obsField=$("observaciones");
+obsField.addEventListener("input",()=>{
+  // El dictado nativo escribe en el textarea; corregimos solo equivalencias técnicas de alta confianza.
+  const start=obsField.selectionStart,end=obsField.selectionEnd;
+  const corrected=correctGeoText(obsField.value);
+  if(corrected!==obsField.value){obsField.value=corrected;try{obsField.setSelectionRange(start,end);}catch(e){}}
+});
+obsField.addEventListener("blur",()=>{obsField.value=correctGeoText(obsField.value);});
+
 function preloadRealTestData(){
   // Caso real tomado del Control Operativo Geomecánica del 22/08/2026:
   // Zona Profunda, Nivel 3960, Block 7998, Labor GL665S, RMR reportado 45 (IIIB).
