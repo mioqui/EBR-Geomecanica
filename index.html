@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#123d5a">
-<title>Geomecánica · RMR V2.6</title>
+<title>Geomecánica · RMR V2.7</title>
 <style>
 :root{
   --bg:#eef3f6; --card:#fff; --ink:#17232d; --muted:#667985; --line:#d7e1e7;
@@ -42,6 +42,9 @@ textarea{min-height:82px;resize:vertical}
 .kpi{background:#f5f9fb;border:1px solid var(--line);border-radius:12px;padding:11px;min-width:0}
 .kpi b{display:block;font-size:1.35rem;color:var(--brand);word-break:break-word}
 .kpi span{font-size:.72rem;color:var(--muted);font-weight:700}
+.kpi.final-result{background:#111;color:#fff;border-color:#111}
+.kpi.final-result b,.kpi.final-result span{color:#fff}
+.kpi.rock-result{transition:background-color .2s ease,color .2s ease,border-color .2s ease}
 .trace{font-size:.86rem;line-height:1.55;background:#f8fafb;border:1px dashed #aebfc8;border-radius:12px;padding:11px;overflow-wrap:anywhere}
 .trace strong{color:var(--brand)}
 .actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
@@ -106,7 +109,7 @@ input[type="date"]::-webkit-calendar-picker-indicator{
 <body>
 <div class="app">
 <header>
-  <h1>Evaluación Geomecánica · RMR V2.6</h1>
+  <h1>Evaluación Geomecánica · RMR V2.7</h1>
   <p>Captura guiada, cálculo automático y trazabilidad del ajuste de orientación.</p>
 </header>
 
@@ -226,8 +229,8 @@ input[type="date"]::-webkit-calendar-picker-indicator{
     <div class="scoregrid" style="margin-bottom:12px">
       <div class="kpi"><span>RMR básico</span><b id="basicOrientLive">—</b></div>
       <div class="kpi"><span>Ajuste orientación</span><b id="adjOrientLive">—</b></div>
-      <div class="kpi"><span>RMR total</span><b id="totalOrientLive">—</b></div>
-      <div class="kpi"><span>Tipo de roca</span><b id="rockOrientLive">—</b></div>
+      <div class="kpi final-result"><span>RMR total</span><b id="totalOrientLive">—</b></div>
+      <div class="kpi rock-result" id="rockOrientCard"><span>Tipo de roca</span><b id="rockOrientLive">—</b></div>
     </div>
 
     <h3>Trazabilidad del ajuste</h3>
@@ -250,8 +253,8 @@ input[type="date"]::-webkit-calendar-picker-indicator{
     <div class="scoregrid">
       <div class="kpi"><span>RMR básico</span><b id="basicOut">—</b></div>
       <div class="kpi"><span>Ajuste orientación</span><b id="adjOut">—</b></div>
-      <div class="kpi"><span>RMR total</span><b id="totalOut">—</b></div>
-      <div class="kpi"><span>Tipo de roca</span><b id="rockOut">—</b></div>
+      <div class="kpi final-result"><span>RMR total</span><b id="totalOut">—</b></div>
+      <div class="kpi rock-result" id="rockOutCard"><span>Tipo de roca</span><b id="rockOut">—</b></div>
     </div>
     <h3>Ruta de cálculo</h3>
     <div id="traceOut" class="trace">Aún no hay una evaluación completa.</div>
@@ -360,13 +363,19 @@ function recalc(){
   $("basicLiveHelp").textContent = basic===null
     ? `Faltan ${faltan} parámetro${faltan===1?"":"s"} para completar el RMR básico.`
     : "RMR básico completo. Ahora aplica el ajuste por orientación.";
-  $("adjOut").textContent=o.complete?(o.adj>0?`+${o.adj}`:`${o.adj}`):"—";
+  $("adjOut").textContent=o.complete?`${o.adj>0?"+"+o.adj:o.adj} · ${o.cat}`:"—";
   $("totalOut").textContent=total===null?"—":total;
   $("rockOut").textContent=rockType(total);
+  $("rockOutCard").style.background="";
+  $("rockOutCard").style.color="";
+  $("rockOutCard").style.borderColor="";
   $("basicOrientLive").textContent=basic===null?"—":basic;
-  $("adjOrientLive").textContent=o.complete?(o.adj>0?`+${o.adj}`:`${o.adj}`):"—";
+  $("adjOrientLive").textContent=o.complete?`${o.adj>0?"+"+o.adj:o.adj} · ${o.cat}`:"—";
   $("totalOrientLive").textContent=total===null?"—":total;
   $("rockOrientLive").textContent=rockType(total);
+  $("rockOrientCard").style.background="";
+  $("rockOrientCard").style.color="";
+  $("rockOrientCard").style.borderColor="";
   $("traceLive").innerHTML=`<strong>${o.cat||"Ruta en proceso"}</strong><br>${o.trace}`;
   $("traceOut").innerHTML=`<strong>${o.cat||"Ruta incompleta"}</strong><br>${o.trace}`;
   let paso="";
