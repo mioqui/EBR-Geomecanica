@@ -505,17 +505,29 @@ $("photoModal").onclick=e=>{if(e.target===$("photoModal"))closePhotoModal();};
 
 
 const geoCorrections=[
-  [/rocha/gi,"roca"],
-  [/r m r/gi,"RMR"],
-  [/erre eme erre/gi,"RMR"],
-  [/r q d/gi,"RQD"],
-  [/erre cu de/gi,"RQD"],
-  [/geo mec[aá]nica/gi,"geomecánica"],
-  [/geo mec[aá]nico/gi,"geomecánico"],
-  [/sostenimento/gi,"sostenimiento"],
-  [/fracturacion/gi,"fracturación"],
-  [/discontinuidades/gi,"discontinuidades"],
-  [/buzamento/gi,"buzamiento"]
+  [/\\brocha\\b/gi,"roca"],
+  [/\\br m r\\b/gi,"RMR"],
+  [/\\berre eme erre\\b/gi,"RMR"],
+  [/\\br q d\\b/gi,"RQD"],
+  [/\\berre cu de\\b/gi,"RQD"],
+  [/\\bgeo mec[aá]nica\\b/gi,"geomecánica"],
+  [/\\bgeo mec[aá]nico\\b/gi,"geomecánico"],
+  [/\\bsostenimento\\b/gi,"sostenimiento"],
+  [/\\bfracturacion\\b/gi,"fracturación"],
+  [/\\bbuzamento\\b/gi,"buzamiento"],
+  [/\\bcimbras\\b/gi,"simbras"],
+  [/\\bdeschinche\\b/gi,"desquinche"],
+  [/\\bdesquinche\\b/gi,"desquinche"],
+  [/\\bcarguillo\\b/gi,"carguío"],
+  [/\\bcarguio\\b/gi,"carguío"],
+  [/\\bcamara de carguillo\\b/gi,"cámara de carguío"],
+  [/\\bcámara de carguillo\\b/gi,"cámara de carguío"],
+  [/\\bcamara de carguio\\b/gi,"cámara de carguío"],
+  [/\\bcámara de carguio\\b/gi,"cámara de carguío"],
+  [/\\bshot crete\\b/gi,"shotcrete"],
+  [/\\bgaleria\\b/gi,"galería"],
+  [/\\bby pass\\b/gi,"bypass"],
+  [/\\bsub nivel\\b/gi,"subnivel"]
 ];
 function matchCase(original,replacement){
   if(original===original.toUpperCase())return replacement.toUpperCase();
