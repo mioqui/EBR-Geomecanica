@@ -505,40 +505,50 @@ $("closePhotoModal").onclick=closePhotoModal;
 $("photoModal").onclick=e=>{if(e.target===$("photoModal"))closePhotoModal();};
 
 const SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition;
-let recognition=null,dictating=false,dictateStarting=false,dictateBaseText="";
+let recognition=null,dictating=false,dictateStarting=false,dictateBaseText="",dictateFinal="",dictateInterim="";
 function resetDictateUI(msg="Listo para dictar otra observación."){
   dictating=false; dictateStarting=false;
   $("dictateBtn").disabled=false;
   $("dictateBtn").textContent="🎙️ Dictar observación";
   $("dictateStatus").textContent=msg;
 }
+function paintDictation(){
+  const spoken=(dictateFinal+" "+dictateInterim).replace(/\s+/g," ").trim();
+  const sep=dictateBaseText&&spoken?" ":"";
+  $("observaciones").value=dictateBaseText+sep+spoken;
+}
 function makeRecognition(){
   if(!SpeechRecognition)return null;
   const r=new SpeechRecognition();
-  r.lang="es-PE"; r.continuous=false; r.interimResults=true; r.maxAlternatives=1;
+  r.lang="es-PE"; r.continuous=true; r.interimResults=true; r.maxAlternatives=1;
   r.onstart=()=>{
     dictateStarting=false;dictating=true;
-    dictateBaseText=$("observaciones").value.trim();
+    dictateBaseText=$("observaciones").value.trim();dictateFinal="";dictateInterim="";
     $("dictateBtn").disabled=false;$("dictateBtn").textContent="⏹️ Detener dictado";
-    $("dictateStatus").textContent="Escuchando… el texto aparecerá mientras hablas.";
+    $("dictateStatus").textContent="Escuchando… habla normalmente.";
   };
   r.onresult=e=>{
-    let finalText="",interimText="";
-    for(let i=0;i<e.results.length;i++){
-      const t=e.results[i][0].transcript;
-      if(e.results[i].isFinal) finalText+=t+" ";
-      else interimText+=t;
+    let interim="";
+    for(let i=e.resultIndex;i<e.results.length;i++){
+      const t=(e.results[i][0]?.transcript||"").trim();
+      if(!t)continue;
+      if(e.results[i].isFinal) dictateFinal+=(dictateFinal?" ":"")+t;
+      else interim+=(interim?" ":"")+t;
     }
-    const spoken=(finalText+interimText).trim();
-    const sep=dictateBaseText&&spoken?" ":"";
-    $("observaciones").value=dictateBaseText+sep+spoken;
+    dictateInterim=interim;paintDictation();
+    $("dictateStatus").textContent=dictateInterim?"Escuchando… transcribiendo.":"Escuchando…";
   };
+  r.onspeechstart=()=>{$("dictateStatus").textContent="Voz detectada…";};
+  r.onspeechend=()=>{$("dictateStatus").textContent="Procesando dictado…";};
   r.onerror=e=>{
     const code=e.error||"desconocido";
-    const msg=code==="not-allowed"?"Permiso de micrófono denegado. Revisa el permiso del navegador.":code==="no-speech"?"No se detectó voz. Puedes intentarlo nuevamente.":code==="audio-capture"?"No se pudo acceder al micrófono.":code==="network"?"El dictado no pudo conectarse al servicio de reconocimiento.":"No se pudo iniciar el dictado ("+code+"). Inténtalo nuevamente.";
+    const msg=code==="not-allowed"?"Permiso de micrófono denegado. Revisa el permiso del navegador.":code==="no-speech"?"No se detectó voz. Inténtalo nuevamente.":code==="audio-capture"?"No se pudo acceder al micrófono.":code==="network"?"El reconocimiento de voz no pudo conectarse al servicio.":"Error de dictado: "+code+".";
     resetDictateUI(msg);
   };
-  r.onend=()=>{recognition=null;resetDictateUI("Dictado finalizado. Puedes volver a dictar.");};
+  r.onend=()=>{
+    paintDictation();recognition=null;
+    resetDictateUI((dictateFinal||dictateInterim)?"Dictado finalizado. Puedes volver a dictar.":"No se recibió texto del reconocimiento. En iPhone/iPad usa el micrófono del teclado dentro de Observaciones.");
+  };
   return r;
 }
 if(SpeechRecognition){
@@ -552,8 +562,8 @@ if(SpeechRecognition){
     }catch(e){recognition=null;resetDictateUI("No se pudo iniciar el dictado. Inténtalo nuevamente.");}
   };
 }else{
-  $("dictateBtn").onclick=()=>alert("Este navegador no ofrece dictado directo desde la página. Usa el micrófono del teclado del celular dentro del campo Observaciones.");
-  $("dictateStatus").textContent="En este navegador usa el micrófono del teclado del celular para dictar la observación.";
+  $("dictateBtn").onclick=()=>{$("observaciones").focus();alert("En este iPhone/iPad usa el micrófono del teclado para dictar directamente en Observaciones.");};
+  $("dictateStatus").textContent="Usa el micrófono del teclado del celular para dictar la observación.";
 }
 
 function preloadRealTestData(){
