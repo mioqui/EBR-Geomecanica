@@ -263,7 +263,8 @@ input[type="date"]::-webkit-calendar-picker-indicator{
   <div class="card">
     <h2>4. Observaciones</h2>
     <div class="field"><label>Observaciones de campo</label><textarea id="observaciones" placeholder="Fallas, fracturas, condición local, comentarios…"></textarea>
-      <div class="help">Puedes escribir o usar el micrófono del teclado del celular para dictar la observación.</div>
+      <div class="actions" style="margin-top:8px"><button class="btn" id="dictateBtn" type="button">🎙️ Dictar observación</button></div>
+      <div id="dictateStatus" class="help">Dictado directo de la app. También puedes usar el micrófono del teclado.</div>
     </div>
     <div class="field" style="margin-top:12px">
       <label>Fotografías de campo <span class="small">(máximo 2)</span></label>
@@ -503,6 +504,58 @@ function closePhotoModal(){$("photoModal").classList.add("hidden");$("photoModal
 $("closePhotoModal").onclick=closePhotoModal;
 $("photoModal").onclick=e=>{if(e.target===$("photoModal"))closePhotoModal();};
 
+
+const SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition;
+let recognition=null,dictating=false,dictateStarting=false;
+function resetDictateUI(msg="Listo para dictar."){
+  dictating=false;dictateStarting=false;
+  $("dictateBtn").disabled=false;
+  $("dictateBtn").textContent="🎙️ Dictar observación";
+  $("dictateStatus").textContent=msg;
+}
+function createRecognition(){
+  const r=new SpeechRecognition();
+  r.lang="es-PE";r.continuous=true;r.interimResults=true;r.maxAlternatives=1;
+  let committed="",interim="";
+  const base=$("observaciones").value.trim();
+  const paint=()=>{
+    const spoken=(committed+" "+interim).replace(/\s+/g," ").trim();
+    $("observaciones").value=base+(base&&spoken?" ":"")+spoken;
+  };
+  r.onstart=()=>{dictateStarting=false;dictating=true;$("dictateBtn").disabled=false;$("dictateBtn").textContent="⏹️ Detener dictado";$("dictateStatus").textContent="Escuchando…";};
+  r.onresult=e=>{
+    let newInterim="";
+    for(let n=e.resultIndex;n<e.results.length;n++){
+      const t=(e.results[n][0]?.transcript||"").trim();
+      if(!t)continue;
+      if(e.results[n].isFinal) committed+=(committed?" ":"")+t;
+      else newInterim+=(newInterim?" ":"")+t;
+    }
+    interim=newInterim;paint();
+    $("dictateStatus").textContent="Escuchando… transcribiendo.";
+  };
+  r.onerror=e=>{resetDictateUI("Error de dictado: "+(e.error||"desconocido")+". Puedes intentarlo nuevamente.");};
+  r.onend=()=>{
+    paint();
+    // La corrección técnica se hace al cerrar la sesión, nunca durante el reconocimiento.
+    $("observaciones").value=correctGeoText($("observaciones").value);
+    recognition=null;
+    resetDictateUI((committed||interim)?"Dictado finalizado. Puedes volver a dictar.":"No se recibió texto. Inténtalo nuevamente.");
+  };
+  return r;
+}
+if(SpeechRecognition){
+  $("dictateBtn").onclick=()=>{
+    if(dictating&&recognition){try{recognition.stop();}catch(e){}return;}
+    if(dictateStarting)return;
+    dictateStarting=true;$("dictateBtn").disabled=true;$("dictateStatus").textContent="Iniciando micrófono…";
+    try{recognition=createRecognition();recognition.start();}
+    catch(e){recognition=null;resetDictateUI("No se pudo iniciar el dictado. Inténtalo nuevamente.");}
+  };
+}else{
+  $("dictateBtn").onclick=()=>alert("El dictado directo no está disponible en este navegador. Usa el micrófono del teclado.");
+  $("dictateStatus").textContent="Dictado directo no disponible aquí; usa el micrófono del teclado.";
+}
 
 const geoCorrections=[
   [/\brocha\b/gi,"roca"],
