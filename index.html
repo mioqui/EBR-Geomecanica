@@ -139,11 +139,6 @@ input[type="date"]::-webkit-calendar-picker-indicator{
 </nav>
 
 <section id="evaluacion" class="panel active">
-  <div class="card test-tools">
-    <div class="history-top">
-      <div><b>Prueba rápida</b><div class="small">Temporal para validar el flujo completo de la aplicación.</div></div>
-    </div>
-  </div>
   <div class="card">
     <h2>1. Identificación</h2>
     <div class="grid">
@@ -273,7 +268,6 @@ input[type="date"]::-webkit-calendar-picker-indicator{
       <div id="photoPreview" class="photo-grid"></div>
     </div>
     <div class="actions">
-      <button class="btn" id="demoBtn" type="button">Cargar ejemplo RMR 60</button>
       <button class="btn danger" id="clearBtn" type="button">Limpiar formulario</button>
     </div>
     <div class="actions" style="margin-top:14px">
@@ -686,32 +680,7 @@ function clearForm(){
 }
 $("clearBtn").onclick=clearForm;
 
-$("demoBtn").onclick=()=>{
-  $("fecha").value=today();
-  $("turno").value="Día";
-  $("nivel").value="4055";
-  $("block").value="B7998";
-  $("labor").value="GL765N";
-  $("condicionLabor").value="Temporal";
-  $("supervisor").value="PRUEBA GEOMECÁNICA";
-  $("resistencia").value="7";
-  $("rqd").value="13";
-  $("espaciamiento").value="10";
-  $("apertura").value="4";
-  $("rugosidad").value="3";
-  $("relleno").value="4";
-  $("persistencia").value="4";
-  $("alteracion").value="5";
-  $("agua").value="10";
-  $("buzamiento").value="20-45";
-  orientation();
-  $("rumbo").value="perpendicular";
-  orientation();
-  $("sentido").value="contra";
-  $("observaciones").value="REGISTRO DE PRUEBA · Validación del flujo completo de evaluación, guardado e historial.";
-  currentPhotos=[]; renderPhotoPreview();
-  recalc();
-};
+
 recalc();renderHistory();
 </script>
 <script>if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));}</script></body>
