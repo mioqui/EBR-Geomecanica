@@ -63,6 +63,11 @@ textarea{min-height:82px;resize:vertical}
 .photo-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:10px}
 .photo-item{position:relative;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#f4f7f8;min-height:90px}
 .photo-item img{display:block;width:100%;height:150px;object-fit:cover}
+#detailPhotos .photo-item img{cursor:zoom-in}
+.photo-badge{display:inline-flex;align-items:center;gap:4px;margin-top:6px;padding:3px 7px;border-radius:999px;background:#eef3f6;font-size:.72rem;font-weight:800;color:var(--text)}
+.photo-modal{position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.9);display:flex;align-items:center;justify-content:center;padding:18px}
+.photo-modal img{max-width:100%;max-height:92vh;object-fit:contain;border-radius:8px}
+.photo-modal-close{position:absolute;right:14px;top:max(14px,env(safe-area-inset-top));width:42px;height:42px;border:0;border-radius:999px;background:#fff;color:#111;font-size:28px;line-height:1;z-index:1001}
 .photo-remove{position:absolute;right:6px;top:6px;border:0;border-radius:999px;background:rgba(0,0,0,.7);color:#fff;width:28px;height:28px;font-weight:900}
 @media(max-width:480px){.photo-item img{height:120px}}
 .rock-dot{display:inline-block;width:14px;height:14px;border-radius:3px;border:1px solid rgba(0,0,0,.22);vertical-align:-2px;margin-right:5px;flex:0 0 auto}
@@ -257,7 +262,10 @@ input[type="date"]::-webkit-calendar-picker-indicator{
 
   <div class="card">
     <h2>4. Observaciones</h2>
-    <div class="field"><label>Observaciones de campo</label><textarea id="observaciones" placeholder="Fallas, fracturas, condición local, comentarios…"></textarea></div>
+    <div class="field"><label>Observaciones de campo</label><textarea id="observaciones" placeholder="Fallas, fracturas, condición local, comentarios…"></textarea>
+      <div class="actions" style="margin-top:8px"><button class="btn" id="dictateBtn" type="button">🎙️ Dictar observación</button></div>
+      <div id="dictateStatus" class="help">Puedes usar el dictado del teclado del celular o, cuando el navegador lo permita, este botón de micrófono.</div>
+    </div>
     <div class="field" style="margin-top:12px">
       <label>Fotografías de campo <span class="small">(máximo 2)</span></label>
       <input id="photoInput" type="file" accept="image/*" capture="environment" multiple>
@@ -313,6 +321,10 @@ input[type="date"]::-webkit-calendar-picker-indicator{
     </div>
   </div>
 </section>
+</div>
+<div id="photoModal" class="photo-modal hidden" role="dialog" aria-modal="true" aria-label="Vista ampliada de fotografía">
+  <button id="closePhotoModal" class="photo-modal-close" type="button" aria-label="Cerrar">×</button>
+  <img id="photoModalImg" alt="Fotografía de campo ampliada">
 </div>
 
 <script>
@@ -486,6 +498,29 @@ $("photoInput").addEventListener("change",async e=>{
 });
 renderPhotoPreview();
 
+function openPhotoModal(src){$("photoModalImg").src=src;$("photoModal").classList.remove("hidden");}
+function closePhotoModal(){$("photoModal").classList.add("hidden");$("photoModalImg").src="";}
+$("closePhotoModal").onclick=closePhotoModal;
+$("photoModal").onclick=e=>{if(e.target===$("photoModal"))closePhotoModal();};
+
+const SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition;
+let recognition=null,dictating=false;
+if(SpeechRecognition){
+  recognition=new SpeechRecognition();
+  recognition.lang="es-PE"; recognition.continuous=true; recognition.interimResults=false;
+  recognition.onstart=()=>{dictating=true;$("dictateBtn").textContent="⏹️ Detener dictado";$("dictateStatus").textContent="Escuchando… habla normalmente."};
+  recognition.onresult=e=>{
+    let text=""; for(let i=e.resultIndex;i<e.results.length;i++) if(e.results[i].isFinal) text+=e.results[i][0].transcript;
+    if(text){const el=$("observaciones"),sep=el.value.trim()?" ":"";el.value+=sep+text.trim();}
+  };
+  recognition.onerror=e=>{$("dictateStatus").textContent="No se pudo usar el micrófono. Puedes usar el dictado del teclado del celular."};
+  recognition.onend=()=>{dictating=false;$("dictateBtn").textContent="🎙️ Dictar observación";if($("dictateStatus").textContent==="Escuchando… habla normalmente.")$("dictateStatus").textContent="Dictado finalizado."};
+  $("dictateBtn").onclick=()=>{try{dictating?recognition.stop():recognition.start();}catch(e){}};
+}else{
+  $("dictateBtn").onclick=()=>alert("Este navegador no ofrece dictado directo desde la página. Usa el micrófono del teclado del celular dentro del campo Observaciones.");
+  $("dictateStatus").textContent="En este navegador usa el micrófono del teclado del celular para dictar la observación.";
+}
+
 function collect(){
   const calc=recalc();
   const params={};
@@ -572,7 +607,7 @@ async function renderHistory(){
   $("historyMain").classList.remove("hidden"); $("historyDetail").classList.add("hidden");
   const a=await dbAll();$("countPill").textContent=`${a.length} registro${a.length===1?"":"s"}`;
   $("historyList").innerHTML=a.length?a.map(x=>`<div class="history-item" role="button" tabindex="0" data-id="${esc(x.id)}" style="cursor:pointer">
-    <div class="history-top"><div><b>${esc(x.labor||"Sin labor")}</b><div class="small">${esc(x.fecha)} · ${esc(x.nivel||"Sin nivel")} · ${esc(x.supervisor||"Sin supervisor")}</div><div class="saved-at">Guardado: ${esc(formatSavedAt(x.createdAt))}${x.updatedAt?` · Actualizado: ${esc(formatSavedAt(x.updatedAt))}`:""}</div></div><span class="pill"><span class="rock-dot" style="background:${rockColor(x.rmrTotal)||"#fff"}"></span>RMR ${x.rmrTotal} · ${esc(x.tipoRoca)}</span></div>
+    <div class="history-top"><div><b>${esc(x.labor||"Sin labor")}</b><div class="small">${esc(x.fecha)} · ${esc(x.nivel||"Sin nivel")} · ${esc(x.supervisor||"Sin supervisor")}</div><div class="saved-at">Guardado: ${esc(formatSavedAt(x.createdAt))}${x.updatedAt?` · Actualizado: ${esc(formatSavedAt(x.updatedAt))}`:""}</div>${x.photos&&x.photos.length?`<span class="photo-badge">📷 ${x.photos.length} foto${x.photos.length===1?"":"s"}</span>`:""}</div><span class="pill"><span class="rock-dot" style="background:${rockColor(x.rmrTotal)||"#fff"}"></span>RMR ${x.rmrTotal} · ${esc(x.tipoRoca)}</span></div>
     <div class="small" style="margin-top:7px">Toca para ver el detalle</div>
   </div>`).join(""):`<div class="small" style="padding:14px 0">Todavía no hay evaluaciones guardadas.</div>`;
   document.querySelectorAll(".history-item[data-id]").forEach(el=>{
@@ -596,7 +631,8 @@ async function showHistoryDetail(id){
     applyRockColor("detailRockCard",x.rmrTotal);
     $("detailIdentification").innerHTML=`<strong>Labor:</strong> ${esc(x.labor||"—")}<br><strong>Nivel:</strong> ${esc(x.nivel||"—")} · <strong>Block:</strong> ${esc(x.block||"—")}<br><strong>Turno:</strong> ${esc(x.turno||"—")} · <strong>Condición:</strong> ${esc(x.condicionLabor||"—")}<br><strong>Supervisor / Geomecánico:</strong> ${esc(x.supervisor||"—")}<br><strong>Fecha y hora de guardado:</strong> ${esc(formatSavedAt(x.createdAt))}${x.updatedAt?`<br><strong>Última actualización:</strong> ${esc(formatSavedAt(x.updatedAt))}`:""}`;
     $("detailScores").innerHTML=scoreCards(x.params||{});
-    $("detailPhotos").innerHTML=(x.photos&&x.photos.length)?x.photos.map((src,i)=>`<div class="photo-item"><img src="${src}" alt="Foto de campo ${i+1}"></div>`).join(""):`<div class="small">Sin fotografías adjuntas.</div>`;
+    $("detailPhotos").innerHTML=(x.photos&&x.photos.length)?x.photos.map((src,i)=>`<div class="photo-item"><img class="detail-photo" src="${src}" alt="Foto de campo ${i+1}" title="Toca para ampliar"></div>`).join(""):`<div class="small">Sin fotografías adjuntas.</div>`;
+    document.querySelectorAll(".detail-photo").forEach(img=>img.onclick=()=>openPhotoModal(img.src));
     $("detailObs").textContent=x.observaciones||"Sin observaciones.";
     window.scrollTo({top:0,behavior:"smooth"});
   }catch(err){
