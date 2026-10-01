@@ -282,7 +282,7 @@ input[type="date"]::-webkit-calendar-picker-indicator{
       <span id="countPill" class="pill">0 registros</span>
     </div>
     <div class="actions">
-      <button class="btn" id="exportBtn" type="button">Exportar CSV</button>
+      <button class="btn" id="exportBtn" type="button">Compartir / Exportar CSV</button>
       <button class="btn danger" id="deleteAllBtn" type="button">Borrar historial local</button>
     </div>
     <div id="historyList" style="margin-top:12px"></div>
@@ -621,14 +621,27 @@ $("editHistoryBtn").onclick=async()=>{
 
 function csvCell(v){const s=String(v??"");return `"${s.replace(/"/g,'""')}"`;}
 $("exportBtn").onclick=async()=>{
-  const a=await dbAll(); if(!a.length){alert("No hay registros para exportar.");return;}
-  const headers=["Fecha","Turno","Nivel","Block","Labor","Condición labor","Supervisor","RMR básico","Buzamiento","Rumbo","Sentido","Categoría ajuste","Ajuste","RMR total","Tipo roca","Trazabilidad","Observaciones",
+  const a=await dbAll(); if(!a.length){alert("No hay registros para compartir o exportar.");return;}
+  const headers=["ID","Fecha","Turno","Nivel","Block","Labor","Condición labor","Supervisor","RMR básico","Buzamiento","Rumbo","Sentido","Categoría ajuste","Ajuste","RMR total","Tipo roca","Observaciones","Guardado","Actualizado",
   "Resistencia","RQD","Espaciamiento","Apertura","Rugosidad","Relleno","Persistencia","Alteración","Agua"];
-  const rows=a.map(x=>[x.fecha,x.turno,x.nivel,x.block,x.labor,x.condicionLabor,x.supervisor,x.rmrBasico,x.buzamiento,x.rumbo,x.sentido,x.ajusteCategoria,x.ajuste,x.rmrTotal,x.tipoRoca,x.trazabilidad,x.observaciones,
+  const rows=a.map(x=>[x.id,x.fecha,x.turno,x.nivel,x.block,x.labor,x.condicionLabor,x.supervisor,x.rmrBasico,x.buzamiento,x.rumbo,x.sentido,x.ajusteCategoria,x.ajuste,x.rmrTotal,x.tipoRoca,x.observaciones,x.createdAt,x.updatedAt,
    x.params.resistencia.label,x.params.rqd.label,x.params.espaciamiento.label,x.params.apertura.label,x.params.rugosidad.label,x.params.relleno.label,x.params.persistencia.label,x.params.alteracion.label,x.params.agua.label]);
   const csv="\ufeff"+[headers,...rows].map(r=>r.map(csvCell).join(",")).join("\n");
-  const blob=new Blob([csv],{type:"text/csv;charset=utf-8"}); const url=URL.createObjectURL(blob);const aTag=document.createElement("a");
-  aTag.href=url;aTag.download=`RMR_geomecanica_${today()}.csv`;aTag.click();URL.revokeObjectURL(url);
+  const filename=`RMR_geomecanica_${today()}.csv`;
+  const blob=new Blob([csv],{type:"text/csv;charset=utf-8"});
+  const file=new File([blob],filename,{type:"text/csv"});
+  try{
+    if(navigator.share && (!navigator.canShare || navigator.canShare({files:[file]}))){
+      await navigator.share({title:"Evaluaciones RMR Geomecánica",text:"Evaluaciones RMR exportadas desde EBR Geomecánica.",files:[file]});
+      return;
+    }
+  }catch(err){
+    if(err && err.name==="AbortError") return;
+  }
+  const url=URL.createObjectURL(blob), aTag=document.createElement("a");
+  aTag.href=url;aTag.download=filename;document.body.appendChild(aTag);aTag.click();aTag.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+  alert("El dispositivo no permitió compartir directamente. El CSV se descargó para que puedas enviarlo desde Archivos, correo, WhatsApp u otra aplicación.");
 };
 $("deleteAllBtn").onclick=async()=>{if(confirm("¿Borrar todo el historial local de este dispositivo?")){await dbDeleteAll();renderHistory();}};
 function clearForm(){
