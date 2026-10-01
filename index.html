@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#123d5a">
-<title>Geomecánica · RMR V2.7</title>
+<title>Geomecánica · RMR V2.8</title>
 <style>
 :root{
   --bg:#eef3f6; --card:#fff; --ink:#17232d; --muted:#667985; --line:#d7e1e7;
@@ -109,7 +109,7 @@ input[type="date"]::-webkit-calendar-picker-indicator{
 <body>
 <div class="app">
 <header>
-  <h1>Evaluación Geomecánica · RMR V2.7</h1>
+  <h1>Evaluación Geomecánica · RMR V2.8</h1>
   <p>Captura guiada, cálculo automático y trazabilidad del ajuste de orientación.</p>
 </header>
 
@@ -347,11 +347,32 @@ function rockType(v){
   if(v>=51 && v<=60) return "III-A · Regular A";
   if(v>=41 && v<=50) return "III-B · Regular B";
   if(v>=36 && v<=40) return "IV-A1 · Mala A1";
-  if(v>=31 && v<=35) return "IV-A2 · Mala A2";
-  if(v>=21 && v<=30) return "IV-B · Mala B";
+  if(v>=31 && v<=35) return "IV-B · Mala B1";
+  if(v>=21 && v<=30) return "IV-B · Mala B2";
   if(v>=0 && v<=20) return "V · Muy Mala";
   return "Fuera de rango";
 }
+
+function rockColor(v){
+  if(v===null || Number.isNaN(v)) return null;
+  if(v>=81 && v<=100) return "#4472C4";
+  if(v>=61 && v<=80) return "#4FADEA";
+  if(v>=51 && v<=60) return "#4FAD5B";
+  if(v>=41 && v<=50) return "#9FCE63";
+  if(v>=36 && v<=40) return "#FFFF54";
+  if(v>=31 && v<=35) return "#F5C242";
+  if(v>=21 && v<=30) return "#B86029";
+  if(v>=0 && v<=20) return "#EA3323";
+  return null;
+}
+function applyRockColor(cardId,v){
+  const card=$(cardId), color=rockColor(v);
+  card.style.background=color||"";
+  card.style.borderColor=color||"";
+  card.style.color=color?"#111":"";
+  card.querySelectorAll("b,span").forEach(el=>el.style.color=color?"#111":"");
+}
+
 function recalc(){
   orientation();
   const vals=rmrIds.map(score), complete=vals.every(v=>v!==null);
@@ -366,16 +387,12 @@ function recalc(){
   $("adjOut").textContent=o.complete?`${o.adj>0?"+"+o.adj:o.adj} · ${o.cat}`:"—";
   $("totalOut").textContent=total===null?"—":total;
   $("rockOut").textContent=rockType(total);
-  $("rockOutCard").style.background="";
-  $("rockOutCard").style.color="";
-  $("rockOutCard").style.borderColor="";
+  applyRockColor("rockOutCard",total);
   $("basicOrientLive").textContent=basic===null?"—":basic;
   $("adjOrientLive").textContent=o.complete?`${o.adj>0?"+"+o.adj:o.adj} · ${o.cat}`:"—";
   $("totalOrientLive").textContent=total===null?"—":total;
   $("rockOrientLive").textContent=rockType(total);
-  $("rockOrientCard").style.background="";
-  $("rockOrientCard").style.color="";
-  $("rockOrientCard").style.borderColor="";
+  applyRockColor("rockOrientCard",total);
   $("traceLive").innerHTML=`<strong>${o.cat||"Ruta en proceso"}</strong><br>${o.trace}`;
   $("traceOut").innerHTML=`<strong>${o.cat||"Ruta incompleta"}</strong><br>${o.trace}`;
   let paso="";
