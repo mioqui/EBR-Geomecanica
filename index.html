@@ -1,0 +1,440 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#123d5a">
+<title>Geomecánica · RMR V2.4</title>
+<style>
+:root{
+  --bg:#eef3f6; --card:#fff; --ink:#17232d; --muted:#667985; --line:#d7e1e7;
+  --brand:#123d5a; --brand2:#1f6586; --ok:#267a63; --warn:#b87816; --danger:#a64040;
+  --radius:16px; --shadow:0 8px 28px rgba(22,48,66,.08);
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;max-width:100%;overflow-x:hidden;background:var(--bg);color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif}
+button,input,select,textarea{font:inherit}
+button,input,select,textarea{max-width:100%;min-width:0}
+.app{width:min(980px,100%);margin:0 auto;padding:12px 12px 90px}
+header{background:linear-gradient(135deg,var(--brand),var(--brand2));color:white;border-radius:18px;padding:18px;
+  box-shadow:var(--shadow);margin-bottom:12px}
+header h1{font-size:1.25rem;margin:0 0 4px}
+header p{margin:0;opacity:.9;font-size:.9rem}
+.tabs{display:flex;gap:8px;overflow-x:auto;padding:2px 0 10px;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tab{flex:0 0 auto;border:1px solid #b9c8d1;background:#f7fafb;color:#334b5b;border-radius:12px;padding:10px 14px;
+  font-weight:700;cursor:pointer}
+.tab.active{background:var(--brand);color:#fff;border-color:var(--brand);box-shadow:0 3px 10px rgba(18,61,90,.16)}
+.panel{display:none}.panel.active{display:block}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:14px;margin:0 0 12px;box-shadow:var(--shadow);overflow:hidden}
+.card h2{font-size:1.05rem;margin:0 0 12px}.card h3{font-size:.98rem;margin:14px 0 8px}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;width:100%}
+.field{min-width:0}.field.full{grid-column:1/-1}
+label{display:block;font-size:.78rem;font-weight:800;color:#405765;margin:0 0 5px}
+input,select,textarea{display:block;width:100%;min-width:0;border:1px solid #bfcdd5;background:#fff;color:var(--ink);
+  border-radius:11px;padding:11px 12px;outline:none}
+input:focus,select:focus,textarea:focus{border-color:#3e7897;box-shadow:0 0 0 3px rgba(62,120,151,.12)}
+textarea{min-height:82px;resize:vertical}
+.help{font-size:.76rem;color:var(--muted);margin-top:4px}
+.section-note{background:#f5f9fb;border-left:4px solid #6f9db7;padding:10px 12px;border-radius:9px;font-size:.85rem;color:#405765}
+.scoregrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.kpi{background:#f5f9fb;border:1px solid var(--line);border-radius:12px;padding:11px;min-width:0}
+.kpi b{display:block;font-size:1.35rem;color:var(--brand);word-break:break-word}
+.kpi span{font-size:.72rem;color:var(--muted);font-weight:700}
+.trace{font-size:.86rem;line-height:1.55;background:#f8fafb;border:1px dashed #aebfc8;border-radius:12px;padding:11px;overflow-wrap:anywhere}
+.trace strong{color:var(--brand)}
+.actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.btn{border:0;border-radius:11px;padding:11px 14px;font-weight:800;cursor:pointer;background:#e8eef1;color:#203b4b}
+.btn.primary{background:var(--brand);color:white}.btn.ok{background:var(--ok);color:white}.btn.danger{background:#f8eaea;color:var(--danger)}
+.status{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:6px 9px;background:#eef6f2;color:var(--ok);font-size:.75rem;font-weight:800}
+.history-item{border:1px solid var(--line);border-radius:12px;padding:11px;margin-bottom:8px;background:#fff}
+.history-top{display:flex;justify-content:space-between;gap:10px;align-items:start}.history-top > *{min-width:0}
+.small{font-size:.78rem;color:var(--muted)}.pill{font-size:.72rem;font-weight:800;background:#eef3f6;border-radius:999px;padding:5px 8px;white-space:nowrap}
+.hidden{display:none!important}
+.footerbar{position:fixed;left:0;right:0;bottom:0;background:rgba(255,255,255,.96);backdrop-filter:blur(8px);
+ border-top:1px solid var(--line);padding:9px max(12px,env(safe-area-inset-right)) calc(9px + env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left));
+ z-index:10}
+.footerbar .inner{width:min(980px,100%);margin:auto;display:flex;gap:8px}.footerbar button{flex:1}
+@media(max-width:680px){
+ .app{padding-left:10px;padding-right:10px}.grid{grid-template-columns:minmax(0,1fr)}.field.full{grid-column:auto}
+ .scoregrid{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .card{padding:12px}.actions{display:grid;grid-template-columns:minmax(0,1fr)}
+ .actions .btn{width:100%}.history-top{flex-direction:column}.pill{align-self:flex-start}
+}
+@media(max-width:390px){
+ .scoregrid{grid-template-columns:minmax(0,1fr)}
+ header{padding:15px}.tab{padding:9px 11px}.kpi b{font-size:1.18rem}
+}
+
+/* Corrección específica para Safari/iOS: el input date puede imponer un ancho intrínseco mayor */
+input[type="date"]{
+  -webkit-appearance:none;
+  appearance:none;
+  display:block;
+  width:100% !important;
+  max-width:100% !important;
+  min-width:0 !important;
+  inline-size:100% !important;
+  max-inline-size:100% !important;
+  min-inline-size:0 !important;
+  box-sizing:border-box !important;
+  font-size:16px;
+  overflow:hidden;
+}
+input[type="date"]::-webkit-date-and-time-value{
+  min-width:0 !important;
+  width:auto !important;
+  text-align:left;
+}
+input[type="date"]::-webkit-datetime-edit{
+  min-width:0 !important;
+  padding:0;
+}
+input[type="date"]::-webkit-calendar-picker-indicator{
+  flex:0 0 auto;
+  margin-left:4px;
+}
+.field.date-field{
+  min-width:0 !important;
+  max-width:100% !important;
+  overflow:hidden;
+}
+
+</style>
+<link rel="manifest" href="./manifest.webmanifest"></head>
+<body>
+<div class="app">
+<header>
+  <h1>Evaluación Geomecánica · RMR V2.4</h1>
+  <p>Captura guiada, cálculo automático y trazabilidad del ajuste de orientación.</p>
+</header>
+
+<nav class="tabs" aria-label="Secciones">
+  <button class="tab active" data-tab="evaluacion">Evaluación</button>
+  <button class="tab" data-tab="resultado">Resultado</button>
+  <button class="tab" data-tab="historial">Historial</button>
+</nav>
+
+<section id="evaluacion" class="panel active">
+  <div class="card">
+    <h2>1. Identificación</h2>
+    <div class="grid">
+      <div class="field date-field"><label>Fecha</label><input id="fecha" type="date"></div>
+      <div class="field"><label>Turno</label><select id="turno"><option value="">Seleccionar…</option><option>Día</option><option>Noche</option></select></div>
+      <div class="field"><label>Nivel</label><input id="nivel" autocomplete="off" placeholder="Ej. 4055"></div>
+      <div class="field"><label>Block</label><input id="block" autocomplete="off" placeholder="Ej. B7998"></div>
+      <div class="field"><label>Labor</label><input id="labor" autocomplete="off" placeholder="Ej. GL765N"></div>
+      <div class="field"><label>Condición de labor</label><select id="condicionLabor"><option value="">Seleccionar…</option><option>Temporal</option><option>Permanente</option></select></div>
+      <div class="field full"><label>Supervisor / Geomecánico</label><input id="supervisor" autocomplete="off"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>2. Clasificación RMR · parámetros de campo</h2>
+    <div class="section-note">Selecciona la condición observada. La aplicación asigna el puntaje automáticamente; el usuario no digita el RMR.</div>
+    <div class="grid" style="margin-top:12px">
+      <div class="field full"><label>Resistencia de la roca intacta</label>
+        <select id="resistencia" class="rmr"><option value="">Seleccionar…</option>
+          <option value="15">&gt; 250 MPa — 15 pts</option><option value="12">100–250 MPa — 12 pts</option>
+          <option value="7">50–100 MPa — 7 pts</option><option value="4">25–50 MPa — 4 pts</option>
+          <option value="2">5–25 MPa — 2 pts</option><option value="1">1–5 MPa — 1 pt</option>
+        </select>
+      </div>
+      <div class="field"><label>RQD</label>
+        <select id="rqd" class="rmr"><option value="">Seleccionar…</option>
+          <option value="20">90–100% — 20 pts</option><option value="17">75–90% — 17 pts</option>
+          <option value="13">50–75% — 13 pts</option><option value="8">25–50% — 8 pts</option><option value="3">&lt; 25% — 3 pts</option>
+        </select>
+      </div>
+      <div class="field"><label>Espaciamiento</label>
+        <select id="espaciamiento" class="rmr"><option value="">Seleccionar…</option>
+          <option value="20">&gt; 2 m — 20 pts</option><option value="15">0.6–2 m — 15 pts</option>
+          <option value="10">0.2–0.6 m — 10 pts</option><option value="8">60–200 mm — 8 pts</option><option value="5">&lt; 60 mm — 5 pts</option>
+        </select>
+      </div>
+      <div class="field"><label>Apertura</label>
+        <select id="apertura" class="rmr"><option value="">Seleccionar…</option>
+          <option value="0">&gt; 5 mm — 0 pts</option><option value="1">1–5 mm — 1 pt</option><option value="4">0.1–1 mm — 4 pts</option>
+          <option value="5">&lt; 0.1 mm — 5 pts</option><option value="6">Cerrada — 6 pts</option>
+        </select>
+      </div>
+      <div class="field"><label>Rugosidad</label>
+        <select id="rugosidad" class="rmr"><option value="">Seleccionar…</option>
+          <option value="0">Espejo de falla — 0 pts</option><option value="1">Lisa — 1 pt</option><option value="3">Ligeramente rugosa — 3 pts</option>
+          <option value="5">Rugosa — 5 pts</option><option value="6">Muy rugosa — 6 pts</option>
+        </select>
+      </div>
+      <div class="field"><label>Relleno</label>
+        <select id="relleno" class="rmr"><option value="">Seleccionar…</option>
+          <option value="0">Blando &gt; 5 mm — 0 pts</option><option value="1">Blando &lt; 5 mm — 1 pt</option><option value="2">Duro &gt; 5 mm — 2 pts</option>
+          <option value="4">Duro &lt; 5 mm — 4 pts</option><option value="6">Ninguno — 6 pts</option>
+        </select>
+      </div>
+      <div class="field"><label>Persistencia</label>
+        <select id="persistencia" class="rmr"><option value="">Seleccionar…</option>
+          <option value="0">&gt; 20 m — 0 pts</option><option value="1">10–20 m — 1 pt</option><option value="2">3–10 m — 2 pts</option>
+          <option value="4">1–3 m — 4 pts</option><option value="6">&lt; 1 m — 6 pts</option>
+        </select>
+      </div>
+      <div class="field"><label>Alteración</label>
+        <select id="alteracion" class="rmr"><option value="">Seleccionar…</option>
+          <option value="0">Descompuesta — 0 pts</option><option value="1">Muy intemperizada — 1 pt</option><option value="3">Moderada — 3 pts</option>
+          <option value="5">Ligera — 5 pts</option><option value="6">Sana — 6 pts</option>
+        </select>
+      </div>
+      <div class="field full"><label>Agua subterránea</label>
+        <select id="agua" class="rmr"><option value="">Seleccionar…</option>
+          <option value="0">Flujo — 0 pts</option><option value="4">Goteo — 4 pts</option><option value="7">Mojado — 7 pts</option>
+          <option value="10">Húmedo — 10 pts</option><option value="15">Seco — 15 pts</option>
+        </select>
+      </div>
+      <div class="field full">
+        <div class="kpi" style="margin-top:2px">
+          <span>RMR básico acumulado</span>
+          <b id="basicLive">—</b>
+          <div class="help" id="basicLiveHelp">Completa los parámetros para obtener el RMR básico.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>3. Ajuste por orientación</h2>
+    <div class="section-note">El sistema registra cada decisión para reconstruir cómo se obtuvo el ajuste.</div>
+    <div class="grid" style="margin-top:12px">
+      <div class="field full"><label>Rango de buzamiento</label>
+        <select id="buzamiento">
+          <option value="">Seleccionar…</option>
+          <option value="0-20">0°–20°</option>
+          <option value="20-45">20°–45°</option>
+          <option value="45-90">45°–90°</option>
+        </select>
+        <div class="help">Para evitar ambigüedad en los límites, se selecciona el rango tal como está escrito en la tabla fuente.</div>
+      </div>
+
+      <div id="rumboWrap" class="field full hidden"><label>Rumbo de las discontinuidades respecto al eje de la labor</label>
+        <select id="rumbo"><option value="">Seleccionar…</option><option value="perpendicular">Perpendicular al eje de la labor</option><option value="paralelo">Paralelo al eje de la labor</option></select>
+      </div>
+
+      <div id="sentidoWrap" class="field full hidden"><label>Sentido de excavación respecto al buzamiento</label>
+        <select id="sentido"><option value="">Seleccionar…</option><option value="con">Excavación con el buzamiento</option><option value="contra">Excavación contra el buzamiento</option></select>
+      </div>
+    </div>
+
+    <h3>Trazabilidad del ajuste</h3>
+    <div id="traceLive" class="trace">Completa el buzamiento para iniciar la ruta de decisión.</div><div id="nextStep" class="help" style="margin-top:8px"></div>
+  </div>
+
+  <div class="card">
+    <h2>4. Observaciones</h2>
+    <div class="field"><label>Observaciones de campo</label><textarea id="observaciones" placeholder="Fallas, fracturas, condición local, comentarios…"></textarea></div>
+    <div class="actions">
+      <button class="btn" id="demoBtn" type="button">Cargar ejemplo RMR 60</button>
+      <button class="btn danger" id="clearBtn" type="button">Limpiar formulario</button>
+    </div>
+  </div>
+</section>
+
+<section id="resultado" class="panel">
+  <div class="card">
+    <h2>Resultado de la evaluación</h2>
+    <div class="scoregrid">
+      <div class="kpi"><span>RMR básico</span><b id="basicOut">—</b></div>
+      <div class="kpi"><span>Ajuste orientación</span><b id="adjOut">—</b></div>
+      <div class="kpi"><span>RMR total</span><b id="totalOut">—</b></div>
+      <div class="kpi"><span>Tipo de roca</span><b id="rockOut">—</b></div>
+    </div>
+    <h3>Ruta de cálculo</h3>
+    <div id="traceOut" class="trace">Aún no hay una evaluación completa.</div>
+    <h3>Detalle de puntajes</h3>
+    <div id="scoreDetail" class="trace">Completa los parámetros RMR.</div>
+    <div class="actions">
+      <button class="btn primary" id="saveBtn2" type="button">Guardar evaluación</button>
+    </div>
+  </div>
+</section>
+
+<section id="historial" class="panel">
+  <div class="card">
+    <div class="history-top">
+      <div><h2 style="margin-bottom:3px">Historial local</h2><div class="small">Se conserva en este dispositivo mediante IndexedDB.</div></div>
+      <span id="countPill" class="pill">0 registros</span>
+    </div>
+    <div class="actions">
+      <button class="btn" id="exportBtn" type="button">Exportar CSV</button>
+      <button class="btn danger" id="deleteAllBtn" type="button">Borrar historial local</button>
+    </div>
+    <div id="historyList" style="margin-top:12px"></div>
+  </div>
+</section>
+</div>
+
+<div class="footerbar"><div class="inner">
+  <button class="btn primary" id="saveBtn" type="button">Guardar evaluación</button>
+  <button class="btn" id="goResult" type="button">Ver resultado</button>
+</div></div>
+
+<script>
+const $ = id => document.getElementById(id);
+const rmrIds = ["resistencia","rqd","espaciamiento","apertura","rugosidad","relleno","persistencia","alteracion","agua"];
+const tabs = document.querySelectorAll(".tab");
+tabs.forEach(b=>b.addEventListener("click",()=>openTab(b.dataset.tab)));
+function openTab(id){
+  tabs.forEach(x=>x.classList.toggle("active",x.dataset.tab===id));
+  document.querySelectorAll(".panel").forEach(x=>x.classList.toggle("active",x.id===id));
+  if(id==="historial") renderHistory();
+  if(id==="resultado") recalc();
+  window.scrollTo({top:0,behavior:"smooth"});
+}
+function labelOf(id){ const s=$(id); return s.selectedIndex>=0?s.options[s.selectedIndex].text:""; }
+function score(id){ const v=$(id).value; return v===""?null:Number(v); }
+
+function orientation(){
+  const b=$("buzamiento").value, r=$("rumbo").value, s=$("sentido").value;
+  $("rumboWrap").classList.toggle("hidden", !b || b==="0-20");
+  if(!b || b==="0-20"){ $("rumbo").value=""; $("sentido").value=""; $("sentidoWrap").classList.add("hidden"); }
+  else $("sentidoWrap").classList.toggle("hidden", r!=="perpendicular");
+
+  if(!b) return {complete:false, adj:null,cat:"",trace:"Completa el buzamiento para iniciar la ruta de decisión."};
+  if(b==="0-20") return {complete:true,adj:-5,cat:"Regular",trace:"Buzamiento 0°–20° → sin importar el rumbo → Regular → ajuste −5"};
+  if(!r) return {complete:false,adj:null,cat:"",trace:`Buzamiento ${b==="20-45"?"20°–45°":"45°–90°"} → falta definir si el rumbo es paralelo o perpendicular al eje de la labor.`};
+
+  const B=b==="20-45"?"20°–45°":"45°–90°";
+  if(r==="paralelo"){
+    if(b==="20-45") return {complete:true,adj:-5,cat:"Regular",trace:`Buzamiento ${B} → rumbo paralelo al eje de la labor → Regular → ajuste −5`};
+    return {complete:true,adj:-12,cat:"Muy desfavorable",trace:`Buzamiento ${B} → rumbo paralelo al eje de la labor → Muy desfavorable → ajuste −12`};
+  }
+  if(!s) return {complete:false,adj:null,cat:"",trace:`Buzamiento ${B} → rumbo perpendicular al eje de la labor → falta definir si la excavación va con o contra el buzamiento.`};
+  if(s==="con" && b==="20-45") return {complete:true,adj:-2,cat:"Favorable",trace:`Buzamiento ${B} → rumbo perpendicular → excavación con el buzamiento → Favorable → ajuste −2`};
+  if(s==="con" && b==="45-90") return {complete:true,adj:0,cat:"Muy favorable",trace:`Buzamiento ${B} → rumbo perpendicular → excavación con el buzamiento → Muy favorable → ajuste 0`};
+  if(s==="contra" && b==="20-45") return {complete:true,adj:-10,cat:"Desfavorable",trace:`Buzamiento ${B} → rumbo perpendicular → excavación contra el buzamiento → Desfavorable → ajuste −10`};
+  return {complete:true,adj:-5,cat:"Regular",trace:`Buzamiento ${B} → rumbo perpendicular → excavación contra el buzamiento → Regular → ajuste −5`};
+}
+
+function rockType(v){
+  if(v===null || Number.isNaN(v)) return "—";
+  if(v>=81 && v<=100) return "I · Muy Buena";
+  if(v>=61 && v<=80) return "II · Buena";
+  if(v>=51 && v<=60) return "III-A · Regular A";
+  if(v>=41 && v<=50) return "III-B · Regular B";
+  if(v>=36 && v<=40) return "IV-A1 · Mala A1";
+  if(v>=31 && v<=35) return "IV-A2 · Mala A2";
+  if(v>=21 && v<=30) return "IV-B · Mala B";
+  if(v>=0 && v<=20) return "V · Muy Mala";
+  return "Fuera de rango";
+}
+function recalc(){
+  orientation();
+  const vals=rmrIds.map(score), complete=vals.every(v=>v!==null);
+  const basic=complete?vals.reduce((a,b)=>a+b,0):null;
+  const o=orientation(), total=(basic!==null && o.complete)?basic+o.adj:null;
+  $("basicOut").textContent=basic===null?"—":basic;
+  $("basicLive").textContent=basic===null?"—":basic;
+  const faltan = vals.filter(v=>v===null).length;
+  $("basicLiveHelp").textContent = basic===null
+    ? `Faltan ${faltan} parámetro${faltan===1?"":"s"} para completar el RMR básico.`
+    : "RMR básico completo. Ahora aplica el ajuste por orientación.";
+  $("adjOut").textContent=o.complete?(o.adj>0?`+${o.adj}`:`${o.adj}`):"—";
+  $("totalOut").textContent=total===null?"—":total;
+  $("rockOut").textContent=rockType(total);
+  $("traceLive").innerHTML=`<strong>${o.cat||"Ruta en proceso"}</strong><br>${o.trace}`;
+  $("traceOut").innerHTML=`<strong>${o.cat||"Ruta incompleta"}</strong><br>${o.trace}`;
+  let paso="";
+  const b=$("buzamiento").value, r=$("rumbo").value;
+  if(!b) paso="Siguiente: selecciona el rango de buzamiento.";
+  else if(b==="0-20") paso="Ruta completa: no se requiere evaluar rumbo.";
+  else if(!r) paso="Siguiente: selecciona si el rumbo es paralelo o perpendicular al eje de la labor.";
+  else if(r==="perpendicular" && !$("sentido").value) paso="Siguiente: selecciona si la excavación va con o contra el buzamiento.";
+  else paso="Ruta de orientación completa.";
+  $("nextStep").textContent=paso;
+  $("scoreDetail").textContent=rmrIds.map(id=>`${document.querySelector('label[for="'+id+'"]')?.textContent||id}: ${score(id)??"—"}`).join(" · ");
+  return {complete, basic, orientation:o, total, rock:rockType(total)};
+}
+["buzamiento","rumbo","sentido",...rmrIds].forEach(id=>{
+  ["input","change"].forEach(ev=>$(id).addEventListener(ev,recalc));
+});
+
+function today(){ const d=new Date(); return d.toISOString().slice(0,10); }
+$("fecha").value=today();
+
+// Normalización de códigos y datos de identificación: siempre en MAYÚSCULAS.
+["nivel","block","labor","supervisor"].forEach(id=>{
+  const el=$(id);
+  el.classList.add("uppercase");
+  el.addEventListener("input",()=>{
+    const pos=el.selectionStart;
+    el.value=el.value.toUpperCase();
+    try{ el.setSelectionRange(pos,pos); }catch(e){}
+  });
+});
+
+function collect(){
+  const calc=recalc();
+  const params={};
+  rmrIds.forEach(id=>params[id]={label:labelOf(id),score:score(id)});
+  return {
+    id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
+    createdAt:new Date().toISOString(),
+    fecha:$("fecha").value,turno:$("turno").value,nivel:$("nivel").value.trim().toUpperCase(),block:$("block").value.trim().toUpperCase(),
+    labor:$("labor").value.trim().toUpperCase(),condicionLabor:$("condicionLabor").value,supervisor:$("supervisor").value.trim().toUpperCase(),
+    params,buzamiento:$("buzamiento").value,rumbo:$("rumbo").value,sentido:$("sentido").value,
+    ajusteCategoria:calc.orientation.cat,ajuste:calc.orientation.adj,trazabilidad:calc.orientation.trace,
+    rmrBasico:calc.basic,rmrTotal:calc.total,tipoRoca:calc.rock,observaciones:$("observaciones").value.trim()
+  };
+}
+
+const DB="geomecanica_rmr_v2", STORE="evaluaciones";
+function dbOpen(){ return new Promise((res,rej)=>{const q=indexedDB.open(DB,1);q.onupgradeneeded=e=>{const db=e.target.result;if(!db.objectStoreNames.contains(STORE))db.createObjectStore(STORE,{keyPath:"id"});};q.onsuccess=()=>res(q.result);q.onerror=()=>rej(q.error);});}
+async function dbAdd(x){const db=await dbOpen();return new Promise((res,rej)=>{const tx=db.transaction(STORE,"readwrite");tx.objectStore(STORE).put(x);tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error);});}
+async function dbAll(){const db=await dbOpen();return new Promise((res,rej)=>{const q=db.transaction(STORE).objectStore(STORE).getAll();q.onsuccess=()=>res(q.result.sort((a,b)=>b.createdAt.localeCompare(a.createdAt)));q.onerror=()=>rej(q.error);});}
+async function dbDeleteAll(){const db=await dbOpen();return new Promise((res,rej)=>{const tx=db.transaction(STORE,"readwrite");tx.objectStore(STORE).clear();tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error);});}
+
+async function saveEval(){
+  const x=collect();
+  if(!x.fecha || !x.labor){ alert("Completa al menos Fecha y Labor."); return; }
+  if(x.rmrBasico===null){ alert("Completa todos los parámetros RMR."); return; }
+  if(x.ajuste===null){ alert("Completa la ruta del ajuste por orientación."); return; }
+  await dbAdd(x);
+  alert(`Guardado localmente.\nRMR total: ${x.rmrTotal}\nTipo de roca: ${x.tipoRoca}`);
+  renderHistory();
+}
+$("saveBtn").onclick=saveEval;$("saveBtn2").onclick=saveEval;$("goResult").onclick=()=>openTab("resultado");
+
+function esc(s){return String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));}
+async function renderHistory(){
+  const a=await dbAll();$("countPill").textContent=`${a.length} registro${a.length===1?"":"s"}`;
+  $("historyList").innerHTML=a.length?a.map(x=>`<div class="history-item">
+    <div class="history-top"><div><b>${esc(x.labor||"Sin labor")}</b><div class="small">${esc(x.fecha)} · ${esc(x.nivel||"Sin nivel")} · ${esc(x.supervisor||"Sin supervisor")}</div></div><span class="pill">RMR ${x.rmrTotal} · ${esc(x.tipoRoca)}</span></div>
+    <div class="trace" style="margin-top:9px">${esc(x.trazabilidad)}</div>
+  </div>`).join(""):`<div class="small" style="padding:14px 0">Todavía no hay evaluaciones guardadas.</div>`;
+}
+
+function csvCell(v){const s=String(v??"");return `"${s.replace(/"/g,'""')}"`;}
+$("exportBtn").onclick=async()=>{
+  const a=await dbAll(); if(!a.length){alert("No hay registros para exportar.");return;}
+  const headers=["Fecha","Turno","Nivel","Block","Labor","Condición labor","Supervisor","RMR básico","Buzamiento","Rumbo","Sentido","Categoría ajuste","Ajuste","RMR total","Tipo roca","Trazabilidad","Observaciones",
+  "Resistencia","RQD","Espaciamiento","Apertura","Rugosidad","Relleno","Persistencia","Alteración","Agua"];
+  const rows=a.map(x=>[x.fecha,x.turno,x.nivel,x.block,x.labor,x.condicionLabor,x.supervisor,x.rmrBasico,x.buzamiento,x.rumbo,x.sentido,x.ajusteCategoria,x.ajuste,x.rmrTotal,x.tipoRoca,x.trazabilidad,x.observaciones,
+   x.params.resistencia.label,x.params.rqd.label,x.params.espaciamiento.label,x.params.apertura.label,x.params.rugosidad.label,x.params.relleno.label,x.params.persistencia.label,x.params.alteracion.label,x.params.agua.label]);
+  const csv="\ufeff"+[headers,...rows].map(r=>r.map(csvCell).join(",")).join("\n");
+  const blob=new Blob([csv],{type:"text/csv;charset=utf-8"}); const url=URL.createObjectURL(blob);const aTag=document.createElement("a");
+  aTag.href=url;aTag.download=`RMR_geomecanica_${today()}.csv`;aTag.click();URL.revokeObjectURL(url);
+};
+$("deleteAllBtn").onclick=async()=>{if(confirm("¿Borrar todo el historial local de este dispositivo?")){await dbDeleteAll();renderHistory();}};
+function clearForm(){
+ ["turno","nivel","block","labor","condicionLabor","supervisor","resistencia","rqd","espaciamiento","apertura","rugosidad","relleno","persistencia","alteracion","agua","buzamiento","rumbo","sentido","observaciones"].forEach(id=>$(id).value="");
+ $("fecha").value=today(); recalc();
+}
+$("clearBtn").onclick=clearForm;
+
+$("demoBtn").onclick=()=>{
+  $("resistencia").value="7";$("rqd").value="13";$("espaciamiento").value="10";$("apertura").value="4";
+  $("rugosidad").value="3";$("relleno").value="4";$("persistencia").value="4";$("alteracion").value="5";$("agua").value="10";
+  $("buzamiento").value="20-45"; orientation(); $("rumbo").value="perpendicular"; orientation(); $("sentido").value="contra";
+  $("labor").value=$("labor").value||"EJEMPLO-RMR60"; recalc(); openTab("resultado");
+};
+recalc();renderHistory();
+</script>
+<script>if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));}</script></body>
+</html>
