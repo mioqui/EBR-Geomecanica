@@ -263,8 +263,7 @@ input[type="date"]::-webkit-calendar-picker-indicator{
   <div class="card">
     <h2>4. Observaciones</h2>
     <div class="field"><label>Observaciones de campo</label><textarea id="observaciones" placeholder="Fallas, fracturas, condición local, comentarios…"></textarea>
-      <div class="actions" style="margin-top:8px"><button class="btn" id="dictateBtn" type="button">🎙️ Dictar observación</button></div>
-      <div id="dictateStatus" class="help">Puedes usar el dictado del teclado del celular o, cuando el navegador lo permita, este botón de micrófono.</div>
+      <div class="help">Puedes escribir o usar el micrófono del teclado del celular para dictar la observación.</div>
     </div>
     <div class="field" style="margin-top:12px">
       <label>Fotografías de campo <span class="small">(máximo 2)</span></label>
@@ -504,67 +503,6 @@ function closePhotoModal(){$("photoModal").classList.add("hidden");$("photoModal
 $("closePhotoModal").onclick=closePhotoModal;
 $("photoModal").onclick=e=>{if(e.target===$("photoModal"))closePhotoModal();};
 
-const SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition;
-let recognition=null,dictating=false,dictateStarting=false,dictateBaseText="",dictateFinal="",dictateInterim="";
-function resetDictateUI(msg="Listo para dictar otra observación."){
-  dictating=false; dictateStarting=false;
-  $("dictateBtn").disabled=false;
-  $("dictateBtn").textContent="🎙️ Dictar observación";
-  $("dictateStatus").textContent=msg;
-}
-function paintDictation(){
-  const spoken=(dictateFinal+" "+dictateInterim).replace(/\s+/g," ").trim();
-  const sep=dictateBaseText&&spoken?" ":"";
-  $("observaciones").value=dictateBaseText+sep+spoken;
-}
-function makeRecognition(){
-  if(!SpeechRecognition)return null;
-  const r=new SpeechRecognition();
-  r.lang="es-PE"; r.continuous=true; r.interimResults=true; r.maxAlternatives=1;
-  r.onstart=()=>{
-    dictateStarting=false;dictating=true;
-    dictateBaseText=$("observaciones").value.trim();dictateFinal="";dictateInterim="";
-    $("dictateBtn").disabled=false;$("dictateBtn").textContent="⏹️ Detener dictado";
-    $("dictateStatus").textContent="Escuchando… habla normalmente.";
-  };
-  r.onresult=e=>{
-    let interim="";
-    for(let i=e.resultIndex;i<e.results.length;i++){
-      const t=(e.results[i][0]?.transcript||"").trim();
-      if(!t)continue;
-      if(e.results[i].isFinal) dictateFinal+=(dictateFinal?" ":"")+t;
-      else interim+=(interim?" ":"")+t;
-    }
-    dictateInterim=interim;paintDictation();
-    $("dictateStatus").textContent=dictateInterim?"Escuchando… transcribiendo.":"Escuchando…";
-  };
-  r.onspeechstart=()=>{$("dictateStatus").textContent="Voz detectada…";};
-  r.onspeechend=()=>{$("dictateStatus").textContent="Procesando dictado…";};
-  r.onerror=e=>{
-    const code=e.error||"desconocido";
-    const msg=code==="not-allowed"?"Permiso de micrófono denegado. Revisa el permiso del navegador.":code==="no-speech"?"No se detectó voz. Inténtalo nuevamente.":code==="audio-capture"?"No se pudo acceder al micrófono.":code==="network"?"El reconocimiento de voz no pudo conectarse al servicio.":"Error de dictado: "+code+".";
-    resetDictateUI(msg);
-  };
-  r.onend=()=>{
-    paintDictation();recognition=null;
-    resetDictateUI((dictateFinal||dictateInterim)?"Dictado finalizado. Puedes volver a dictar.":"No se recibió texto del reconocimiento. En iPhone/iPad usa el micrófono del teclado dentro de Observaciones.");
-  };
-  return r;
-}
-if(SpeechRecognition){
-  $("dictateBtn").onclick=()=>{
-    if(dictating&&recognition){try{recognition.stop();}catch(e){}return;}
-    if(dictateStarting)return;
-    dictateStarting=true;$("dictateBtn").disabled=true;$("dictateStatus").textContent="Iniciando micrófono…";
-    try{
-      recognition=makeRecognition();recognition.start();
-      setTimeout(()=>{if(dictateStarting){try{recognition&&recognition.abort();}catch(e){} recognition=null;resetDictateUI("No se pudo iniciar el micrófono. Inténtalo nuevamente.");}},4000);
-    }catch(e){recognition=null;resetDictateUI("No se pudo iniciar el dictado. Inténtalo nuevamente.");}
-  };
-}else{
-  $("dictateBtn").onclick=()=>{$("observaciones").focus();alert("En este iPhone/iPad usa el micrófono del teclado para dictar directamente en Observaciones.");};
-  $("dictateStatus").textContent="Usa el micrófono del teclado del celular para dictar la observación.";
-}
 
 function preloadRealTestData(){
   // Caso real tomado del Control Operativo Geomecánica del 22/08/2026:
