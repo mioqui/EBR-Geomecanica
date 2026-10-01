@@ -64,6 +64,7 @@ textarea{min-height:82px;resize:vertical}
 .photo-item{position:relative;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#f4f7f8;min-height:90px}
 .photo-item img{display:block;width:100%;height:150px;object-fit:cover}
 #detailPhotos .photo-item img{cursor:zoom-in}
+.import-badge{display:inline-flex;align-items:center;gap:4px;margin-top:6px;margin-right:5px;padding:3px 7px;border-radius:999px;background:#eef3f6;font-size:.72rem;font-weight:800;color:var(--text)}
 .photo-badge{display:inline-flex;align-items:center;gap:4px;margin-top:6px;padding:3px 7px;border-radius:999px;background:#eef3f6;font-size:.72rem;font-weight:800;color:var(--text)}
 .photo-modal{position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.9);display:flex;align-items:center;justify-content:center;padding:18px}
 .photo-modal img{max-width:100%;max-height:92vh;object-fit:contain;border-radius:8px}
@@ -285,6 +286,8 @@ input[type="date"]::-webkit-calendar-picker-indicator{
     </div>
     <div class="actions">
       <button class="btn" id="exportBtn" type="button">Compartir / Exportar CSV</button>
+      <button class="btn" id="importBtn" type="button">Importar CSV</button>
+      <input id="importInput" type="file" accept=".csv,text/csv" multiple class="hidden">
       <button class="btn danger" id="deleteAllBtn" type="button">Borrar historial local</button>
     </div>
     <div id="historyList" style="margin-top:12px"></div>
@@ -601,7 +604,7 @@ async function renderHistory(){
   $("historyMain").classList.remove("hidden"); $("historyDetail").classList.add("hidden");
   const a=await dbAll();$("countPill").textContent=`${a.length} registro${a.length===1?"":"s"}`;
   $("historyList").innerHTML=a.length?a.map(x=>`<div class="history-item" role="button" tabindex="0" data-id="${esc(x.id)}" style="cursor:pointer">
-    <div class="history-top"><div><b>${esc(x.labor||"Sin labor")}</b><div class="small">${esc(x.fecha)} · ${esc(x.nivel||"Sin nivel")} · ${esc(x.supervisor||"Sin supervisor")}</div><div class="saved-at">Guardado: ${esc(formatSavedAt(x.createdAt))}${x.updatedAt?` · Actualizado: ${esc(formatSavedAt(x.updatedAt))}`:""}</div>${x.photos&&x.photos.length?`<span class="photo-badge">📷 ${x.photos.length} foto${x.photos.length===1?"":"s"}</span>`:""}</div><span class="pill"><span class="rock-dot" style="background:${rockColor(x.rmrTotal)||"#fff"}"></span>RMR ${x.rmrTotal} · ${esc(x.tipoRoca)}</span></div>
+    <div class="history-top"><div><b>${esc(x.labor||"Sin labor")}</b><div class="small">${esc(x.fecha)} · ${esc(x.nivel||"Sin nivel")} · ${esc(x.supervisor||"Sin supervisor")}</div><div class="saved-at">Guardado: ${esc(formatSavedAt(x.createdAt))}${x.updatedAt?` · Actualizado: ${esc(formatSavedAt(x.updatedAt))}`:""}</div>${x.imported?`<span class="import-badge">📥 Importado</span>`:""}${x.photos&&x.photos.length?`<span class="photo-badge">📷 ${x.photos.length} foto${x.photos.length===1?"":"s"}</span>`:""}</div><span class="pill"><span class="rock-dot" style="background:${rockColor(x.rmrTotal)||"#fff"}"></span>RMR ${x.rmrTotal} · ${esc(x.tipoRoca)}</span></div>
     <div class="small" style="margin-top:7px">Toca para ver el detalle</div>
   </div>`).join(""):`<div class="small" style="padding:14px 0">Todavía no hay evaluaciones guardadas.</div>`;
   document.querySelectorAll(".history-item[data-id]").forEach(el=>{
@@ -649,13 +652,79 @@ $("editHistoryBtn").onclick=async()=>{
   recalc(); openTab("evaluacion");
 };
 
+function parseCSV(text){
+  text=String(text||"").replace(/^\uFEFF/,"");
+  const rows=[]; let row=[],field="",quoted=false;
+  for(let i=0;i<text.length;i++){
+    const ch=text[i];
+    if(quoted){
+      if(ch==='"'&&text[i+1]==='"'){field+='"';i++;}
+      else if(ch==='"') quoted=false;
+      else field+=ch;
+    }else{
+      if(ch==='"') quoted=true;
+      else if(ch===","){row.push(field);field="";}
+      else if(ch==="\n"){row.push(field);rows.push(row);row=[];field="";}
+      else if(ch!=="\r") field+=ch;
+    }
+  }
+  if(field.length||row.length){row.push(field);rows.push(row);}
+  return rows.filter(r=>r.some(v=>String(v).trim()!==""));
+}
+function scoreFromLabel(label){
+  const m=String(label||"").match(/[—-]\s*(\d+)\s*pts?/i);
+  return m?Number(m[1]):null;
+}
+function importedRecord(headers,row){
+  const o={}; headers.forEach((h,i)=>o[String(h||"").trim()]=row[i]??"");
+  const id=String(o["ID"]||"").trim();
+  if(!id) throw new Error("El archivo contiene un registro sin ID.");
+  const pNames={resistencia:"Resistencia",rqd:"RQD",espaciamiento:"Espaciamiento",apertura:"Apertura",rugosidad:"Rugosidad",relleno:"Relleno",persistencia:"Persistencia",alteracion:"Alteración",agua:"Agua"};
+  const params={}; Object.entries(pNames).forEach(([k,h])=>{params[k]={label:o[h]||"",score:scoreFromLabel(o[h])};});
+  return {
+    id,createdAt:o["Guardado"]||new Date().toISOString(),updatedAt:o["Actualizado"]||null,
+    fecha:o["Fecha"]||"",turno:o["Turno"]||"",nivel:o["Nivel"]||"",block:o["Block"]||"",labor:o["Labor"]||"",
+    condicionLabor:o["Condición labor"]||"",supervisor:o["Supervisor"]||"",params,
+    buzamiento:o["Buzamiento"]||"",rumbo:o["Rumbo"]||"",sentido:o["Sentido"]||"",
+    ajusteCategoria:o["Categoría ajuste"]||"",ajuste:o["Ajuste"]===""?null:Number(o["Ajuste"]),
+    rmrBasico:o["RMR básico"]===""?null:Number(o["RMR básico"]),rmrTotal:o["RMR total"]===""?null:Number(o["RMR total"]),
+    tipoRoca:o["Tipo roca"]||"",observaciones:o["Observaciones"]||"",photos:[],imported:true,importedAt:new Date().toISOString()
+  };
+}
+$("importBtn").onclick=()=>$("importInput").click();
+$("importInput").addEventListener("change",async e=>{
+  const files=[...e.target.files]; if(!files.length)return;
+  try{
+    const existing=await dbAll(), ids=new Set(existing.map(x=>String(x.id)));
+    let added=0,duplicates=0,errors=0;
+    for(const file of files){
+      try{
+        const rows=parseCSV(await file.text());
+        if(rows.length<2) throw new Error("CSV vacío.");
+        const headers=rows[0].map(h=>String(h).trim());
+        if(!headers.includes("ID")||!headers.includes("RMR total")||!headers.includes("Labor")) throw new Error("Formato CSV no reconocido.");
+        for(const row of rows.slice(1)){
+          try{
+            const x=importedRecord(headers,row);
+            if(ids.has(String(x.id))){duplicates++;continue;}
+            await dbAdd(x);ids.add(String(x.id));added++;
+          }catch(err){errors++;}
+        }
+      }catch(err){errors++;}
+    }
+    await renderHistory();
+    alert(`Importación terminada. Nuevos: ${added}. Duplicados omitidos: ${duplicates}.${errors?` Con error: ${errors}.`:""}`);
+  }catch(err){alert("No se pudo importar el CSV: "+(err.message||err));}
+  e.target.value="";
+});
+
 function csvCell(v){const s=String(v??"");return `"${s.replace(/"/g,'""')}"`;}
 $("exportBtn").onclick=async()=>{
   const a=await dbAll(); if(!a.length){alert("No hay registros para compartir o exportar.");return;}
   const headers=["ID","Fecha","Turno","Nivel","Block","Labor","Condición labor","Supervisor","RMR básico","Buzamiento","Rumbo","Sentido","Categoría ajuste","Ajuste","RMR total","Tipo roca","Observaciones","Guardado","Actualizado",
   "Resistencia","RQD","Espaciamiento","Apertura","Rugosidad","Relleno","Persistencia","Alteración","Agua"];
   const rows=a.map(x=>[x.id,x.fecha,x.turno,x.nivel,x.block,x.labor,x.condicionLabor,x.supervisor,x.rmrBasico,x.buzamiento,x.rumbo,x.sentido,x.ajusteCategoria,x.ajuste,x.rmrTotal,x.tipoRoca,x.observaciones,x.createdAt,x.updatedAt,
-   x.params.resistencia.label,x.params.rqd.label,x.params.espaciamiento.label,x.params.apertura.label,x.params.rugosidad.label,x.params.relleno.label,x.params.persistencia.label,x.params.alteracion.label,x.params.agua.label]);
+   x.params?.resistencia?.label||"",x.params?.rqd?.label||"",x.params?.espaciamiento?.label||"",x.params?.apertura?.label||"",x.params?.rugosidad?.label||"",x.params?.relleno?.label||"",x.params?.persistencia?.label||"",x.params?.alteracion?.label||"",x.params?.agua?.label||""]);
   const csv="\ufeff"+[headers,...rows].map(r=>r.map(csvCell).join(",")).join("\n");
   const filename=`RMR_geomecanica_${today()}.csv`;
   const blob=new Blob([csv],{type:"text/csv;charset=utf-8"});
