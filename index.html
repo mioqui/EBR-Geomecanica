@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#123d5a">
-<title>Geomecánica · RMR V2.8</title>
+<title>Geomecánica · RMR V2.9</title>
 <style>
 :root{
   --bg:#eef3f6; --card:#fff; --ink:#17232d; --muted:#667985; --line:#d7e1e7;
@@ -16,7 +16,7 @@ html,body{margin:0;padding:0;max-width:100%;overflow-x:hidden;background:var(--b
   font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif}
 button,input,select,textarea{font:inherit}
 button,input,select,textarea{max-width:100%;min-width:0}
-.app{width:min(980px,100%);margin:0 auto;padding:12px 12px 90px}
+.app{width:min(980px,100%);margin:0 auto;padding:12px 12px 28px}
 header{background:linear-gradient(135deg,var(--brand),var(--brand2));color:white;border-radius:18px;padding:18px;
   box-shadow:var(--shadow);margin-bottom:12px}
 header h1{font-size:1.25rem;margin:0 0 4px}
@@ -47,6 +47,12 @@ textarea{min-height:82px;resize:vertical}
 .kpi.rock-result{transition:background-color .2s ease,color .2s ease,border-color .2s ease}
 .trace{font-size:.86rem;line-height:1.55;background:#f8fafb;border:1px dashed #aebfc8;border-radius:12px;padding:11px;overflow-wrap:anywhere}
 .trace strong{color:var(--brand)}
+.score-detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.score-detail-item{border:1px solid var(--line);border-radius:12px;padding:11px;background:#f8fafb}
+.score-detail-item .name{font-size:.78rem;font-weight:800;color:#405765;margin-bottom:5px}
+.score-detail-item .condition{font-size:.9rem;color:var(--ink);line-height:1.35}
+.score-detail-item .points{font-size:1.05rem;font-weight:900;color:var(--brand);margin-top:6px}
+@media(max-width:680px){.score-detail-grid{grid-template-columns:minmax(0,1fr)}}
 .actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
 .btn{border:0;border-radius:11px;padding:11px 14px;font-weight:800;cursor:pointer;background:#e8eef1;color:#203b4b}
 .btn.primary{background:var(--brand);color:white}.btn.ok{background:var(--ok);color:white}.btn.danger{background:#f8eaea;color:var(--danger)}
@@ -109,13 +115,12 @@ input[type="date"]::-webkit-calendar-picker-indicator{
 <body>
 <div class="app">
 <header>
-  <h1>Evaluación Geomecánica · RMR V2.8</h1>
+  <h1>Evaluación Geomecánica · RMR V2.9</h1>
   <p>Captura guiada, cálculo automático y trazabilidad del ajuste de orientación.</p>
 </header>
 
 <nav class="tabs" aria-label="Secciones">
   <button class="tab active" data-tab="evaluacion">Evaluación</button>
-  <button class="tab" data-tab="resultado">Resultado</button>
   <button class="tab" data-tab="historial">Historial</button>
 </nav>
 
@@ -244,32 +249,17 @@ input[type="date"]::-webkit-calendar-picker-indicator{
       <button class="btn" id="demoBtn" type="button">Cargar ejemplo RMR 60</button>
       <button class="btn danger" id="clearBtn" type="button">Limpiar formulario</button>
     </div>
-  </div>
-</section>
-
-<section id="resultado" class="panel">
-  <div class="card">
-    <h2>Resultado de la evaluación</h2>
-    <div class="scoregrid">
-      <div class="kpi"><span>RMR básico</span><b id="basicOut">—</b></div>
-      <div class="kpi"><span>Ajuste orientación</span><b id="adjOut">—</b></div>
-      <div class="kpi final-result"><span>RMR total</span><b id="totalOut">—</b></div>
-      <div class="kpi rock-result" id="rockOutCard"><span>Tipo de roca</span><b id="rockOut">—</b></div>
-    </div>
-    <h3>Ruta de cálculo</h3>
-    <div id="traceOut" class="trace">Aún no hay una evaluación completa.</div>
-    <h3>Detalle de puntajes</h3>
-    <div id="scoreDetail" class="trace">Completa los parámetros RMR.</div>
-    <div class="actions">
-      <button class="btn primary" id="saveBtn2" type="button">Guardar evaluación</button>
+    <div class="actions" style="margin-top:14px">
+      <button class="btn primary" id="saveEvalBtn" type="button">Guardar evaluación</button>
+      <button class="btn hidden" id="cancelEditBtn" type="button">Cancelar modificación</button>
     </div>
   </div>
 </section>
 
 <section id="historial" class="panel">
-  <div class="card">
+  <div class="card" id="historyMain">
     <div class="history-top">
-      <div><h2 style="margin-bottom:3px">Historial local</h2><div class="small">Se conserva en este dispositivo mediante IndexedDB.</div></div>
+      <div><h2 style="margin-bottom:3px">Historial local</h2><div class="small">Evaluaciones guardadas en este dispositivo.</div></div>
       <span id="countPill" class="pill">0 registros</span>
     </div>
     <div class="actions">
@@ -278,13 +268,33 @@ input[type="date"]::-webkit-calendar-picker-indicator{
     </div>
     <div id="historyList" style="margin-top:12px"></div>
   </div>
+
+  <div class="card hidden" id="historyDetail">
+    <div class="history-top">
+      <div><h2 style="margin-bottom:3px">Detalle de evaluación</h2><div class="small" id="detailSubtitle"></div></div>
+      <button class="btn" id="backHistoryBtn" type="button">← Historial</button>
+    </div>
+    <div class="scoregrid" style="margin-top:14px">
+      <div class="kpi"><span>RMR básico</span><b id="detailBasic">—</b></div>
+      <div class="kpi"><span>Ajuste orientación</span><b id="detailAdj">—</b></div>
+      <div class="kpi final-result"><span>RMR total</span><b id="detailTotal">—</b></div>
+      <div class="kpi rock-result" id="detailRockCard"><span>Tipo de roca</span><b id="detailRock">—</b></div>
+    </div>
+    <h3>Identificación</h3>
+    <div id="detailIdentification" class="trace"></div>
+    <h3>Detalle de puntajes</h3>
+    <div id="detailScores" class="score-detail-grid"></div>
+    <h3>Trazabilidad del ajuste</h3>
+    <div id="detailTrace" class="trace"></div>
+    <h3>Observaciones</h3>
+    <div id="detailObs" class="trace"></div>
+    <div class="actions">
+      <button class="btn primary" id="editHistoryBtn" type="button">Modificar</button>
+      <button class="btn danger" id="deleteHistoryBtn" type="button">Eliminar</button>
+    </div>
+  </div>
 </section>
 </div>
-
-<div class="footerbar"><div class="inner">
-  <button class="btn primary" id="saveBtn" type="button">Guardar evaluación</button>
-  <button class="btn" id="goResult" type="button">Ver resultado</button>
-</div></div>
 
 <script>
 const $ = id => document.getElementById(id);
@@ -295,7 +305,6 @@ function openTab(id){
   tabs.forEach(x=>x.classList.toggle("active",x.dataset.tab===id));
   document.querySelectorAll(".panel").forEach(x=>x.classList.toggle("active",x.id===id));
   if(id==="historial") renderHistory();
-  if(id==="resultado") recalc();
   window.scrollTo({top:0,behavior:"smooth"});
 }
 function labelOf(id){ const s=$(id); return s.selectedIndex>=0?s.options[s.selectedIndex].text:""; }
@@ -403,7 +412,6 @@ function recalc(){
   else if(r==="perpendicular" && !s) paso="Siguiente: selecciona si la excavación va con o contra el buzamiento.";
   else paso="Ruta de orientación completa. El ajuste y el RMR total ya están calculados.";
   $("nextStep").textContent=paso;
-  $("scoreDetail").textContent=rmrIds.map(id=>`${document.querySelector('label[for="'+id+'"]')?.textContent||id}: ${score(id)??"—"}`).join(" · ");
   return {complete, basic, orientation:o, total, rock:rockType(total)};
 }
 ["buzamiento","rumbo","sentido",...rmrIds].forEach(id=>{
@@ -443,6 +451,7 @@ const DB="geomecanica_rmr_v2", STORE="evaluaciones";
 function dbOpen(){ return new Promise((res,rej)=>{const q=indexedDB.open(DB,1);q.onupgradeneeded=e=>{const db=e.target.result;if(!db.objectStoreNames.contains(STORE))db.createObjectStore(STORE,{keyPath:"id"});};q.onsuccess=()=>res(q.result);q.onerror=()=>rej(q.error);});}
 async function dbAdd(x){const db=await dbOpen();return new Promise((res,rej)=>{const tx=db.transaction(STORE,"readwrite");tx.objectStore(STORE).put(x);tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error);});}
 async function dbAll(){const db=await dbOpen();return new Promise((res,rej)=>{const q=db.transaction(STORE).objectStore(STORE).getAll();q.onsuccess=()=>res(q.result.sort((a,b)=>b.createdAt.localeCompare(a.createdAt)));q.onerror=()=>rej(q.error);});}
+async function dbDelete(id){const db=await dbOpen();return new Promise((res,rej)=>{const tx=db.transaction(STORE,"readwrite");tx.objectStore(STORE).delete(id);tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error);});}
 async function dbDeleteAll(){const db=await dbOpen();return new Promise((res,rej)=>{const tx=db.transaction(STORE,"readwrite");tx.objectStore(STORE).clear();tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error);});}
 
 async function saveEval(){
@@ -450,20 +459,73 @@ async function saveEval(){
   if(!x.fecha || !x.labor){ alert("Completa al menos Fecha y Labor."); return; }
   if(x.rmrBasico===null){ alert("Completa todos los parámetros RMR."); return; }
   if(x.ajuste===null){ alert("Completa la ruta del ajuste por orientación."); return; }
+  if(editingId) x.id=editingId;
   await dbAdd(x);
-  alert(`Guardado localmente.\nRMR total: ${x.rmrTotal}\nTipo de roca: ${x.tipoRoca}`);
-  renderHistory();
+  const wasEditing=!!editingId;
+  editingId=null;
+  $("saveEvalBtn").textContent="Guardar evaluación";
+  $("cancelEditBtn").classList.add("hidden");
+  alert(wasEditing ? "Evaluación actualizada correctamente." : "Evaluación guardada localmente.");
+  clearForm();
+  openTab("historial");
 }
 $("saveBtn").onclick=saveEval;$("saveBtn2").onclick=saveEval;$("goResult").onclick=()=>openTab("resultado");
 
 function esc(s){return String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));}
-async function renderHistory(){
-  const a=await dbAll();$("countPill").textContent=`${a.length} registro${a.length===1?"":"s"}`;
-  $("historyList").innerHTML=a.length?a.map(x=>`<div class="history-item">
-    <div class="history-top"><div><b>${esc(x.labor||"Sin labor")}</b><div class="small">${esc(x.fecha)} · ${esc(x.nivel||"Sin nivel")} · ${esc(x.supervisor||"Sin supervisor")}</div></div><span class="pill">RMR ${x.rmrTotal} · ${esc(x.tipoRoca)}</span></div>
-    <div class="trace" style="margin-top:9px">${esc(x.trazabilidad)}</div>
-  </div>`).join(""):`<div class="small" style="padding:14px 0">Todavía no hay evaluaciones guardadas.</div>`;
+const paramNames={
+  resistencia:"Resistencia de la roca intacta", rqd:"RQD", espaciamiento:"Espaciamiento",
+  apertura:"Apertura", rugosidad:"Rugosidad", relleno:"Relleno",
+  persistencia:"Persistencia", alteracion:"Alteración", agua:"Agua subterránea"
+};
+function cleanCondition(label){
+  return String(label||"—").replace(/\s+[—-]\s+\d+\s*pts?\.?$/i,"").trim();
 }
+function scoreCards(params){
+  return rmrIds.map(id=>{
+    const p=params?.[id]||{};
+    return `<div class="score-detail-item"><div class="name">${esc(paramNames[id])}</div><div class="condition">${esc(cleanCondition(p.label))}</div><div class="points">${p.score??"—"} pts</div></div>`;
+  }).join("");
+}
+async function renderHistory(){
+  $("historyMain").classList.remove("hidden"); $("historyDetail").classList.add("hidden");
+  const a=await dbAll();$("countPill").textContent=`${a.length} registro${a.length===1?"":"s"}`;
+  $("historyList").innerHTML=a.length?a.map(x=>`<div class="history-item" role="button" tabindex="0" data-id="${esc(x.id)}" style="cursor:pointer">
+    <div class="history-top"><div><b>${esc(x.labor||"Sin labor")}</b><div class="small">${esc(x.fecha)} · ${esc(x.nivel||"Sin nivel")} · ${esc(x.supervisor||"Sin supervisor")}</div></div><span class="pill">RMR ${x.rmrTotal} · ${esc(x.tipoRoca)}</span></div>
+    <div class="small" style="margin-top:7px">Toca para ver el detalle</div>
+  </div>`).join(""):`<div class="small" style="padding:14px 0">Todavía no hay evaluaciones guardadas.</div>`;
+  document.querySelectorAll(".history-item[data-id]").forEach(el=>{
+    el.onclick=()=>showHistoryDetail(el.dataset.id);
+    el.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();showHistoryDetail(el.dataset.id);}};
+  });
+}
+let detailId=null;
+async function showHistoryDetail(id){
+  const a=await dbAll(), x=a.find(r=>r.id===id); if(!x)return;
+  detailId=id;
+  $("historyMain").classList.add("hidden"); $("historyDetail").classList.remove("hidden");
+  $("detailSubtitle").textContent=`${x.fecha||""} · ${x.nivel||"Sin nivel"} · ${x.labor||"Sin labor"}`;
+  $("detailBasic").textContent=x.rmrBasico??"—";
+  $("detailAdj").textContent=x.ajuste===null||x.ajuste===undefined?"—":`${x.ajuste} · ${x.ajusteCategoria||""}`;
+  $("detailTotal").textContent=x.rmrTotal??"—";
+  $("detailRock").textContent=x.tipoRoca||"—"; applyRockColor("detailRockCard",x.rmrTotal);
+  $("detailIdentification").innerHTML=`<strong>Labor:</strong> ${esc(x.labor||"—")}<br><strong>Nivel:</strong> ${esc(x.nivel||"—")} · <strong>Block:</strong> ${esc(x.block||"—")}<br><strong>Turno:</strong> ${esc(x.turno||"—")} · <strong>Condición:</strong> ${esc(x.condicionLabor||"—")}<br><strong>Supervisor / Geomecánico:</strong> ${esc(x.supervisor||"—")}`;
+  $("detailScores").innerHTML=scoreCards(x.params);
+  $("detailTrace").textContent=x.trazabilidad||"—";
+  $("detailObs").textContent=x.observaciones||"Sin observaciones.";
+}
+$("backHistoryBtn").onclick=renderHistory;
+$("deleteHistoryBtn").onclick=async()=>{if(detailId&&confirm("¿Eliminar esta evaluación? Esta acción no se puede deshacer.")){await dbDelete(detailId);detailId=null;renderHistory();}};
+$("editHistoryBtn").onclick=async()=>{
+  const a=await dbAll(), x=a.find(r=>r.id===detailId); if(!x)return;
+  editingId=x.id;
+  $("fecha").value=x.fecha||today(); $("turno").value=x.turno||""; $("nivel").value=x.nivel||""; $("block").value=x.block||"";
+  $("labor").value=x.labor||""; $("condicionLabor").value=x.condicionLabor||""; $("supervisor").value=x.supervisor||"";
+  rmrIds.forEach(id=>{$(id).value=x.params?.[id]?.score===null||x.params?.[id]?.score===undefined?"":String(x.params[id].score);});
+  $("buzamiento").value=x.buzamiento||""; orientation(); $("rumbo").value=x.rumbo||""; orientation(); $("sentido").value=x.sentido||"";
+  $("observaciones").value=x.observaciones||"";
+  $("saveEvalBtn").textContent="Actualizar evaluación"; $("cancelEditBtn").classList.remove("hidden");
+  recalc(); openTab("evaluacion");
+};
 
 function csvCell(v){const s=String(v??"");return `"${s.replace(/"/g,'""')}"`;}
 $("exportBtn").onclick=async()=>{
@@ -487,7 +549,7 @@ $("demoBtn").onclick=()=>{
   $("resistencia").value="7";$("rqd").value="13";$("espaciamiento").value="10";$("apertura").value="4";
   $("rugosidad").value="3";$("relleno").value="4";$("persistencia").value="4";$("alteracion").value="5";$("agua").value="10";
   $("buzamiento").value="20-45"; orientation(); $("rumbo").value="perpendicular"; orientation(); $("sentido").value="contra";
-  $("labor").value=$("labor").value||"EJEMPLO-RMR60"; recalc(); openTab("resultado");
+  $("labor").value=$("labor").value||"EJEMPLO-RMR60"; recalc();
 };
 recalc();renderHistory();
 </script>
