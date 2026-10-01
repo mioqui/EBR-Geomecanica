@@ -558,18 +558,12 @@ function applyGeoCorrection(){
 const obsField=$("observaciones");
 // iOS puede insertar el texto del dictado sin disparar un input utilizable por la PWA.
 // Revisamos durante la edición y también al salir del campo.
-let geoCorrectionDebounce=null;
-// No modificamos el textarea mientras iOS está componiendo el dictado:
-// hacerlo puede interferir con el texto provisional y provocar repeticiones.
-obsField.addEventListener("input",()=>{
-  clearTimeout(geoCorrectionDebounce);
-  geoCorrectionDebounce=setTimeout(applyGeoCorrection,1200);
-});
+// En iPhone/iPad no modificamos el textarea mientras permanece activo.
+// El dictado nativo mantiene una composición interna y cualquier escritura
+// programática durante esa composición puede congelar la visualización.
+// Las correcciones se aplican únicamente al finalizar/salir del campo.
 obsField.addEventListener("change",applyGeoCorrection);
-obsField.addEventListener("blur",()=>{
-  clearTimeout(geoCorrectionDebounce);
-  applyGeoCorrection();
-});
+obsField.addEventListener("blur",applyGeoCorrection);
 
 function preloadRealTestData(){
   // Caso real tomado del Control Operativo Geomecánica del 22/08/2026:
