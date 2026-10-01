@@ -387,23 +387,17 @@ function recalc(){
   const vals=rmrIds.map(score), complete=vals.every(v=>v!==null);
   const basic=complete?vals.reduce((a,b)=>a+b,0):null;
   const o=orientation(), total=(basic!==null && o.complete)?basic+o.adj:null;
-  $("basicOut").textContent=basic===null?"—":basic;
   $("basicLive").textContent=basic===null?"—":basic;
   const faltan = vals.filter(v=>v===null).length;
   $("basicLiveHelp").textContent = basic===null
     ? `Faltan ${faltan} parámetro${faltan===1?"":"s"} para completar el RMR básico.`
     : "RMR básico completo. Ahora aplica el ajuste por orientación.";
-  $("adjOut").textContent=o.complete?`${o.adj>0?"+"+o.adj:o.adj} · ${o.cat}`:"—";
-  $("totalOut").textContent=total===null?"—":total;
-  $("rockOut").textContent=rockType(total);
-  applyRockColor("rockOutCard",total);
   $("basicOrientLive").textContent=basic===null?"—":basic;
   $("adjOrientLive").textContent=o.complete?`${o.adj>0?"+"+o.adj:o.adj} · ${o.cat}`:"—";
   $("totalOrientLive").textContent=total===null?"—":total;
   $("rockOrientLive").textContent=rockType(total);
   applyRockColor("rockOrientCard",total);
   $("traceLive").innerHTML=`<strong>${o.cat||"Ruta en proceso"}</strong><br>${o.trace}`;
-  $("traceOut").innerHTML=`<strong>${o.cat||"Ruta incompleta"}</strong><br>${o.trace}`;
   let paso="";
   const b=$("buzamiento").value, r=$("rumbo").value, s=$("sentido").value;
   if(!b) paso="Siguiente: selecciona el rango de buzamiento.";
