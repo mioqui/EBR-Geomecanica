@@ -1,5 +1,5 @@
-const CACHE='ebr-rmr-v1-0';
-const ASSETS=['./','./index.html','./manifest.webmanifest'];
+const CACHE='ebr-rmr-v1-0-icon1';
+const ASSETS=['./','./index.html','./manifest.webmanifest','./icons/icon-180.png','./icons/icon-192.png'];
 
 self.addEventListener('install',event=>{
   self.skipWaiting();
