@@ -482,10 +482,12 @@ async function saveEval(){
     openTab("historial");
     await renderHistory();
 
+    document.querySelectorAll(".save-confirm").forEach(el=>el.remove());
     const msg=document.createElement("div");
     msg.className="save-confirm";
     msg.innerHTML=`<b>${wasEditing?"Evaluación actualizada":"Evaluación guardada correctamente"}</b><span>${formatSavedAt(wasEditing?x.updatedAt:x.createdAt)} · Registro disponible en el Historial.</span>`;
     $("historyMain").prepend(msg);
+    setTimeout(()=>{ if(msg.isConnected) msg.remove(); },5000);
     window.scrollTo({top:0,behavior:"smooth"});
   }catch(err){
     console.error("Error al guardar evaluación:",err);
