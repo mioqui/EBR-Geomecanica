@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#123d5a">
-<title>Geomecánica · RMR V2.9</title>
+<title>Geomecánica · RMR V2.9.1</title>
 <style>
 :root{
   --bg:#eef3f6; --card:#fff; --ink:#17232d; --muted:#667985; --line:#d7e1e7;
@@ -118,7 +118,7 @@ input[type="date"]::-webkit-calendar-picker-indicator{
 <body>
 <div class="app">
 <header>
-  <h1>Evaluación Geomecánica · RMR V2.9</h1>
+  <h1>Evaluación Geomecánica · RMR V2.9.1</h1>
   <p>Captura guiada, cálculo automático y trazabilidad del ajuste de orientación.</p>
 </header>
 
@@ -303,6 +303,7 @@ input[type="date"]::-webkit-calendar-picker-indicator{
 const $ = id => document.getElementById(id);
 const rmrIds = ["resistencia","rqd","espaciamiento","apertura","rugosidad","relleno","persistencia","alteracion","agua"];
 const tabs = document.querySelectorAll(".tab");
+let editingId = null;
 tabs.forEach(b=>b.addEventListener("click",()=>openTab(b.dataset.tab)));
 function openTab(id){
   tabs.forEach(x=>x.classList.toggle("active",x.dataset.tab===id));
@@ -459,33 +460,46 @@ async function dbDelete(id){const db=await dbOpen();return new Promise((res,rej)
 async function dbDeleteAll(){const db=await dbOpen();return new Promise((res,rej)=>{const tx=db.transaction(STORE,"readwrite");tx.objectStore(STORE).clear();tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error);});}
 
 async function saveEval(){
-  const x=collect();
-  if(!x.fecha || !x.labor){ alert("Completa al menos Fecha y Labor."); return; }
-  if(x.rmrBasico===null){ alert("Completa todos los parámetros RMR."); return; }
-  if(x.ajuste===null){ alert("Completa la ruta del ajuste por orientación."); return; }
-  if(editingId){
-    const prev=(await dbAll()).find(r=>r.id===editingId);
-    x.id=editingId;
-    x.createdAt=prev?.createdAt||x.createdAt;
-    x.updatedAt=new Date().toISOString();
+  try{
+    const x=collect();
+    if(!x.fecha || !x.labor){ alert("Completa al menos Fecha y Labor."); return; }
+    if(x.rmrBasico===null){ alert("Completa todos los parámetros RMR."); return; }
+    if(x.ajuste===null){ alert("Completa la ruta del ajuste por orientación."); return; }
+
+    const wasEditing=editingId!==null;
+    if(wasEditing){
+      const prev=(await dbAll()).find(r=>r.id===editingId);
+      x.id=editingId;
+      x.createdAt=prev?.createdAt||x.createdAt;
+      x.updatedAt=new Date().toISOString();
+    }
+
+    await dbAdd(x);
+    editingId=null;
+    $("saveEvalBtn").textContent="Guardar evaluación";
+    $("cancelEditBtn").classList.add("hidden");
+    clearForm();
+    openTab("historial");
+    await renderHistory();
+
+    const msg=document.createElement("div");
+    msg.className="save-confirm";
+    msg.innerHTML=`<b>${wasEditing?"Evaluación actualizada":"Evaluación guardada correctamente"}</b><span>${formatSavedAt(wasEditing?x.updatedAt:x.createdAt)} · Registro disponible en el Historial.</span>`;
+    $("historyMain").prepend(msg);
+    window.scrollTo({top:0,behavior:"smooth"});
+  }catch(err){
+    console.error("Error al guardar evaluación:",err);
+    alert("No se pudo guardar la evaluación. Detalle: "+(err?.message||String(err)));
   }
-  await dbAdd(x);
-  const wasEditing=!!editingId;
+}
+
+$("saveEvalBtn").addEventListener("click",saveEval);
+$("cancelEditBtn").addEventListener("click",()=>{
   editingId=null;
   $("saveEvalBtn").textContent="Guardar evaluación";
   $("cancelEditBtn").classList.add("hidden");
   clearForm();
-  openTab("historial");
-  setTimeout(()=>{
-    const msg=document.createElement("div");
-    msg.className="save-confirm";
-    msg.innerHTML=`<b>${wasEditing?"Evaluación actualizada":"Evaluación guardada correctamente"}</b><span>${formatSavedAt(wasEditing?x.updatedAt:x.createdAt)} · Ya está disponible en el Historial.</span>`;
-    document.querySelector("#historyMain").prepend(msg);
-    setTimeout(()=>msg.remove(),5000);
-  },0);
-}
-
-$("saveEvalBtn").addEventListener("click",saveEval);
+});
 
 function esc(s){return String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));}
 const paramNames={
@@ -516,18 +530,27 @@ async function renderHistory(){
 }
 let detailId=null;
 async function showHistoryDetail(id){
-  const a=await dbAll(), x=a.find(r=>r.id===id); if(!x)return;
-  detailId=id;
-  $("historyMain").classList.add("hidden"); $("historyDetail").classList.remove("hidden");
-  $("detailSubtitle").textContent=`${x.fecha||""} · ${x.nivel||"Sin nivel"} · ${x.labor||"Sin labor"} · Guardado ${formatSavedAt(x.createdAt)}${x.updatedAt?` · Actualizado ${formatSavedAt(x.updatedAt)}`:""}`;
-  $("detailBasic").textContent=x.rmrBasico??"—";
-  $("detailAdj").textContent=x.ajuste===null||x.ajuste===undefined?"—":`${x.ajuste} · ${x.ajusteCategoria||""}`;
-  $("detailTotal").textContent=x.rmrTotal??"—";
-  $("detailRock").textContent=x.tipoRoca||"—"; applyRockColor("detailRockCard",x.rmrTotal);
-  $("detailIdentification").innerHTML=`<strong>Labor:</strong> ${esc(x.labor||"—")}<br><strong>Nivel:</strong> ${esc(x.nivel||"—")} · <strong>Block:</strong> ${esc(x.block||"—")}<br><strong>Turno:</strong> ${esc(x.turno||"—")} · <strong>Condición:</strong> ${esc(x.condicionLabor||"—")}<br><strong>Supervisor / Geomecánico:</strong> ${esc(x.supervisor||"—")}<br><strong>Fecha y hora de guardado:</strong> ${esc(formatSavedAt(x.createdAt))}${x.updatedAt?`<br><strong>Última actualización:</strong> ${esc(formatSavedAt(x.updatedAt))}`:""}`;
-  $("detailScores").innerHTML=scoreCards(x.params);
-  $("detailTrace").textContent=x.trazabilidad||"—";
-  $("detailObs").textContent=x.observaciones||"Sin observaciones.";
+  try{
+    const a=await dbAll(), x=a.find(r=>String(r.id)===String(id));
+    if(!x){ alert("No se encontró esta evaluación en el historial local."); return; }
+    detailId=x.id;
+    $("historyMain").classList.add("hidden");
+    $("historyDetail").classList.remove("hidden");
+    $("detailSubtitle").textContent=`${x.fecha||""} · ${x.nivel||"Sin nivel"} · ${x.labor||"Sin labor"} · Guardado ${formatSavedAt(x.createdAt)}${x.updatedAt?` · Actualizado ${formatSavedAt(x.updatedAt)}`:""}`;
+    $("detailBasic").textContent=x.rmrBasico??"—";
+    $("detailAdj").textContent=x.ajuste===null||x.ajuste===undefined?"—":`${x.ajuste} · ${x.ajusteCategoria||""}`;
+    $("detailTotal").textContent=x.rmrTotal??"—";
+    $("detailRock").textContent=x.tipoRoca||"—";
+    applyRockColor("detailRockCard",x.rmrTotal);
+    $("detailIdentification").innerHTML=`<strong>Labor:</strong> ${esc(x.labor||"—")}<br><strong>Nivel:</strong> ${esc(x.nivel||"—")} · <strong>Block:</strong> ${esc(x.block||"—")}<br><strong>Turno:</strong> ${esc(x.turno||"—")} · <strong>Condición:</strong> ${esc(x.condicionLabor||"—")}<br><strong>Supervisor / Geomecánico:</strong> ${esc(x.supervisor||"—")}<br><strong>Fecha y hora de guardado:</strong> ${esc(formatSavedAt(x.createdAt))}${x.updatedAt?`<br><strong>Última actualización:</strong> ${esc(formatSavedAt(x.updatedAt))}`:""}`;
+    $("detailScores").innerHTML=scoreCards(x.params||{});
+    $("detailTrace").textContent=x.trazabilidad||"—";
+    $("detailObs").textContent=x.observaciones||"Sin observaciones.";
+    window.scrollTo({top:0,behavior:"smooth"});
+  }catch(err){
+    console.error("Error al abrir detalle:",err);
+    alert("No se pudo abrir el detalle. Detalle: "+(err?.message||String(err)));
+  }
 }
 $("backHistoryBtn").onclick=renderHistory;
 $("deleteHistoryBtn").onclick=async()=>{if(detailId&&confirm("¿Eliminar esta evaluación? Esta acción no se puede deshacer.")){await dbDelete(detailId);detailId=null;renderHistory();}};
