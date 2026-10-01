@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#123d5a">
-<title>Geomecánica · RMR V2.4</title>
+<title>Geomecánica · RMR V2.5</title>
 <style>
 :root{
   --bg:#eef3f6; --card:#fff; --ink:#17232d; --muted:#667985; --line:#d7e1e7;
@@ -106,7 +106,7 @@ input[type="date"]::-webkit-calendar-picker-indicator{
 <body>
 <div class="app">
 <header>
-  <h1>Evaluación Geomecánica · RMR V2.4</h1>
+  <h1>Evaluación Geomecánica · RMR V2.5</h1>
   <p>Captura guiada, cálculo automático y trazabilidad del ajuste de orientación.</p>
 </header>
 
@@ -203,27 +203,35 @@ input[type="date"]::-webkit-calendar-picker-indicator{
     <h2>3. Ajuste por orientación</h2>
     <div class="section-note">El sistema registra cada decisión para reconstruir cómo se obtuvo el ajuste.</div>
     <div class="grid" style="margin-top:12px">
-      <div class="field full"><label>Rango de buzamiento</label>
-        <select id="buzamiento">
-          <option value="">Seleccionar…</option>
-          <option value="0-20">0°–20°</option>
-          <option value="20-45">20°–45°</option>
-          <option value="45-90">45°–90°</option>
-        </select>
-        <div class="help">Para evitar ambigüedad en los límites, se selecciona el rango tal como está escrito en la tabla fuente.</div>
-      </div>
-
-      <div id="rumboWrap" class="field full hidden"><label>Rumbo de las discontinuidades respecto al eje de la labor</label>
+      <div class="field full"><label>Rumbo de las discontinuidades respecto al eje de la labor</label>
         <select id="rumbo"><option value="">Seleccionar…</option><option value="perpendicular">Perpendicular al eje de la labor</option><option value="paralelo">Paralelo al eje de la labor</option></select>
       </div>
 
       <div id="sentidoWrap" class="field full hidden"><label>Sentido de excavación respecto al buzamiento</label>
         <select id="sentido"><option value="">Seleccionar…</option><option value="con">Excavación con el buzamiento</option><option value="contra">Excavación contra el buzamiento</option></select>
       </div>
+
+      <div id="buzamientoWrap" class="field full hidden"><label>Rango de buzamiento</label>
+        <select id="buzamiento">
+          <option value="">Seleccionar…</option>
+          <option value="0-20">0°–20°</option>
+          <option value="20-45">20°–45°</option>
+          <option value="45-90">45°–90°</option>
+        </select>
+        <div class="help">Selecciona el rango observado antes de calcular el ajuste.</div>
+      </div>
+    </div>
+
+    <h3>Resultado del ajuste</h3>
+    <div class="scoregrid" style="margin-bottom:12px">
+      <div class="kpi"><span>RMR básico</span><b id="basicOrientLive">—</b></div>
+      <div class="kpi"><span>Ajuste orientación</span><b id="adjOrientLive">—</b></div>
+      <div class="kpi"><span>RMR total</span><b id="totalOrientLive">—</b></div>
+      <div class="kpi"><span>Tipo de roca</span><b id="rockOrientLive">—</b></div>
     </div>
 
     <h3>Trazabilidad del ajuste</h3>
-    <div id="traceLive" class="trace">Completa el buzamiento para iniciar la ruta de decisión.</div><div id="nextStep" class="help" style="margin-top:8px"></div>
+    <div id="traceLive" class="trace">Selecciona el rumbo de las discontinuidades para iniciar la ruta de decisión.</div><div id="nextStep" class="help" style="margin-top:8px"></div>
   </div>
 
   <div class="card">
@@ -291,25 +299,38 @@ function labelOf(id){ const s=$(id); return s.selectedIndex>=0?s.options[s.selec
 function score(id){ const v=$(id).value; return v===""?null:Number(v); }
 
 function orientation(){
-  const b=$("buzamiento").value, r=$("rumbo").value, s=$("sentido").value;
-  $("rumboWrap").classList.toggle("hidden", !b || b==="0-20");
-  if(!b || b==="0-20"){ $("rumbo").value=""; $("sentido").value=""; $("sentidoWrap").classList.add("hidden"); }
-  else $("sentidoWrap").classList.toggle("hidden", r!=="perpendicular");
+  const r=$("rumbo").value, s=$("sentido").value, b=$("buzamiento").value;
 
-  if(!b) return {complete:false, adj:null,cat:"",trace:"Completa el buzamiento para iniciar la ruta de decisión."};
-  if(b==="0-20") return {complete:true,adj:-5,cat:"Regular",trace:"Buzamiento 0°–20° → sin importar el rumbo → Regular → ajuste −5"};
-  if(!r) return {complete:false,adj:null,cat:"",trace:`Buzamiento ${b==="20-45"?"20°–45°":"45°–90°"} → falta definir si el rumbo es paralelo o perpendicular al eje de la labor.`};
+  $("sentidoWrap").classList.toggle("hidden", r!=="perpendicular");
+  $("buzamientoWrap").classList.toggle("hidden", !r || (r==="perpendicular" && !s));
 
-  const B=b==="20-45"?"20°–45°":"45°–90°";
-  if(r==="paralelo"){
-    if(b==="20-45") return {complete:true,adj:-5,cat:"Regular",trace:`Buzamiento ${B} → rumbo paralelo al eje de la labor → Regular → ajuste −5`};
-    return {complete:true,adj:-12,cat:"Muy desfavorable",trace:`Buzamiento ${B} → rumbo paralelo al eje de la labor → Muy desfavorable → ajuste −12`};
+  if(!r){
+    $("sentido").value="";
+    $("buzamiento").value="";
+    return {complete:false,adj:null,cat:"",trace:"Selecciona si el rumbo de las discontinuidades es paralelo o perpendicular al eje de la labor."};
   }
-  if(!s) return {complete:false,adj:null,cat:"",trace:`Buzamiento ${B} → rumbo perpendicular al eje de la labor → falta definir si la excavación va con o contra el buzamiento.`};
-  if(s==="con" && b==="20-45") return {complete:true,adj:-2,cat:"Favorable",trace:`Buzamiento ${B} → rumbo perpendicular → excavación con el buzamiento → Favorable → ajuste −2`};
-  if(s==="con" && b==="45-90") return {complete:true,adj:0,cat:"Muy favorable",trace:`Buzamiento ${B} → rumbo perpendicular → excavación con el buzamiento → Muy favorable → ajuste 0`};
-  if(s==="contra" && b==="20-45") return {complete:true,adj:-10,cat:"Desfavorable",trace:`Buzamiento ${B} → rumbo perpendicular → excavación contra el buzamiento → Desfavorable → ajuste −10`};
-  return {complete:true,adj:-5,cat:"Regular",trace:`Buzamiento ${B} → rumbo perpendicular → excavación contra el buzamiento → Regular → ajuste −5`};
+
+  if(r==="paralelo"){
+    $("sentido").value="";
+    if(!b) return {complete:false,adj:null,cat:"",trace:"Rumbo paralelo al eje de la labor → falta seleccionar el rango de buzamiento."};
+    const B=b==="0-20"?"0°–20°":b==="20-45"?"20°–45°":"45°–90°";
+    if(b==="0-20") return {complete:true,adj:-5,cat:"Regular",trace:`Rumbo paralelo → buzamiento ${B} → Regular → ajuste −5`};
+    if(b==="20-45") return {complete:true,adj:-5,cat:"Regular",trace:`Rumbo paralelo → buzamiento ${B} → Regular → ajuste −5`};
+    return {complete:true,adj:-12,cat:"Muy desfavorable",trace:`Rumbo paralelo → buzamiento ${B} → Muy desfavorable → ajuste −12`};
+  }
+
+  if(!s){
+    $("buzamiento").value="";
+    return {complete:false,adj:null,cat:"",trace:"Rumbo perpendicular al eje de la labor → falta definir si la excavación va con o contra el buzamiento."};
+  }
+  if(!b) return {complete:false,adj:null,cat:"",trace:`Rumbo perpendicular → excavación ${s==="con"?"con":"contra"} el buzamiento → falta seleccionar el rango de buzamiento.`};
+
+  const B=b==="0-20"?"0°–20°":b==="20-45"?"20°–45°":"45°–90°";
+  if(b==="0-20") return {complete:true,adj:-5,cat:"Regular",trace:`Rumbo perpendicular → excavación ${s==="con"?"con":"contra"} el buzamiento → buzamiento ${B} → Regular → ajuste −5`};
+  if(s==="con" && b==="20-45") return {complete:true,adj:-2,cat:"Favorable",trace:`Rumbo perpendicular → excavación con el buzamiento → buzamiento ${B} → Favorable → ajuste −2`};
+  if(s==="con" && b==="45-90") return {complete:true,adj:0,cat:"Muy favorable",trace:`Rumbo perpendicular → excavación con el buzamiento → buzamiento ${B} → Muy favorable → ajuste 0`};
+  if(s==="contra" && b==="20-45") return {complete:true,adj:-10,cat:"Desfavorable",trace:`Rumbo perpendicular → excavación contra el buzamiento → buzamiento ${B} → Desfavorable → ajuste −10`};
+  return {complete:true,adj:-5,cat:"Regular",trace:`Rumbo perpendicular → excavación contra el buzamiento → buzamiento ${B} → Regular → ajuste −5`};
 }
 
 function rockType(v){
@@ -338,15 +359,18 @@ function recalc(){
   $("adjOut").textContent=o.complete?(o.adj>0?`+${o.adj}`:`${o.adj}`):"—";
   $("totalOut").textContent=total===null?"—":total;
   $("rockOut").textContent=rockType(total);
+  $("basicOrientLive").textContent=basic===null?"—":basic;
+  $("adjOrientLive").textContent=o.complete?(o.adj>0?`+${o.adj}`:`${o.adj}`):"—";
+  $("totalOrientLive").textContent=total===null?"—":total;
+  $("rockOrientLive").textContent=rockType(total);
   $("traceLive").innerHTML=`<strong>${o.cat||"Ruta en proceso"}</strong><br>${o.trace}`;
   $("traceOut").innerHTML=`<strong>${o.cat||"Ruta incompleta"}</strong><br>${o.trace}`;
   let paso="";
-  const b=$("buzamiento").value, r=$("rumbo").value;
-  if(!b) paso="Siguiente: selecciona el rango de buzamiento.";
-  else if(b==="0-20") paso="Ruta completa: no se requiere evaluar rumbo.";
-  else if(!r) paso="Siguiente: selecciona si el rumbo es paralelo o perpendicular al eje de la labor.";
-  else if(r==="perpendicular" && !$("sentido").value) paso="Siguiente: selecciona si la excavación va con o contra el buzamiento.";
-  else paso="Ruta de orientación completa.";
+  const r=$("rumbo").value, s=$("sentido").value, b=$("buzamiento").value;
+  if(!r) paso="Siguiente: selecciona si el rumbo es paralelo o perpendicular al eje de la labor.";
+  else if(r==="perpendicular" && !s) paso="Siguiente: selecciona si la excavación va con o contra el buzamiento.";
+  else if(!b) paso="Siguiente: selecciona el rango de buzamiento.";
+  else paso="Ruta de orientación completa. El ajuste y el RMR total ya están calculados.";
   $("nextStep").textContent=paso;
   $("scoreDetail").textContent=rmrIds.map(id=>`${document.querySelector('label[for="'+id+'"]')?.textContent||id}: ${score(id)??"—"}`).join(" · ");
   return {complete, basic, orientation:o, total, rock:rockType(total)};
@@ -431,7 +455,7 @@ $("clearBtn").onclick=clearForm;
 $("demoBtn").onclick=()=>{
   $("resistencia").value="7";$("rqd").value="13";$("espaciamiento").value="10";$("apertura").value="4";
   $("rugosidad").value="3";$("relleno").value="4";$("persistencia").value="4";$("alteracion").value="5";$("agua").value="10";
-  $("buzamiento").value="20-45"; orientation(); $("rumbo").value="perpendicular"; orientation(); $("sentido").value="contra";
+  $("rumbo").value="perpendicular"; orientation(); $("sentido").value="contra"; orientation(); $("buzamiento").value="20-45";
   $("labor").value=$("labor").value||"EJEMPLO-RMR60"; recalc(); openTab("resultado");
 };
 recalc();renderHistory();
