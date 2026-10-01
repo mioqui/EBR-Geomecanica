@@ -558,15 +558,18 @@ function applyGeoCorrection(){
 const obsField=$("observaciones");
 // iOS puede insertar el texto del dictado sin disparar un input utilizable por la PWA.
 // Revisamos durante la edición y también al salir del campo.
-obsField.addEventListener("input",applyGeoCorrection);
-obsField.addEventListener("change",applyGeoCorrection);
-obsField.addEventListener("blur",applyGeoCorrection);
-let geoCorrectionTimer=null;
-obsField.addEventListener("focus",()=>{
-  clearInterval(geoCorrectionTimer);
-  geoCorrectionTimer=setInterval(()=>{if(document.activeElement===obsField)applyGeoCorrection();},500);
+let geoCorrectionDebounce=null;
+// No modificamos el textarea mientras iOS está componiendo el dictado:
+// hacerlo puede interferir con el texto provisional y provocar repeticiones.
+obsField.addEventListener("input",()=>{
+  clearTimeout(geoCorrectionDebounce);
+  geoCorrectionDebounce=setTimeout(applyGeoCorrection,1200);
 });
-obsField.addEventListener("blur",()=>{clearInterval(geoCorrectionTimer);geoCorrectionTimer=null;});
+obsField.addEventListener("change",applyGeoCorrection);
+obsField.addEventListener("blur",()=>{
+  clearTimeout(geoCorrectionDebounce);
+  applyGeoCorrection();
+});
 
 function preloadRealTestData(){
   // Caso real tomado del Control Operativo Geomecánica del 22/08/2026:
