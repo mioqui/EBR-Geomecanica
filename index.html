@@ -128,6 +128,11 @@ input[type="date"]::-webkit-calendar-picker-indicator{
 </nav>
 
 <section id="evaluacion" class="panel active">
+  <div class="card test-tools">
+    <div class="history-top">
+      <div><b>Prueba rápida</b><div class="small">Temporal para validar el flujo completo de la aplicación.</div></div>
+    </div>
+  </div>
   <div class="card">
     <h2>1. Identificación</h2>
     <div class="grid">
@@ -587,10 +592,29 @@ function clearForm(){
 $("clearBtn").onclick=clearForm;
 
 $("demoBtn").onclick=()=>{
-  $("resistencia").value="7";$("rqd").value="13";$("espaciamiento").value="10";$("apertura").value="4";
-  $("rugosidad").value="3";$("relleno").value="4";$("persistencia").value="4";$("alteracion").value="5";$("agua").value="10";
-  $("buzamiento").value="20-45"; orientation(); $("rumbo").value="perpendicular"; orientation(); $("sentido").value="contra";
-  $("labor").value=$("labor").value||"EJEMPLO-RMR60"; recalc();
+  $("fecha").value=today();
+  $("turno").value="Día";
+  $("nivel").value="4055";
+  $("block").value="B7998";
+  $("labor").value="GL765N";
+  $("condicionLabor").value="Temporal";
+  $("supervisor").value="PRUEBA GEOMECÁNICA";
+  $("resistencia").value="7";
+  $("rqd").value="13";
+  $("espaciamiento").value="10";
+  $("apertura").value="4";
+  $("rugosidad").value="3";
+  $("relleno").value="4";
+  $("persistencia").value="4";
+  $("alteracion").value="5";
+  $("agua").value="10";
+  $("buzamiento").value="20-45";
+  orientation();
+  $("rumbo").value="perpendicular";
+  orientation();
+  $("sentido").value="contra";
+  $("observaciones").value="REGISTRO DE PRUEBA · Validación del flujo completo de evaluación, guardado e historial.";
+  recalc();
 };
 recalc();renderHistory();
 </script>
