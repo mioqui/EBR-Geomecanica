@@ -141,7 +141,10 @@ input[type="date"]::-webkit-calendar-picker-indicator{
 
 <section id="evaluacion" class="panel active">
   <div class="card">
-    <h2>1. Identificación</h2>
+    <div class="history-top">
+      <h2 style="margin-bottom:0">1. Identificación</h2>
+      <button class="btn" id="preloadBtn" type="button">Precargar datos de prueba</button>
+    </div>
     <div class="grid">
       <div class="field date-field"><label>Fecha</label><input id="fecha" type="date"></div>
       <div class="field"><label>Turno</label><select id="turno"><option value="">Seleccionar…</option><option>Día</option><option>Noche</option></select></div>
@@ -517,6 +520,34 @@ if(SpeechRecognition){
   $("dictateBtn").onclick=()=>alert("Este navegador no ofrece dictado directo desde la página. Usa el micrófono del teclado del celular dentro del campo Observaciones.");
   $("dictateStatus").textContent="En este navegador usa el micrófono del teclado del celular para dictar la observación.";
 }
+
+function preloadRealTestData(){
+  // Caso real tomado del Control Operativo Geomecánica del 22/08/2026:
+  // Zona Profunda, Nivel 3960, Block 7998, Labor GL665S, RMR reportado 45 (IIIB).
+  $("fecha").value="2026-08-22";
+  $("turno").value="Día";
+  $("nivel").value="3960";
+  $("block").value="7998";
+  $("labor").value="GL665S";
+  $("condicionLabor").value="Temporal";
+  $("supervisor").value="GEOMECÁNICA";
+  // Parámetros de prueba coherentes con RMR básico 50; ajuste Regular (-5) => RMR total 45.
+  $("resistencia").value="7";
+  $("rqd").value="13";
+  $("espaciamiento").value="10";
+  $("apertura").value="4";
+  $("rugosidad").value="3";
+  $("relleno").value="4";
+  $("persistencia").value="4";
+  $("alteracion").value="5";
+  $("agua").value="0";
+  $("buzamiento").value="0-20";
+  orientation();
+  $("observaciones").value="Caso de prueba: SLOT. Registro de referencia del Control Operativo Geomecánica 22/08/2026.";
+  currentPhotos=[]; renderPhotoPreview(); recalc();
+  window.scrollTo({top:0,behavior:"smooth"});
+}
+$("preloadBtn").onclick=preloadRealTestData;
 
 function collect(){
   const calc=recalc();
