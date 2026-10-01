@@ -505,7 +505,7 @@ $("closePhotoModal").onclick=closePhotoModal;
 $("photoModal").onclick=e=>{if(e.target===$("photoModal"))closePhotoModal();};
 
 const SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition;
-let recognition=null,dictating=false,dictateStarting=false;
+let recognition=null,dictating=false,dictateStarting=false,dictateBaseText="";
 function resetDictateUI(msg="Listo para dictar otra observación."){
   dictating=false; dictateStarting=false;
   $("dictateBtn").disabled=false;
@@ -515,31 +515,39 @@ function resetDictateUI(msg="Listo para dictar otra observación."){
 function makeRecognition(){
   if(!SpeechRecognition)return null;
   const r=new SpeechRecognition();
-  r.lang="es-PE"; r.continuous=false; r.interimResults=false; r.maxAlternatives=1;
-  r.onstart=()=>{dictateStarting=false;dictating=true;$("dictateBtn").disabled=false;$("dictateBtn").textContent="⏹️ Detener dictado";$("dictateStatus").textContent="Escuchando… habla normalmente."};
+  r.lang="es-PE"; r.continuous=false; r.interimResults=true; r.maxAlternatives=1;
+  r.onstart=()=>{
+    dictateStarting=false;dictating=true;
+    dictateBaseText=$("observaciones").value.trim();
+    $("dictateBtn").disabled=false;$("dictateBtn").textContent="⏹️ Detener dictado";
+    $("dictateStatus").textContent="Escuchando… el texto aparecerá mientras hablas.";
+  };
   r.onresult=e=>{
-    let text=""; for(let i=e.resultIndex;i<e.results.length;i++) if(e.results[i].isFinal) text+=e.results[i][0].transcript;
-    if(text){const el=$("observaciones"),sep=el.value.trim()?" ":"";el.value+=sep+text.trim();}
+    let finalText="",interimText="";
+    for(let i=0;i<e.results.length;i++){
+      const t=e.results[i][0].transcript;
+      if(e.results[i].isFinal) finalText+=t+" ";
+      else interimText+=t;
+    }
+    const spoken=(finalText+interimText).trim();
+    const sep=dictateBaseText&&spoken?" ":"";
+    $("observaciones").value=dictateBaseText+sep+spoken;
   };
   r.onerror=e=>{
     const code=e.error||"desconocido";
     const msg=code==="not-allowed"?"Permiso de micrófono denegado. Revisa el permiso del navegador.":code==="no-speech"?"No se detectó voz. Puedes intentarlo nuevamente.":code==="audio-capture"?"No se pudo acceder al micrófono.":code==="network"?"El dictado no pudo conectarse al servicio de reconocimiento.":"No se pudo iniciar el dictado ("+code+"). Inténtalo nuevamente.";
     resetDictateUI(msg);
   };
-  r.onend=()=>{ recognition=null; resetDictateUI("Dictado finalizado. Puedes volver a dictar."); };
+  r.onend=()=>{recognition=null;resetDictateUI("Dictado finalizado. Puedes volver a dictar.");};
   return r;
 }
 if(SpeechRecognition){
   $("dictateBtn").onclick=()=>{
-    if(dictating && recognition){try{recognition.stop();}catch(e){} return;}
+    if(dictating&&recognition){try{recognition.stop();}catch(e){}return;}
     if(dictateStarting)return;
-    dictateStarting=true;
-    $("dictateBtn").disabled=true;
-    $("dictateStatus").textContent="Iniciando micrófono…";
+    dictateStarting=true;$("dictateBtn").disabled=true;$("dictateStatus").textContent="Iniciando micrófono…";
     try{
-      recognition=makeRecognition();
-      recognition.start();
-      // iOS puede dejar una instancia bloqueada sin disparar onstart/onerror.
+      recognition=makeRecognition();recognition.start();
       setTimeout(()=>{if(dictateStarting){try{recognition&&recognition.abort();}catch(e){} recognition=null;resetDictateUI("No se pudo iniciar el micrófono. Inténtalo nuevamente.");}},4000);
     }catch(e){recognition=null;resetDictateUI("No se pudo iniciar el dictado. Inténtalo nuevamente.");}
   };
