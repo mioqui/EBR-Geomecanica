@@ -442,6 +442,7 @@ function collect(){
   return {
     id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
     createdAt:new Date().toISOString(),
+    updatedAt:null,
     fecha:$("fecha").value,turno:$("turno").value,nivel:$("nivel").value.trim().toUpperCase(),block:$("block").value.trim().toUpperCase(),
     labor:$("labor").value.trim().toUpperCase(),condicionLabor:$("condicionLabor").value,supervisor:$("supervisor").value.trim().toUpperCase(),
     params,buzamiento:$("buzamiento").value,rumbo:$("rumbo").value,sentido:$("sentido").value,
@@ -462,7 +463,12 @@ async function saveEval(){
   if(!x.fecha || !x.labor){ alert("Completa al menos Fecha y Labor."); return; }
   if(x.rmrBasico===null){ alert("Completa todos los parámetros RMR."); return; }
   if(x.ajuste===null){ alert("Completa la ruta del ajuste por orientación."); return; }
-  if(editingId) x.id=editingId;
+  if(editingId){
+    const prev=(await dbAll()).find(r=>r.id===editingId);
+    x.id=editingId;
+    x.createdAt=prev?.createdAt||x.createdAt;
+    x.updatedAt=new Date().toISOString();
+  }
   await dbAdd(x);
   const wasEditing=!!editingId;
   editingId=null;
@@ -473,11 +479,13 @@ async function saveEval(){
   setTimeout(()=>{
     const msg=document.createElement("div");
     msg.className="save-confirm";
-    msg.innerHTML=`<b>${wasEditing?"Evaluación actualizada":"Evaluación guardada correctamente"}</b><span>${formatSavedAt(x.createdAt)} · Ya está disponible en el Historial.</span>`;
+    msg.innerHTML=`<b>${wasEditing?"Evaluación actualizada":"Evaluación guardada correctamente"}</b><span>${formatSavedAt(wasEditing?x.updatedAt:x.createdAt)} · Ya está disponible en el Historial.</span>`;
     document.querySelector("#historyMain").prepend(msg);
     setTimeout(()=>msg.remove(),5000);
   },0);
 }
+
+$("saveEvalBtn").addEventListener("click",saveEval);
 
 function esc(s){return String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));}
 const paramNames={
@@ -498,7 +506,7 @@ async function renderHistory(){
   $("historyMain").classList.remove("hidden"); $("historyDetail").classList.add("hidden");
   const a=await dbAll();$("countPill").textContent=`${a.length} registro${a.length===1?"":"s"}`;
   $("historyList").innerHTML=a.length?a.map(x=>`<div class="history-item" role="button" tabindex="0" data-id="${esc(x.id)}" style="cursor:pointer">
-    <div class="history-top"><div><b>${esc(x.labor||"Sin labor")}</b><div class="small">${esc(x.fecha)} · ${esc(x.nivel||"Sin nivel")} · ${esc(x.supervisor||"Sin supervisor")}</div><div class="saved-at">Guardado: ${esc(formatSavedAt(x.createdAt))}</div></div><span class="pill">RMR ${x.rmrTotal} · ${esc(x.tipoRoca)}</span></div>
+    <div class="history-top"><div><b>${esc(x.labor||"Sin labor")}</b><div class="small">${esc(x.fecha)} · ${esc(x.nivel||"Sin nivel")} · ${esc(x.supervisor||"Sin supervisor")}</div><div class="saved-at">Guardado: ${esc(formatSavedAt(x.createdAt))}${x.updatedAt?` · Actualizado: ${esc(formatSavedAt(x.updatedAt))}`:""}</div></div><span class="pill">RMR ${x.rmrTotal} · ${esc(x.tipoRoca)}</span></div>
     <div class="small" style="margin-top:7px">Toca para ver el detalle</div>
   </div>`).join(""):`<div class="small" style="padding:14px 0">Todavía no hay evaluaciones guardadas.</div>`;
   document.querySelectorAll(".history-item[data-id]").forEach(el=>{
@@ -511,12 +519,12 @@ async function showHistoryDetail(id){
   const a=await dbAll(), x=a.find(r=>r.id===id); if(!x)return;
   detailId=id;
   $("historyMain").classList.add("hidden"); $("historyDetail").classList.remove("hidden");
-  $("detailSubtitle").textContent=`${x.fecha||""} · ${x.nivel||"Sin nivel"} · ${x.labor||"Sin labor"} · Guardado ${formatSavedAt(x.createdAt)}`;
+  $("detailSubtitle").textContent=`${x.fecha||""} · ${x.nivel||"Sin nivel"} · ${x.labor||"Sin labor"} · Guardado ${formatSavedAt(x.createdAt)}${x.updatedAt?` · Actualizado ${formatSavedAt(x.updatedAt)}`:""}`;
   $("detailBasic").textContent=x.rmrBasico??"—";
   $("detailAdj").textContent=x.ajuste===null||x.ajuste===undefined?"—":`${x.ajuste} · ${x.ajusteCategoria||""}`;
   $("detailTotal").textContent=x.rmrTotal??"—";
   $("detailRock").textContent=x.tipoRoca||"—"; applyRockColor("detailRockCard",x.rmrTotal);
-  $("detailIdentification").innerHTML=`<strong>Labor:</strong> ${esc(x.labor||"—")}<br><strong>Nivel:</strong> ${esc(x.nivel||"—")} · <strong>Block:</strong> ${esc(x.block||"—")}<br><strong>Turno:</strong> ${esc(x.turno||"—")} · <strong>Condición:</strong> ${esc(x.condicionLabor||"—")}<br><strong>Supervisor / Geomecánico:</strong> ${esc(x.supervisor||"—")}<br><strong>Fecha y hora de guardado:</strong> ${esc(formatSavedAt(x.createdAt))}`;
+  $("detailIdentification").innerHTML=`<strong>Labor:</strong> ${esc(x.labor||"—")}<br><strong>Nivel:</strong> ${esc(x.nivel||"—")} · <strong>Block:</strong> ${esc(x.block||"—")}<br><strong>Turno:</strong> ${esc(x.turno||"—")} · <strong>Condición:</strong> ${esc(x.condicionLabor||"—")}<br><strong>Supervisor / Geomecánico:</strong> ${esc(x.supervisor||"—")}<br><strong>Fecha y hora de guardado:</strong> ${esc(formatSavedAt(x.createdAt))}${x.updatedAt?`<br><strong>Última actualización:</strong> ${esc(formatSavedAt(x.updatedAt))}`:""}`;
   $("detailScores").innerHTML=scoreCards(x.params);
   $("detailTrace").textContent=x.trazabilidad||"—";
   $("detailObs").textContent=x.observaciones||"Sin observaciones.";
