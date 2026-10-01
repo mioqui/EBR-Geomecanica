@@ -1,4 +1,4 @@
-const CACHE='ebr-rmr-v2-9-3';
+const CACHE='ebr-rmr-v2-9-1';
 const ASSETS=['./','./index.html','./manifest.webmanifest'];
 
 self.addEventListener('install',event=>{
