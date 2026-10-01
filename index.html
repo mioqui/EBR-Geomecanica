@@ -20,7 +20,8 @@ button,input,select,textarea{max-width:100%;min-width:0}
 .app{width:min(980px,100%);margin:0 auto;padding:12px 12px 28px}
 header{background:linear-gradient(135deg,var(--brand),var(--brand2));color:white;border-radius:18px;padding:18px;
   box-shadow:var(--shadow);margin-bottom:12px}
-header h1{font-size:clamp(.92rem,4.3vw,1.25rem);margin:0 0 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:-.01em}
+header h1{font-size:min(1.25rem,calc((100vw - 54px) * .058));margin:0 0 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+header h1 .ver{font-size:.6em;font-weight:700;opacity:.85;margin-left:2px;white-space:nowrap}
 header p{margin:0;opacity:.9;font-size:.9rem}
 .tabs{display:flex;gap:8px;overflow-x:auto;padding:2px 0 10px;scrollbar-width:none}
 .tabs::-webkit-scrollbar{display:none}
@@ -144,7 +145,7 @@ input[type="date"]::-webkit-calendar-picker-indicator{
 <body>
 <div class="app">
 <header>
-  <h1>Evaluación Geomecánica · RMR V1.0</h1>
+  <h1>Evaluación Geomecánica · RMR <span class="ver">V1.0</span></h1>
   <p>Captura guiada, cálculo automático y trazabilidad del ajuste de orientación.</p>
 </header>
 
