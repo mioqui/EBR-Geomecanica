@@ -24,14 +24,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Rebuild app
-        run: |
-          : > index.html
-          for f in srcparts/index.*.b64; do
-            base64 -d "$f" >> index.html
-          done
-          rm -rf srcparts
-
       - name: Configure Pages
         uses: actions/configure-pages@v5
         with:
