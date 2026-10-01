@@ -60,6 +60,7 @@ textarea{min-height:82px;resize:vertical}
 .history-item{border:1px solid var(--line);border-radius:12px;padding:11px;margin-bottom:8px;background:#fff}
 .history-top{display:flex;justify-content:space-between;gap:10px;align-items:start}.history-top > *{min-width:0}
 .small{font-size:.78rem;color:var(--muted)}.pill{font-size:.72rem;font-weight:800;background:#eef3f6;border-radius:999px;padding:5px 8px;white-space:nowrap}
+.rock-dot{display:inline-block;width:14px;height:14px;border-radius:3px;border:1px solid rgba(0,0,0,.22);vertical-align:-2px;margin-right:5px;flex:0 0 auto}
 .saved-at{font-size:.74rem;color:var(--muted);margin-top:4px;font-weight:700}
 .save-confirm{display:flex;flex-direction:column;gap:3px;margin-bottom:12px;padding:12px 14px;border:1px solid #b9dccc;border-radius:12px;background:#eef8f3;color:#1e604f}
 .save-confirm span{font-size:.8rem;color:#3f6c60}
@@ -527,7 +528,7 @@ async function renderHistory(){
   $("historyMain").classList.remove("hidden"); $("historyDetail").classList.add("hidden");
   const a=await dbAll();$("countPill").textContent=`${a.length} registro${a.length===1?"":"s"}`;
   $("historyList").innerHTML=a.length?a.map(x=>`<div class="history-item" role="button" tabindex="0" data-id="${esc(x.id)}" style="cursor:pointer">
-    <div class="history-top"><div><b>${esc(x.labor||"Sin labor")}</b><div class="small">${esc(x.fecha)} · ${esc(x.nivel||"Sin nivel")} · ${esc(x.supervisor||"Sin supervisor")}</div><div class="saved-at">Guardado: ${esc(formatSavedAt(x.createdAt))}${x.updatedAt?` · Actualizado: ${esc(formatSavedAt(x.updatedAt))}`:""}</div></div><span class="pill">RMR ${x.rmrTotal} · ${esc(x.tipoRoca)}</span></div>
+    <div class="history-top"><div><b>${esc(x.labor||"Sin labor")}</b><div class="small">${esc(x.fecha)} · ${esc(x.nivel||"Sin nivel")} · ${esc(x.supervisor||"Sin supervisor")}</div><div class="saved-at">Guardado: ${esc(formatSavedAt(x.createdAt))}${x.updatedAt?` · Actualizado: ${esc(formatSavedAt(x.updatedAt))}`:""}</div></div><span class="pill"><span class="rock-dot" style="background:${rockColor(x.rmrTotal)||"#fff"}"></span>RMR ${x.rmrTotal} · ${esc(x.tipoRoca)}</span></div>
     <div class="small" style="margin-top:7px">Toca para ver el detalle</div>
   </div>`).join(""):`<div class="small" style="padding:14px 0">Todavía no hay evaluaciones guardadas.</div>`;
   document.querySelectorAll(".history-item[data-id]").forEach(el=>{
