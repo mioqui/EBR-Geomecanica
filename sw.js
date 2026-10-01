@@ -1,4 +1,4 @@
-const CACHE='ebr-rmr-v1-0-dict3';
+const CACHE='ebr-rmr-v1-0-dict4';
 const ASSETS=['./','./index.html','./manifest.webmanifest','./icons/icon-180.png','./icons/icon-192.png'];
 
 self.addEventListener('install',event=>{
