@@ -151,6 +151,12 @@ input[type="date"]::-webkit-calendar-picker-indicator{
 .gsi-calc-body{padding:0 12px 12px;font-size:.88rem;line-height:1.6;overflow-wrap:anywhere}
 .gsi-calc-body .formula{font-weight:800;color:var(--ink)}
 .gsi-calc-body .note{display:block;margin-top:6px;font-size:.76rem;color:var(--muted)}
+.gsi-head{display:flex;align-items:center;gap:8px;margin:0 0 12px}
+.gsi-head h2{margin:0}
+.info-btn{flex:0 0 auto;width:26px;height:26px;border-radius:50%;border:1.5px solid var(--brand2);background:#fff;color:var(--brand2);font-weight:900;font-size:.9rem;line-height:1;cursor:pointer;padding:0}
+.info-btn[aria-expanded="true"]{background:var(--brand2);color:#fff}
+.info-btn:focus-visible{outline:3px solid rgba(31,101,134,.35);outline-offset:2px}
+.info-note{background:#fff8e6;border:1px solid #f0d9a4;color:#6b4a0e;border-radius:10px;padding:9px 11px;font-size:.84rem;margin:0 0 10px}
 </style>
 <link rel="manifest" href="./manifest.webmanifest"></head>
 <body>
@@ -359,8 +365,12 @@ input[type="date"]::-webkit-calendar-picker-indicator{
 
 <section id="gsi" class="panel">
   <div class="card">
-    <h2>Clasificación rápida GSI</h2>
-    <div class="section-note">Toca la celda que corresponde a la estructura (fracturas por metro) y a la condición de la roca (golpe de picota y estado de las juntas). Los valores se calculan con relaciones publicadas (Priest y Hudson; Hoek, Carter y Diederichs) y son provisionales hasta calibrarlos con la tabla GSI oficial del área.</div>
+    <div class="gsi-head">
+      <h2>Clasificación rápida GSI</h2>
+      <button type="button" class="info-btn" id="gsiInfoBtn" aria-label="Información sobre la tabla GSI" aria-expanded="false" aria-controls="gsiInfoNote">?</button>
+    </div>
+    <div class="info-note hidden" id="gsiInfoNote" role="note">Los valores son provisionales hasta calibrarlos con la tabla GSI oficial del área.</div>
+    <div class="section-note">Toca la celda que corresponde a la estructura (fracturas por metro) y a la condición de la roca (golpe de picota y estado de las juntas).</div>
     <div class="gsi-wrap" style="margin-top:12px">
       <table class="gsi-table" aria-label="Tabla GSI">
         <thead><tr><th class="row-h">Estructura</th><th>Muy buena</th><th>Buena</th><th>Regular</th><th>Pobre</th><th>Muy pobre</th></tr></thead>
@@ -389,12 +399,9 @@ input[type="date"]::-webkit-calendar-picker-indicator{
   <div class="card" id="gsiResultCard">
     <h2>Resultado</h2>
     <div class="scoregrid">
-      <div class="kpi"><span>GSI</span><b id="gsiValue">—</b></div>
-      <div class="kpi"><span>RMR equivalente</span><b id="gsiRmr">—</b></div>
-      <div class="kpi rock-result" id="gsiRockCard" style="grid-column:span 2"><span>Tipo de roca</span><b id="gsiRock">Selecciona una celda</b></div>
+      <div class="kpi" style="grid-column:1/-1"><span>GSI</span><b id="gsiValue">—</b></div>
+      <div class="kpi rock-result" id="gsiRockCard" style="grid-column:1/-1"><span>Tipo de roca</span><b id="gsiRock">Selecciona una celda</b></div>
     </div>
-    <div class="trace" id="gsiTrace" style="margin-top:10px">Aún no se ha seleccionado ninguna celda.</div>
-    <div class="help">RMR equivalente aproximado: GSI + 5 (Hoek, 1995). No considera agua ni orientación de las juntas; para la indicación formal usa la evaluación RMR.</div>
     <div class="actions"><button class="btn" id="gsiClearBtn" type="button">Limpiar selección</button></div>
   </div>
 </section>
@@ -1024,23 +1031,22 @@ recalc();renderHistory();
   const card=$g("gsiRockCard");
   function clear(){
     body.querySelectorAll(".gsi-cell").forEach(b=>b.setAttribute("aria-pressed","false"));
-    $g("gsiValue").textContent="—"; $g("gsiRmr").textContent="—"; $g("gsiRock").textContent="Selecciona una celda";
+    $g("gsiValue").textContent="—"; $g("gsiRock").textContent="Selecciona una celda";
     card.style.background=""; card.style.color=""; card.style.borderColor="";
     card.querySelectorAll("span,b").forEach(e=>e.style.color="");
-    $g("gsiTrace").textContent="Aún no se ha seleccionado ninguna celda.";
   }
   body.addEventListener("click",e=>{
     const b=e.target.closest(".gsi-cell"); if(!b) return;
     body.querySelectorAll(".gsi-cell").forEach(x=>x.setAttribute("aria-pressed",String(x===b)));
     const r=rows[+b.dataset.r], g=r[3][+b.dataset.c], rmr=Math.min(100,g+5), c=classOf(rmr);
-    $g("gsiValue").textContent=g; $g("gsiRmr").textContent="≈ "+rmr; $g("gsiRock").textContent=`${c[1]} · ${c[2]}`;
+    $g("gsiValue").textContent=g; $g("gsiRock").textContent=`${c[1]} · ${c[2]}`;
     card.style.background=c[3]; card.style.borderColor=c[3];
     card.querySelectorAll("span,b").forEach(e=>e.style.color=c[4]);
-    const j=JC[+b.dataset.c];
-    $g("gsiTrace").innerHTML=`<strong>Estructura:</strong> ${r[0]} (${r[1]}) → λ ≈ ${r[4]} fract/m → RQD ≈ ${r[5]} %<br><strong>Condición:</strong> ${conds[+b.dataset.c]} → JCond89 ≈ ${j}<br><strong>GSI</strong> = 1.5 × ${j} + ${r[5]} / 2 = ${g}<br><strong>Tipo de roca:</strong> RMR ≈ ${g} + 5 = ${rmr} → ${c[1]} (${c[2]})`;
     $g("gsiResultCard").scrollIntoView({behavior:"smooth",block:"nearest"});
   });
   $g("gsiClearBtn").addEventListener("click",clear);
+  const infoBtn=$g("gsiInfoBtn"), infoNote=$g("gsiInfoNote");
+  infoBtn.addEventListener("click",()=>{const open=infoNote.classList.toggle("hidden")===false;infoBtn.setAttribute("aria-expanded",String(open));});
 })();
 </script>
 <script>if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));}</script></body>
