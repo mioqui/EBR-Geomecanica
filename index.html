@@ -188,6 +188,8 @@ input[type="date"]::-webkit-calendar-picker-indicator{
           <option value="20">90–100% — 20 pts</option><option value="17">75–90% — 17 pts</option>
           <option value="13">50–75% — 13 pts</option><option value="8">25–50% — 8 pts</option><option value="3">&lt; 25% — 3 pts</option>
         </select>
+        <input id="rqdMedido" type="number" inputmode="decimal" min="0" max="100" step="0.1" placeholder="RQD medido % (opcional)" style="margin-top:6px" aria-label="RQD medido en porcentaje, opcional">
+        <div class="help" id="rqdMedidoHelp">Opcional. Si lo dejas vacío, el GSI usa el punto medio del rango.</div>
       </div>
       <div class="field"><label>Espaciamiento</label>
         <select id="espaciamiento" class="rmr"><option value="">Seleccionar…</option>
@@ -271,6 +273,9 @@ input[type="date"]::-webkit-calendar-picker-indicator{
       <div class="kpi final-result"><span>RMR total</span><b id="totalOrientLive">—</b></div>
       <div class="kpi rock-result" id="rockOrientCard"><span>Tipo de roca</span><b id="rockOrientLive">—</b></div>
     </div>
+    <div class="kpi" style="margin-bottom:12px"><span>GSI estimado (Hoek, Carter y Diederichs, 2013)</span><b id="gsiCalcLive">—</b>
+      <div class="help" id="gsiCalcTrace">Completa RQD y las cinco condiciones de las juntas para estimar el GSI.</div>
+    </div>
 
     <div id="traceLive" class="hidden"></div><div id="nextStep" class="help" style="margin-top:8px"></div>
   </div>
@@ -325,6 +330,8 @@ input[type="date"]::-webkit-calendar-picker-indicator{
     </div>
     <h3>Identificación</h3>
     <div id="detailIdentification" class="trace"></div>
+    <h3>GSI estimado</h3>
+    <div id="detailGsi" class="trace"></div>
     <h3>Detalle de puntajes</h3>
     <div id="detailScores" class="score-detail-grid"></div>
     <h3>Fotografías de campo</h3>
@@ -341,7 +348,7 @@ input[type="date"]::-webkit-calendar-picker-indicator{
 <section id="gsi" class="panel">
   <div class="card">
     <h2>Clasificación rápida GSI</h2>
-    <div class="section-note">Toca la celda que corresponde a la estructura (fracturas por metro) y a la condición de la roca (golpe de picota y estado de las juntas). Valores provisionales e ilustrativos hasta cargar la tabla GSI oficial del área.</div>
+    <div class="section-note">Toca la celda que corresponde a la estructura (fracturas por metro) y a la condición de la roca (golpe de picota y estado de las juntas). Los valores se calculan con relaciones publicadas (Priest y Hudson; Hoek, Carter y Diederichs) y son provisionales hasta calibrarlos con la tabla GSI oficial del área.</div>
     <div class="gsi-wrap" style="margin-top:12px">
       <table class="gsi-table" aria-label="Tabla GSI">
         <thead><tr><th class="row-h">Estructura</th><th>Muy buena</th><th>Buena</th><th>Regular</th><th>Pobre</th><th>Muy pobre</th></tr></thead>
@@ -375,7 +382,7 @@ input[type="date"]::-webkit-calendar-picker-indicator{
       <div class="kpi rock-result" id="gsiRockCard" style="grid-column:span 2"><span>Tipo de roca</span><b id="gsiRock">Selecciona una celda</b></div>
     </div>
     <div class="trace" id="gsiTrace" style="margin-top:10px">Aún no se ha seleccionado ninguna celda.</div>
-    <div class="help">RMR equivalente aproximado: GSI + 5 (Hoek). No considera agua ni orientación de las juntas; para la indicación formal usa la evaluación RMR.</div>
+    <div class="help">RMR equivalente aproximado: GSI + 5 (Hoek, 1995). No considera agua ni orientación de las juntas; para la indicación formal usa la evaluación RMR.</div>
     <div class="actions"><button class="btn" id="gsiClearBtn" type="button">Limpiar selección</button></div>
   </div>
 </section>
@@ -479,6 +486,30 @@ function rockClass(v){
   v=Number(v);
   return RMR_CLASSES.find(c=>v>=c.min && v<=c.max)||null;
 }
+// GSI cuantitativo: GSI = 1.5 × JCond89 + RQD/2 (Hoek, Carter y Diederichs, 2013)
+const RQD_RANGES={"20":[90,100],"17":[75,90],"13":[50,75],"8":[25,50],"3":[0,25]};
+const JCOND_IDS=["apertura","rugosidad","relleno","persistencia","alteracion"];
+function gsiFromRMR(){
+  const out={value:null,jcond:null,rqd:null,rqdSource:"",rqdWarn:"",trace:"Completa RQD y las cinco condiciones de las juntas para estimar el GSI."};
+  const raw=$("rqdMedido").value.trim(), range=RQD_RANGES[$("rqd").value];
+  let rqd=null;
+  if(raw!==""){
+    const n=Number(raw);
+    if(Number.isNaN(n)||n<0||n>100){ out.rqdWarn="El RQD medido debe estar entre 0 y 100 %."; }
+    else{
+      rqd=n; out.rqdSource="medido";
+      if(range && (n<range[0]||n>range[1])) out.rqdWarn=`El RQD medido (${n} %) no está dentro del rango elegido (${range[0]}–${range[1]} %). Revisa cuál es el correcto.`;
+    }
+  }else if(range){ rqd=(range[0]+range[1])/2; out.rqdSource="punto medio del rango"; }
+  const parts=JCOND_IDS.map(score);
+  if(rqd===null || parts.some(v=>v===null)) return out;
+  const jcond=parts.reduce((a,b)=>a+b,0);
+  const value=Math.round(1.5*jcond+rqd/2);
+  Object.assign(out,{value,jcond,rqd});
+  out.trace=`JCond89 = ${parts.join(" + ")} = ${jcond} · RQD = ${rqd} % (${out.rqdSource}) · GSI = 1.5 × ${jcond} + ${rqd} / 2 = ${value}. Dato complementario: el tipo de roca lo define el RMR total.`;
+  return out;
+}
+
 function rockType(v){
   if(v===null || v===undefined || v==="" || Number.isNaN(Number(v))) return "—";
   const c=rockClass(v); return c?c.label:"Fuera de rango";
@@ -518,9 +549,14 @@ function recalc(){
   else if(r==="perpendicular" && !s) paso="Siguiente: selecciona si la excavación va con o contra el buzamiento.";
   else paso="Ruta de orientación completa. El ajuste y el RMR total ya están calculados.";
   $("nextStep").textContent=paso;
-  return {complete, basic, orientation:o, total, rock:rockType(total)};
+  const gsi=gsiFromRMR();
+  $("gsiCalcLive").textContent=gsi.value===null?"—":gsi.value;
+  $("gsiCalcTrace").textContent=gsi.trace;
+  $("rqdMedidoHelp").textContent=gsi.rqdWarn||"Opcional. Si lo dejas vacío, el GSI usa el punto medio del rango.";
+  $("rqdMedidoHelp").style.color=gsi.rqdWarn?"var(--warn)":"";
+  return {complete, basic, orientation:o, total, rock:rockType(total), gsi};
 }
-["buzamiento","rumbo","sentido",...rmrIds].forEach(id=>{
+["buzamiento","rumbo","sentido","rqdMedido",...rmrIds].forEach(id=>{
   ["input","change"].forEach(ev=>$(id).addEventListener(ev,recalc));
 });
 
@@ -713,7 +749,9 @@ function collect(){
     labor:$("labor").value.trim().toUpperCase(),condicionLabor:$("condicionLabor").value,supervisor:$("supervisor").value.trim().toUpperCase(),
     params,buzamiento:$("buzamiento").value,rumbo:$("rumbo").value,sentido:$("sentido").value,
     ajusteCategoria:calc.orientation.cat,ajuste:calc.orientation.adj,trazabilidad:calc.orientation.trace,
-    rmrBasico:calc.basic,rmrTotal:calc.total,tipoRoca:calc.rock,observaciones:$("observaciones").value.trim(),photos:[...currentPhotos]
+    rmrBasico:calc.basic,rmrTotal:calc.total,tipoRoca:calc.rock,
+    rqdMedido:$("rqdMedido").value.trim()===""?null:Number($("rqdMedido").value),gsi:calc.gsi.value,jcond89:calc.gsi.jcond,gsiRqd:calc.gsi.rqd,
+    observaciones:$("observaciones").value.trim(),photos:[...currentPhotos]
   };
 }
 
@@ -810,6 +848,7 @@ async function showHistoryDetail(id){
     $("detailRock").textContent=x.tipoRoca||"—";
     applyRockColor("detailRockCard",x.rmrTotal);
     $("detailIdentification").innerHTML=`<strong>Labor:</strong> ${esc(x.labor||"—")}<br><strong>Nivel:</strong> ${esc(x.nivel||"—")} · <strong>Block:</strong> ${esc(x.block||"—")}<br><strong>Turno:</strong> ${esc(x.turno||"—")} · <strong>Condición:</strong> ${esc(x.condicionLabor||"—")}<br><strong>Supervisor / Geomecánico:</strong> ${esc(x.supervisor||"—")}<br><strong>Fecha y hora de guardado:</strong> ${esc(formatSavedAt(x.createdAt))}${x.updatedAt?`<br><strong>Última actualización:</strong> ${esc(formatSavedAt(x.updatedAt))}`:""}`;
+    $("detailGsi").innerHTML=(x.gsi===null||x.gsi===undefined)?"Sin GSI calculado (evaluación anterior a esta función o datos incompletos).":`<strong>GSI ${esc(x.gsi)}</strong> · JCond89 = ${esc(x.jcond89)} · RQD = ${esc(x.gsiRqd)} %${x.rqdMedido!==null&&x.rqdMedido!==undefined?" (medido)":" (punto medio del rango)"}`;
     $("detailScores").innerHTML=scoreCards(x.params||{});
     $("detailPhotos").innerHTML=(x.photos&&x.photos.length)?x.photos.map((src,i)=>`<div class="photo-item"><img class="detail-photo" src="${src}" alt="Foto de campo ${i+1}" title="Toca para ampliar"></div>`).join(""):`<div class="small">Sin fotografías adjuntas.</div>`;
     document.querySelectorAll(".detail-photo").forEach(img=>img.onclick=()=>openPhotoModal(img.src));
@@ -830,6 +869,7 @@ $("editHistoryBtn").onclick=async()=>{
   rmrIds.forEach(id=>{$(id).value=x.params?.[id]?.score===null||x.params?.[id]?.score===undefined?"":String(x.params[id].score);});
   $("buzamiento").value=x.buzamiento||""; orientation(); $("rumbo").value=x.rumbo||""; orientation(); $("sentido").value=x.sentido||"";
   $("observaciones").value=x.observaciones||"";
+  $("rqdMedido").value=(x.rqdMedido===null||x.rqdMedido===undefined)?"":String(x.rqdMedido);
   currentPhotos=[...(x.photos||[])]; renderPhotoPreview();
   $("saveEvalBtn").textContent="Actualizar evaluación"; $("cancelEditBtn").classList.remove("hidden");
   recalc(); openTab("evaluacion");
@@ -871,7 +911,9 @@ function importedRecord(headers,row){
     buzamiento:o["Buzamiento"]||"",rumbo:o["Rumbo"]||"",sentido:o["Sentido"]||"",
     ajusteCategoria:o["Categoría ajuste"]||"",ajuste:o["Ajuste"]===""?null:Number(o["Ajuste"]),
     rmrBasico:o["RMR básico"]===""?null:Number(o["RMR básico"]),rmrTotal:o["RMR total"]===""?null:Number(o["RMR total"]),
-    tipoRoca:o["Tipo roca"]||"",observaciones:o["Observaciones"]||"",photos:[],imported:true,importedAt:new Date().toISOString()
+    tipoRoca:o["Tipo roca"]||"",observaciones:o["Observaciones"]||"",
+    rqdMedido:(o["RQD medido (%)"]??"")===""?null:Number(o["RQD medido (%)"]),gsiRqd:(o["RQD usado en GSI (%)"]??"")===""?null:Number(o["RQD usado en GSI (%)"]),jcond89:(o["JCond89"]??"")===""?null:Number(o["JCond89"]),gsi:(o["GSI estimado"]??"")===""?null:Number(o["GSI estimado"]),
+    photos:[],imported:true,importedAt:new Date().toISOString()
   };
 }
 $("importBtn").onclick=()=>$("importInput").click();
@@ -905,9 +947,9 @@ function csvCell(v){const s=String(v??"");return `"${s.replace(/"/g,'""')}"`;}
 $("exportBtn").onclick=async()=>{
   const a=await dbAll(); if(!a.length){alert("No hay registros para compartir o exportar.");return;}
   const headers=["ID","Fecha","Turno","Nivel","Block","Labor","Condición labor","Supervisor","RMR básico","Buzamiento","Rumbo","Sentido","Categoría ajuste","Ajuste","RMR total","Tipo roca","Observaciones","Guardado","Actualizado",
-  "Resistencia","RQD","Espaciamiento","Apertura","Rugosidad","Relleno","Persistencia","Alteración","Agua"];
+  "Resistencia","RQD","Espaciamiento","Apertura","Rugosidad","Relleno","Persistencia","Alteración","Agua","RQD medido (%)","RQD usado en GSI (%)","JCond89","GSI estimado"];
   const rows=a.map(x=>[x.id,x.fecha,x.turno,x.nivel,x.block,x.labor,x.condicionLabor,x.supervisor,x.rmrBasico,x.buzamiento,x.rumbo,x.sentido,x.ajusteCategoria,x.ajuste,x.rmrTotal,x.tipoRoca,x.observaciones,x.createdAt,x.updatedAt,
-   x.params?.resistencia?.label||"",x.params?.rqd?.label||"",x.params?.espaciamiento?.label||"",x.params?.apertura?.label||"",x.params?.rugosidad?.label||"",x.params?.relleno?.label||"",x.params?.persistencia?.label||"",x.params?.alteracion?.label||"",x.params?.agua?.label||""]);
+   x.params?.resistencia?.label||"",x.params?.rqd?.label||"",x.params?.espaciamiento?.label||"",x.params?.apertura?.label||"",x.params?.rugosidad?.label||"",x.params?.relleno?.label||"",x.params?.persistencia?.label||"",x.params?.alteracion?.label||"",x.params?.agua?.label||"",x.rqdMedido??"",x.gsiRqd??"",x.jcond89??"",x.gsi??""]);
   const csv="\ufeff"+[headers,...rows].map(r=>r.map(csvCell).join(",")).join("\n");
   const filename=`RMR_geomecanica_${today()}.csv`;
   const blob=new Blob([csv],{type:"text/csv;charset=utf-8"});
@@ -927,7 +969,7 @@ $("exportBtn").onclick=async()=>{
 };
 $("deleteAllBtn").onclick=async()=>{if(confirm("¿Borrar todo el historial local de este dispositivo?")){await dbDeleteAll();renderHistory();}};
 function clearForm(){
- ["turno","nivel","block","labor","condicionLabor","supervisor","resistencia","rqd","espaciamiento","apertura","rugosidad","relleno","persistencia","alteracion","agua","buzamiento","rumbo","sentido","observaciones"].forEach(id=>$(id).value="");
+ ["turno","nivel","block","labor","condicionLabor","supervisor","resistencia","rqd","espaciamiento","apertura","rugosidad","relleno","persistencia","alteracion","agua","buzamiento","rumbo","sentido","observaciones","rqdMedido"].forEach(id=>$(id).value="");
  $("fecha").value=today(); currentPhotos=[]; renderPhotoPreview(); recalc();
 }
 $("clearBtn").onclick=clearForm;
@@ -939,13 +981,21 @@ recalc();renderHistory();
 (function(){
   const $g=id=>document.getElementById(id);
   const conds=["Muy buena","Buena","Regular","Pobre","Muy pobre"];
-  const rows=[
-    ["Levemente fracturada","2–6 /m","Levemente fract.",[85,75,65,50,40]],
-    ["Moderadamente fracturada","6–12 /m","Moderad. fract.",[75,65,55,45,35]],
-    ["Muy fracturada","12–20 /m","Muy fracturada",[65,55,45,35,25]],
-    ["Intensamente fracturada",">20 /m","Intensam. fract.",[55,45,35,25,15]],
-    ["Triturada","brechada","Triturada",[45,35,25,15,10]]
+  // Matriz calculada con relaciones publicadas (pendiente de calibrar con la tabla oficial del área):
+  //  - Estructura: fracturas por metro (λ) → RQD = 100·e^(−0.1λ)·(0.1λ + 1)  (Priest y Hudson, 1976)
+  //  - Condición: JCond89 representativo por columna (escala 0–30 del RMR 89 dividida en quintos)
+  //  - GSI = 1.5 × JCond89 + RQD/2  (Hoek, Carter y Diederichs, 2013)
+  //  - Tipo de roca: RMR89 ≈ GSI + 5 (Hoek, 1995) con los rangos del formato F-EBR-GM-01.02
+  const JC=[27,21,15,9,3];
+  const rqdPH=l=>100*Math.exp(-0.1*l)*(0.1*l+1);
+  const rowsBase=[
+    ["Levemente fracturada","2–6 /m","Levemente fract.",4],
+    ["Moderadamente fracturada","6–12 /m","Moderad. fract.",9],
+    ["Muy fracturada","12–20 /m","Muy fracturada",16],
+    ["Intensamente fracturada",">20 /m","Intensam. fract.",25],
+    ["Triturada","brechada","Triturada",35]
   ];
+  const rows=rowsBase.map(r=>{const rqd=Math.round(rqdPH(r[3]));return [r[0],r[1],r[2],JC.map(j=>Math.round(1.5*j+rqd/2)),r[3],rqd];});
   const classes=RMR_CLASSES.map(c=>{const [code,name]=c.label.split(" · ");return [c.min,code,name,c.color,c.text];});
   const classOf=rmr=>classes.find(c=>rmr>=c[0]);
   const body=$g("gsiBody"); if(!body) return;
@@ -968,7 +1018,8 @@ recalc();renderHistory();
     $g("gsiValue").textContent=g; $g("gsiRmr").textContent="≈ "+rmr; $g("gsiRock").textContent=`${c[1]} · ${c[2]}`;
     card.style.background=c[3]; card.style.borderColor=c[3];
     card.querySelectorAll("span,b").forEach(e=>e.style.color=c[4]);
-    $g("gsiTrace").innerHTML=`<strong>Estructura:</strong> ${r[0]} (${r[1]})<br><strong>Condición:</strong> ${conds[+b.dataset.c]}<br><strong>Resultado:</strong> GSI ${g} → RMR ≈ ${rmr} → roca ${c[1]} (${c[2]})`;
+    const j=JC[+b.dataset.c];
+    $g("gsiTrace").innerHTML=`<strong>Estructura:</strong> ${r[0]} (${r[1]}) → λ ≈ ${r[4]} fract/m → RQD ≈ ${r[5]} %<br><strong>Condición:</strong> ${conds[+b.dataset.c]} → JCond89 ≈ ${j}<br><strong>GSI</strong> = 1.5 × ${j} + ${r[5]} / 2 = ${g}<br><strong>Tipo de roca:</strong> RMR ≈ ${g} + 5 = ${rmr} → ${c[1]} (${c[2]})`;
     $g("gsiResultCard").scrollIntoView({behavior:"smooth",block:"nearest"});
   });
   $g("gsiClearBtn").addEventListener("click",clear);
