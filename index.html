@@ -6,6 +6,13 @@
 <meta name="theme-color" content="#123d5a">
 <title>Geomecánica · RMR V1.0</title>
 <link rel="apple-touch-icon" sizes="180x180" href="./icons/icon-180.png">
+<script>
+(function(){
+  var t=null; try{t=localStorage.getItem("ebr-theme");}catch(e){}
+  if(t!=="light"&&t!=="dark") t=(window.matchMedia&&matchMedia("(prefers-color-scheme: dark)").matches)?"dark":"light";
+  document.documentElement.setAttribute("data-theme",t);
+})();
+</script>
 <style>
 :root{
   --bg:#eef3f6; --card:#fff; --ink:#17232d; --muted:#667985; --line:#d7e1e7;
@@ -157,6 +164,39 @@ input[type="date"]::-webkit-calendar-picker-indicator{
 .info-btn[aria-expanded="true"]{background:var(--brand2);color:#fff}
 .info-btn:focus-visible{outline:3px solid rgba(31,101,134,.35);outline-offset:2px}
 .info-note{background:#fff8e6;border:1px solid #f0d9a4;color:#6b4a0e;border-radius:10px;padding:9px 11px;font-size:.84rem;margin:0 0 10px}
+
+/* ===== Modo oscuro ===== */
+.theme-btn{flex:0 0 auto;margin-left:auto;width:42px;height:42px;border-radius:12px;border:1px solid #b9c8d1;background:#f7fafb;color:#334b5b;font-size:1.15rem;line-height:1;cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
+.theme-btn:focus-visible{outline:3px solid rgba(31,101,134,.35);outline-offset:2px}
+html[data-theme="dark"]{--bg:#0e171d;--card:#16232c;--ink:#e3eaee;--muted:#9fb1bc;--line:#2a3a45;--shadow:0 8px 28px rgba(0,0,0,.35);color-scheme:dark}
+html[data-theme="dark"] header{background:linear-gradient(135deg,#0b2638,#164a64)}
+html[data-theme="dark"] .tab,html[data-theme="dark"] .theme-btn{background:#1b2a34;border-color:#34474f;color:#c8d6de}
+html[data-theme="dark"] .tab.active{background:var(--brand2);border-color:var(--brand2);color:#fff;box-shadow:none}
+html[data-theme="dark"] label,html[data-theme="dark"] .score-detail-item .name,html[data-theme="dark"] .gsi-table th,html[data-theme="dark"] .gsi-desc,html[data-theme="dark"] .gsi-calc summary{color:#a9bdc8}
+html[data-theme="dark"] input,html[data-theme="dark"] select,html[data-theme="dark"] textarea{background:#0f1b22;border-color:#3a4e59;color:var(--ink)}
+html[data-theme="dark"] input:focus,html[data-theme="dark"] select:focus,html[data-theme="dark"] textarea:focus{border-color:#5b9dc0;box-shadow:0 0 0 3px rgba(91,157,192,.2)}
+html[data-theme="dark"] .section-note{background:#1a2b35;border-left-color:#4f8fb0;color:#b8c9d2}
+html[data-theme="dark"] .kpi,html[data-theme="dark"] .gsi-calc{background:#1b2a34}
+html[data-theme="dark"] .trace,html[data-theme="dark"] .score-detail-item{background:#13212a;border-color:#3a4e59}
+html[data-theme="dark"] .kpi b,html[data-theme="dark"] .trace strong,html[data-theme="dark"] .score-detail-item .points,html[data-theme="dark"] .gsi-calc summary b{color:#8cc8e6}
+html[data-theme="dark"] .kpi.final-result{background:#05090c;border-color:#3a4e59}
+html[data-theme="dark"] .kpi.final-result b,html[data-theme="dark"] .kpi.final-result span{color:#fff}
+html[data-theme="dark"] .btn{background:#24353f;color:#d6e2e8}
+html[data-theme="dark"] .btn.primary{background:var(--brand2);color:#fff}
+html[data-theme="dark"] .btn.ok{background:#2f8a70;color:#fff}
+html[data-theme="dark"] .btn.danger{background:#3a1f22;color:#f0a3a3}
+html[data-theme="dark"] .status{background:#16352b;color:#7fd1b2}
+html[data-theme="dark"] .history-item{background:#16232c}
+html[data-theme="dark"] .pill,html[data-theme="dark"] .import-badge,html[data-theme="dark"] .photo-badge{background:#22333d;color:var(--ink)}
+html[data-theme="dark"] .photo-item{background:#13212a}
+html[data-theme="dark"] .save-confirm{background:#123227;border-color:#2d6b55;color:#9ee0c3}
+html[data-theme="dark"] .save-confirm span{color:#8cc7b1}
+html[data-theme="dark"] .footerbar{background:rgba(22,35,44,.96)}
+html[data-theme="dark"] .info-btn{background:#16232c;border-color:#5b9dc0;color:#8cc8e6}
+html[data-theme="dark"] .info-btn[aria-expanded="true"]{background:#5b9dc0;color:#0e171d}
+html[data-theme="dark"] .info-note{background:#3a2e12;border-color:#6b5420;color:#f0d9a4}
+html[data-theme="dark"] .rock-dot{border-color:rgba(255,255,255,.35)}
+html[data-theme="dark"] .gsi-cell[aria-pressed="true"]{outline-color:#fff}
 </style>
 <link rel="manifest" href="./manifest.webmanifest"></head>
 <body>
@@ -170,6 +210,7 @@ input[type="date"]::-webkit-calendar-picker-indicator{
   <button class="tab active" data-tab="evaluacion">Evaluación</button>
   <button class="tab" data-tab="historial">Historial</button>
   <button class="tab" data-tab="gsi">GSI</button>
+  <button type="button" class="theme-btn" id="themeBtn" aria-label="Cambiar a modo oscuro" title="Cambiar a modo oscuro">🌙</button>
 </nav>
 
 <section id="evaluacion" class="panel active">
@@ -1047,6 +1088,30 @@ recalc();renderHistory();
   $g("gsiClearBtn").addEventListener("click",clear);
   const infoBtn=$g("gsiInfoBtn"), infoNote=$g("gsiInfoNote");
   infoBtn.addEventListener("click",()=>{const open=infoNote.classList.toggle("hidden")===false;infoBtn.setAttribute("aria-expanded",String(open));});
+})();
+</script>
+<script>
+(function(){
+  var btn=document.getElementById("themeBtn"), meta=document.querySelector('meta[name="theme-color"]');
+  function apply(t){
+    document.documentElement.setAttribute("data-theme",t);
+    var dark=t==="dark";
+    btn.textContent=dark?"☀️":"🌙";
+    var lbl=dark?"Cambiar a modo claro":"Cambiar a modo oscuro";
+    btn.setAttribute("aria-label",lbl); btn.title=lbl;
+    if(meta) meta.setAttribute("content",dark?"#0b2638":"#123d5a");
+  }
+  apply(document.documentElement.getAttribute("data-theme")==="dark"?"dark":"light");
+  btn.addEventListener("click",function(){
+    var t=document.documentElement.getAttribute("data-theme")==="dark"?"light":"dark";
+    apply(t); try{localStorage.setItem("ebr-theme",t);}catch(e){}
+  });
+  if(window.matchMedia){
+    var mq=matchMedia("(prefers-color-scheme: dark)");
+    var onChange=function(e){ var saved=null; try{saved=localStorage.getItem("ebr-theme");}catch(_){}
+      if(saved!=="light"&&saved!=="dark") apply(e.matches?"dark":"light"); };
+    if(mq.addEventListener) mq.addEventListener("change",onChange); else if(mq.addListener) mq.addListener(onChange);
+  }
 })();
 </script>
 <script>if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));}</script></body>
