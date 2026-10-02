@@ -246,8 +246,8 @@ html[data-theme="dark"] .gsi-cell[aria-pressed="true"]{outline-color:#fff}
           <option value="20">90–100% — 20 pts</option><option value="17">75–90% — 17 pts</option>
           <option value="13">50–75% — 13 pts</option><option value="8">25–50% — 8 pts</option><option value="3">&lt; 25% — 3 pts</option>
         </select>
-        <input id="rqdMedido" type="number" inputmode="decimal" min="0" max="100" step="0.1" placeholder="RQD medido % (opcional)" style="margin-top:6px" aria-label="RQD medido en porcentaje, opcional">
-        <div class="help" id="rqdMedidoHelp">Opcional. Si lo dejas vacío, el GSI usa el punto medio del rango.</div>
+        <input id="rqdMedido" class="hidden" type="number" inputmode="decimal" min="0" max="100" step="0.1" placeholder="RQD medido % (opcional)" style="margin-top:6px" aria-label="RQD medido en porcentaje, opcional">
+        <div class="help hidden" id="rqdMedidoHelp">Opcional. Si lo dejas vacío, el GSI usa el punto medio del rango.</div>
       </div>
       <div class="field"><label>Espaciamiento</label>
         <select id="espaciamiento" class="rmr"><option value="">Seleccionar…</option>
