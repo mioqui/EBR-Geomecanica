@@ -137,6 +137,10 @@ input[type="date"]::-webkit-calendar-picker-indicator{
 .gsi-cell small{display:block;font-weight:600;font-size:.68rem;opacity:.9}
 .gsi-cell[aria-pressed="true"]{outline:3px solid var(--ink);outline-offset:1px}
 .gsi-cell:focus-visible{outline:3px solid var(--brand2);outline-offset:1px}
+.gsi-cell.eval{box-shadow:inset 0 0 0 3px rgba(255,255,255,.95),0 0 0 3px var(--ink)}
+.gsi-cell.eval::after{content:"Eval.";display:block;font-size:.6rem;font-weight:800}
+.gsi-cmp{margin-top:10px;border-radius:12px;padding:10px 12px;font-size:.86rem;line-height:1.45}
+.gsi-cmp.ok{background:#eef6f2;color:#1d5a48}.gsi-cmp.diff{background:#fff4e2;color:#7a4e0c}
 .gsi-desc{font-size:.84rem;line-height:1.45;color:#405765}
 .gsi-desc summary{font-weight:800;cursor:pointer;padding:6px 0}
 .gsi-desc dl{margin:6px 0 10px}.gsi-desc dt{font-weight:800;color:var(--ink);margin-top:6px}.gsi-desc dd{margin:2px 0 0}
@@ -346,6 +350,19 @@ input[type="date"]::-webkit-calendar-picker-indicator{
 </section>
 
 <section id="gsi" class="panel">
+  <div class="card" id="gsiEvalCard">
+    <h2>Según la evaluación RMR actual</h2>
+    <div id="gsiEvalEmpty" class="section-note">Completa en Evaluación el RQD y las cinco condiciones de las juntas para ver aquí su GSI y su celda en la tabla.
+      <div class="actions"><button class="btn" id="gsiGoEvalBtn" type="button">Ir a Evaluación</button></div></div>
+    <div id="gsiEvalData" class="hidden">
+      <div class="scoregrid">
+        <div class="kpi"><span>GSI calculado</span><b id="gsiEvalValue">—</b></div>
+        <div class="kpi"><span>RMR total</span><b id="gsiEvalRmr">—</b></div>
+        <div class="kpi rock-result" id="gsiEvalRockCard" style="grid-column:span 2"><span>Tipo de roca (por RMR total)</span><b id="gsiEvalRock">—</b></div>
+      </div>
+      <div class="trace" id="gsiEvalTrace" style="margin-top:10px"></div>
+    </div>
+  </div>
   <div class="card">
     <h2>Clasificación rápida GSI</h2>
     <div class="section-note">Toca la celda que corresponde a la estructura (fracturas por metro) y a la condición de la roca (golpe de picota y estado de las juntas). Los valores se calculan con relaciones publicadas (Priest y Hudson; Hoek, Carter y Diederichs) y son provisionales hasta calibrarlos con la tabla GSI oficial del área.</div>
@@ -382,6 +399,7 @@ input[type="date"]::-webkit-calendar-picker-indicator{
       <div class="kpi rock-result" id="gsiRockCard" style="grid-column:span 2"><span>Tipo de roca</span><b id="gsiRock">Selecciona una celda</b></div>
     </div>
     <div class="trace" id="gsiTrace" style="margin-top:10px">Aún no se ha seleccionado ninguna celda.</div>
+    <div id="gsiCmp" class="gsi-cmp hidden"></div>
     <div class="help">RMR equivalente aproximado: GSI + 5 (Hoek, 1995). No considera agua ni orientación de las juntas; para la indicación formal usa la evaluación RMR.</div>
     <div class="actions"><button class="btn" id="gsiClearBtn" type="button">Limpiar selección</button></div>
   </div>
@@ -426,6 +444,7 @@ function openTab(id){
   tabs.forEach(x=>x.classList.toggle("active",x.dataset.tab===id));
   document.querySelectorAll(".panel").forEach(x=>x.classList.toggle("active",x.id===id));
   if(id==="historial") renderHistory();
+  if(id==="gsi" && typeof window.gsiSyncFromEval==="function") window.gsiSyncFromEval();
   window.scrollTo({top:0,behavior:"smooth"});
 }
 function labelOf(id){ const s=$(id); return s.selectedIndex>=0?s.options[s.selectedIndex].text:""; }
@@ -1004,6 +1023,54 @@ recalc();renderHistory();
     return `<td><button type="button" class="gsi-cell" data-r="${i}" data-c="${j}" aria-pressed="false" aria-label="${r[0]}, ${conds[j]}: ${c[1]} ${c[2]}, GSI ${g}" style="background:${c[3]};color:${c[4]}">${c[1]}<small>GSI ${g}</small></button></td>`;
   }).join("")}</tr>`).join("");
   const card=$g("gsiRockCard");
+  // Ubicación de una evaluación RMR en la matriz (mismos supuestos que la matriz):
+  //  filas por RQD con los límites de λ = 6, 12, 20 y 30 fract/m (Priest y Hudson); columnas por quintos de JCond89
+  const RQD_CUTS=[6,12,20,30].map(l=>rqdPH(l));
+  const rowOfRqd=rqd=>{const i=RQD_CUTS.findIndex(c=>rqd>=c);return i===-1?4:i;};
+  const colOfJc=jc=>jc>=24?0:jc>=18?1:jc>=12?2:jc>=6?3:4;
+  let evalRef=null;
+  function paintCard(el,v){
+    const c=v===null?null:classOf(Math.min(100,v));
+    el.style.background=c?c[3]:""; el.style.borderColor=c?c[3]:"";
+    el.querySelectorAll("span,b").forEach(e=>e.style.color=c?c[4]:"");
+  }
+  window.gsiSyncFromEval=function(){
+    const calc=(typeof recalc==="function")?recalc():null, g=calc&&calc.gsi;
+    body.querySelectorAll(".gsi-cell.eval").forEach(b=>b.classList.remove("eval"));
+    if(!g||g.value===null){
+      evalRef=null; $g("gsiEvalEmpty").classList.remove("hidden"); $g("gsiEvalData").classList.add("hidden"); updateCmp(); return;
+    }
+    const ri=rowOfRqd(g.rqd), ci=colOfJc(g.jcond);
+    const agua=(typeof score==="function")?score("agua"):null;
+    const rmrP=(calc.basic!==null&&agua!==null)?calc.basic-agua+15:null;
+    const cG=classOf(Math.min(100,g.value+5));
+    evalRef={gsi:g.value,rmr:calc.total,rock:calc.rock,ri,ci,cls:cG};
+    $g("gsiEvalEmpty").classList.add("hidden"); $g("gsiEvalData").classList.remove("hidden");
+    $g("gsiEvalValue").textContent=g.value;
+    $g("gsiEvalRmr").textContent=calc.total===null?"Falta orientación":calc.total;
+    $g("gsiEvalRock").textContent=calc.total===null?"Completa el ajuste por orientación":calc.rock;
+    paintCard($g("gsiEvalRockCard"),calc.total);
+    const cell=body.querySelector(`.gsi-cell[data-r="${ri}"][data-c="${ci}"]`); if(cell) cell.classList.add("eval");
+    let nota="";
+    if(calc.total!==null){
+      const cT=classOf(calc.total);
+      if(cT[1]!==cG[1]||cT[2]!==cG[2]) nota=`<br><strong>Por qué difieren:</strong> por GSI la roca sería ${cG[1]} (${cG[2]}), pero el RMR total da ${cT[1]} (${cT[2]}). La fórmula del GSI no considera resistencia de la roca, agua ni orientación de las juntas${rmrP!==null?`; sin agua ni orientación el RMR sería ${rmrP} (RMR′ de Hoek)`:""}. Para la indicación y el sostenimiento manda el RMR total.`;
+    }
+    $g("gsiEvalTrace").innerHTML=`${g.trace.replace(/ Dato complementario.*$/,"")}<br><strong>Celda marcada «Eval.»:</strong> ${rows[ri][0]} (RQD ${g.rqd} %) · condición ${conds[ci]} (JCond89 ${g.jcond}). La celda muestra el valor típico de esa zona; el GSI exacto de la evaluación es ${g.value}.${nota}`;
+    updateCmp();
+  };
+  function updateCmp(){
+    const box=$g("gsiCmp"); if(!box) return;
+    const sel=body.querySelector('.gsi-cell[aria-pressed="true"]');
+    if(!sel||!evalRef){box.className="gsi-cmp hidden";box.textContent="";return;}
+    const g=rows[+sel.dataset.r][3][+sel.dataset.c], cSel=classOf(Math.min(100,g+5));
+    const cEval=evalRef.cls, same=cSel[1]===cEval[1]&&cSel[2]===cEval[2];
+    const sameCell=+sel.dataset.r===evalRef.ri&&+sel.dataset.c===evalRef.ci;
+    box.className="gsi-cmp "+(same?"ok":"diff");
+    box.innerHTML=same
+      ?`<strong>Coincide con el GSI de la evaluación${sameCell?" (misma celda)":""}:</strong> ambos dan roca ${cSel[1]} (${cSel[2]}).`
+      :`<strong>No coincide con el GSI de la evaluación.</strong> Tu selección da ${cSel[1]} (${cSel[2]}, GSI ${g}); la evaluación da ${cEval[1]} (${cEval[2]}, GSI ${evalRef.gsi}). Revisa la estructura y la condición observadas en el frente.`;
+  }
   function clear(){
     body.querySelectorAll(".gsi-cell").forEach(b=>b.setAttribute("aria-pressed","false"));
     $g("gsiValue").textContent="—"; $g("gsiRmr").textContent="—"; $g("gsiRock").textContent="Selecciona una celda";
@@ -1020,9 +1087,11 @@ recalc();renderHistory();
     card.querySelectorAll("span,b").forEach(e=>e.style.color=c[4]);
     const j=JC[+b.dataset.c];
     $g("gsiTrace").innerHTML=`<strong>Estructura:</strong> ${r[0]} (${r[1]}) → λ ≈ ${r[4]} fract/m → RQD ≈ ${r[5]} %<br><strong>Condición:</strong> ${conds[+b.dataset.c]} → JCond89 ≈ ${j}<br><strong>GSI</strong> = 1.5 × ${j} + ${r[5]} / 2 = ${g}<br><strong>Tipo de roca:</strong> RMR ≈ ${g} + 5 = ${rmr} → ${c[1]} (${c[2]})`;
+    updateCmp();
     $g("gsiResultCard").scrollIntoView({behavior:"smooth",block:"nearest"});
   });
-  $g("gsiClearBtn").addEventListener("click",clear);
+  $g("gsiClearBtn").addEventListener("click",()=>{clear();updateCmp();});
+  $g("gsiGoEvalBtn").addEventListener("click",()=>openTab("evaluacion"));
 })();
 </script>
 <script>if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));}</script></body>
