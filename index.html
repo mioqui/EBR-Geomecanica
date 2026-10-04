@@ -234,6 +234,10 @@ html[data-theme="dark"] .seg-btn.active{background:var(--brand2);color:#fff}
 html[data-theme="dark"] #gsiChart .gsi-cellline{stroke:#c8d6de}
 html[data-theme="dark"] #gsiChart .gsi-na{fill:#22333d}
 html[data-theme="dark"] #gsiChart .gsi-na-t{fill:#9fb1bc}
+
+@media(max-width:430px){.tabs{gap:5px}.tab{padding:9px 9px;font-size:.9rem}.theme-btn{width:38px;height:38px;font-size:1rem}}
+@media(max-width:380px){.tab{padding:9px 7px;font-size:.86rem}}
+@media(max-width:340px){.tabs{gap:4px}.tab{padding:8px 5px;font-size:.8rem}.theme-btn{width:34px;height:34px}}
 </style>
 <link rel="manifest" href="./manifest.webmanifest"></head>
 <body>
@@ -247,6 +251,7 @@ html[data-theme="dark"] #gsiChart .gsi-na-t{fill:#9fb1bc}
   <button class="tab active" data-tab="evaluacion">Evaluación</button>
   <button class="tab" data-tab="historial">Historial</button>
   <button class="tab" data-tab="gsi">GSI</button>
+  <button class="tab" data-tab="mapeo">Mapeo</button>
   <button type="button" class="theme-btn" id="themeBtn" aria-label="Cambiar a modo oscuro" title="Cambiar a modo oscuro">🌙</button>
 </nav>
 
@@ -467,6 +472,61 @@ html[data-theme="dark"] #gsiChart .gsi-na-t{fill:#9fb1bc}
     </div>
     <div class="sost-box hidden" id="gsiSost" style="margin-top:12px"></div>
     <div class="actions"><button class="btn" id="gsiClearBtn" type="button">Limpiar selección</button></div>
+  </div>
+</section>
+
+<section id="mapeo" class="panel">
+  <div class="card">
+    <h2>Mapeo estructural</h2>
+    <div class="section-note">Registro de estructuras independiente de la evaluación RMR, con su propio historial y archivo de exportación.</div>
+    <h3>Datos de la labor</h3>
+    <div class="grid">
+      <div class="field date-field"><label for="mFecha">Fecha</label><input id="mFecha" type="date"></div>
+      <div class="field"><label for="mTurno">Turno</label><select id="mTurno"><option value="">Seleccionar…</option><option>Día</option><option>Noche</option></select></div>
+      <div class="field"><label for="mNivel">Nivel</label><input id="mNivel" autocomplete="off"></div>
+      <div class="field"><label for="mBlock">Block</label><input id="mBlock" autocomplete="off"></div>
+      <div class="field"><label for="mLabor">Labor</label><input id="mLabor" autocomplete="off"></div>
+      <div class="field"><label for="mGeo">Geomecánico</label><input id="mGeo" autocomplete="off"></div>
+    </div>
+    <div class="actions"><button class="btn" id="mCopyBtn" type="button">Copiar datos de la evaluación</button></div>
+  </div>
+
+  <div class="card">
+    <h2>Estructura</h2>
+    <div class="grid">
+      <div class="field full"><label for="mTipo">Tipo de estructura</label><select id="mTipo"><option value="">Seleccionar…</option>
+        <option value="J">(J) Junta</option><option value="F">(F) Falla</option><option value="SJ">(SJ) Sistema de juntas</option><option value="SF">(SF) Sistema de fallas</option><option value="C">(C) Contacto</option><option value="D">(D) Diaclasa</option><option value="O">(O) Otros</option></select></div>
+      <div class="field full hidden" id="mOtroWrap"><label for="mOtro">Especificar otro tipo</label><input id="mOtro" autocomplete="off"></div>
+    </div>
+    <h3>Orientación</h3>
+    <div class="grid">
+      <div class="field"><label for="mDip">Buzamiento · Dip (0–90°)</label><input id="mDip" type="number" inputmode="numeric" min="0" max="90" step="1" placeholder="Ej. 65"></div>
+      <div class="field"><label for="mDipDir">Dirección de buzamiento · Dip Direction (0–360°)</label><input id="mDipDir" type="number" inputmode="numeric" min="0" max="360" step="1" placeholder="Ej. 245"></div>
+    </div>
+    <h3>Tramo</h3>
+    <div class="grid">
+      <div class="field"><label for="mDesde">Desde (m)</label><input id="mDesde" type="number" inputmode="decimal" min="0" step="0.1" placeholder="Ej. 12.0"></div>
+      <div class="field"><label for="mHasta">Hasta (m)</label><input id="mHasta" type="number" inputmode="decimal" min="0" step="0.1" placeholder="Ej. 15.0"></div>
+    </div>
+    <h3>Condición de la estructura</h3>
+    <div class="grid">
+      <div class="field"><label for="mPers">Persistencia</label><select id="mPers"></select></div>
+      <div class="field"><label for="mRug">Rugosidad</label><select id="mRug"></select></div>
+      <div class="field full"><label for="mRell">Relleno</label><select id="mRell"></select></div>
+      <div class="field full"><label for="mObs">Observaciones</label><textarea id="mObs" placeholder="Ej. Falla con potencia de 30 cm y panizo blanco."></textarea>
+        <div class="actions" style="margin-top:8px"><button class="btn" id="mDictBtn" type="button">🎙️ Dictar observación</button></div>
+        <div class="help" id="mDictStatus"></div></div>
+    </div>
+    <div class="help" id="mError" style="color:var(--danger);font-weight:700"></div>
+    <div class="actions"><button class="btn primary" id="mSaveBtn" type="button">Guardar estructura</button><button class="btn" id="mClearBtn" type="button">Limpiar estructura</button></div>
+    <div class="save-confirm hidden" id="mSaved"></div>
+  </div>
+
+  <div class="card">
+    <h2>Estructuras registradas</h2>
+    <div class="small" id="mCount"></div>
+    <div id="mList" style="margin-top:10px"></div>
+    <div class="actions"><button class="btn ok" id="mExportBtn" type="button">Exportar CSV</button><button class="btn danger" id="mDeleteAllBtn" type="button">Borrar todo el mapeo</button></div>
   </div>
 </section>
 </div>
@@ -1275,6 +1335,109 @@ recalc();renderHistory();
       if(saved!=="light"&&saved!=="dark") apply(e.matches?"dark":"light"); };
     if(mq.addEventListener) mq.addEventListener("change",onChange); else if(mq.addListener) mq.addListener(onChange);
   }
+})();
+</script>
+<script>
+(function(){
+  const $m=id=>document.getElementById(id);
+  const TIPOS={J:"Junta",F:"Falla",SJ:"Sistema de juntas",SF:"Sistema de fallas",C:"Contacto",D:"Diaclasa",O:"Otros"};
+  const MDB="geomecanica_mapeo_v1", MST="estructuras";
+  const open=()=>new Promise((res,rej)=>{const q=indexedDB.open(MDB,1);q.onupgradeneeded=e=>{const db=e.target.result;if(!db.objectStoreNames.contains(MST))db.createObjectStore(MST,{keyPath:"id"});};q.onsuccess=()=>res(q.result);q.onerror=()=>rej(q.error);});
+  const put=async x=>{const db=await open();return new Promise((res,rej)=>{const tx=db.transaction(MST,"readwrite");tx.objectStore(MST).put(x);tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error);});};
+  const all=async()=>{const db=await open();return new Promise((res,rej)=>{const q=db.transaction(MST).objectStore(MST).getAll();q.onsuccess=()=>res(q.result.sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt))));q.onerror=()=>rej(q.error);});};
+  const del=async id=>{const db=await open();return new Promise((res,rej)=>{const tx=db.transaction(MST,"readwrite");tx.objectStore(MST).delete(id);tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error);});};
+  const clearAll=async()=>{const db=await open();return new Promise((res,rej)=>{const tx=db.transaction(MST,"readwrite");tx.objectStore(MST).clear();tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error);});};
+  // condiciones: mismas opciones del RMR, sin puntaje
+  [["mPers","persistencia"],["mRug","rugosidad"],["mRell","relleno"]].forEach(([to,from])=>{
+    const src=document.getElementById(from), dst=$m(to);
+    dst.innerHTML='<option value="">Seleccionar…</option>'+[...src.options].filter(o=>o.value!=="").map(o=>{const t=o.text.replace(/\s*[—-]\s*\d+\s*pts?\.?\s*$/i,"").trim();return `<option value="${esc(t)}">${esc(t)}</option>`;}).join("");
+  });
+  $m("mFecha").value=today();
+  ["mNivel","mBlock","mLabor","mGeo"].forEach(id=>$m(id).addEventListener("input",e=>{const el=e.target,p=el.selectionStart;el.value=el.value.toUpperCase();try{el.setSelectionRange(p,p);}catch(_){}}));
+  $m("mTipo").addEventListener("change",()=>$m("mOtroWrap").classList.toggle("hidden",$m("mTipo").value!=="O"));
+  function copyFromEval(force){
+    const map=[["mFecha","fecha"],["mTurno","turno"],["mNivel","nivel"],["mBlock","block"],["mLabor","labor"],["mGeo","supervisor"]];
+    map.forEach(([to,from])=>{const v=document.getElementById(from).value; if(v&&(force||!$m(to).value)) $m(to).value=v;});
+  }
+  $m("mCopyBtn").addEventListener("click",()=>copyFromEval(true));
+  document.querySelectorAll('.tab[data-tab="mapeo"]').forEach(b=>b.addEventListener("click",()=>{copyFromEval(false);render();}));
+  const num=id=>{const v=$m(id).value.trim();return v===""?null:Number(v);};
+  function validate(){
+    if(!$m("mLabor").value.trim()) return "Indica la labor.";
+    const t=$m("mTipo").value; if(!t) return "Selecciona el tipo de estructura.";
+    if(t==="O"&&!$m("mOtro").value.trim()) return "Especifica el tipo de estructura en «Otros».";
+    const dip=num("mDip"), dd=num("mDipDir");
+    if(dip===null||!Number.isFinite(dip)||dip<0||dip>90) return "El buzamiento (Dip) debe estar entre 0 y 90°.";
+    if(dd===null||!Number.isFinite(dd)||dd<0||dd>360) return "La dirección de buzamiento (Dip Direction) debe estar entre 0 y 360°.";
+    const d=num("mDesde"), h=num("mHasta");
+    if(d===null||d<0||!Number.isFinite(d)) return "Indica el tramo «Desde» en metros.";
+    if(h===null||h<0||!Number.isFinite(h)) return "Indica el tramo «Hasta» en metros.";
+    if(h<d) return "El tramo «Hasta» debe ser mayor o igual que «Desde».";
+    return "";
+  }
+  const pad3=n=>String(Math.round(n)).padStart(3,"0");
+  $m("mSaveBtn").addEventListener("click",async()=>{
+    const err=validate(); $m("mError").textContent=err; if(err) return;
+    const t=$m("mTipo").value, now=new Date().toISOString();
+    const x={id:crypto.randomUUID?crypto.randomUUID():String(Date.now()),createdAt:now,
+      fecha:$m("mFecha").value,turno:$m("mTurno").value,nivel:$m("mNivel").value.trim(),block:$m("mBlock").value.trim(),labor:$m("mLabor").value.trim(),geomecanico:$m("mGeo").value.trim(),
+      tipo:t,tipoNombre:TIPOS[t],otro:t==="O"?$m("mOtro").value.trim():"",
+      dip:Math.round(num("mDip")),dipDir:Math.round(num("mDipDir")),
+      desde:num("mDesde"),hasta:num("mHasta"),
+      persistencia:$m("mPers").value,rugosidad:$m("mRug").value,relleno:$m("mRell").value,
+      observaciones:$m("mObs").value.trim()};
+    try{ await put(x); }catch(e){ $m("mError").textContent="No se pudo guardar: "+(e.message||e); return; }
+    $m("mSaved").classList.remove("hidden");
+    $m("mSaved").innerHTML=`<strong>Estructura guardada</strong><span>${esc(x.tipo)} · ${x.dip}° / ${pad3(x.dipDir)}° · ${esc(x.labor)}</span>`;
+    clearStructure(true); render();
+  });
+  function clearStructure(keepMsg){
+    ["mTipo","mOtro","mDip","mDipDir","mDesde","mHasta","mPers","mRug","mRell","mObs"].forEach(id=>$m(id).value="");
+    $m("mOtroWrap").classList.add("hidden"); $m("mError").textContent="";
+    if(!keepMsg) $m("mSaved").classList.add("hidden");
+  }
+  $m("mClearBtn").addEventListener("click",()=>clearStructure(false));
+  const tramo=x=>(x.desde===null&&x.hasta===null)?"Sin tramo":`Tramo ${x.desde??"—"} – ${x.hasta??"—"} m`;
+  async function render(){
+    let a=[]; try{a=await all();}catch(e){}
+    $m("mCount").textContent=a.length?`${a.length} estructura${a.length===1?"":"s"} registrada${a.length===1?"":"s"} en este dispositivo.`:"Aún no hay estructuras registradas.";
+    $m("mList").innerHTML=a.map(x=>`<div class="history-item"><div class="history-top"><div><b>${esc(x.tipo)} · ${esc(x.tipo==="O"&&x.otro?x.otro:x.tipoNombre)}</b>
+      <div class="small">${esc(x.labor)} · ${esc(x.fecha||"")}${x.nivel?" · Nv "+esc(x.nivel):""}</div>
+      <div class="small">${tramo(x)}${x.observaciones?" · "+esc(x.observaciones):""}</div></div>
+      <span class="pill">${x.dip}° / ${pad3(x.dipDir)}°</span></div>
+      <div class="actions" style="margin-top:6px"><button class="btn danger" data-del="${esc(x.id)}" type="button">Eliminar</button></div></div>`).join("");
+    $m("mList").querySelectorAll("[data-del]").forEach(b=>b.onclick=async()=>{if(confirm("¿Eliminar esta estructura?")){await del(b.dataset.del);render();}});
+  }
+  $m("mDeleteAllBtn").addEventListener("click",async()=>{if(confirm("¿Borrar todo el mapeo estructural de este dispositivo?")){await clearAll();render();}});
+  const cell=v=>`"${String(v??"").replace(/"/g,'""')}"`;
+  $m("mExportBtn").addEventListener("click",async()=>{
+    const a=await all(); if(!a.length){alert("No hay estructuras para exportar.");return;}
+    const H=["ID","Fecha","Turno","Nivel","Block","Labor","Geomecánico","Tipo estructura","Tipo estructura (nombre)","Otros (detalle)","Buzamiento (Dip)","Dirección de buzamiento (Dip Direction)","Tramo desde (m)","Tramo hasta (m)","Persistencia","Rugosidad","Relleno","Observaciones","Guardado"];
+    const R=a.map(x=>[x.id,x.fecha,x.turno,x.nivel,x.block,x.labor,x.geomecanico,x.tipo,x.tipoNombre,x.otro,x.dip,pad3(x.dipDir),x.desde??"",x.hasta??"",x.persistencia,x.rugosidad,x.relleno,x.observaciones,x.createdAt]);
+    const csv="\ufeff"+[H,...R].map(r=>r.map(cell).join(",")).join("\n");
+    const filename=`Mapeo_estructural_${today()}.csv`, blob=new Blob([csv],{type:"text/csv;charset=utf-8"}), file=new File([blob],filename,{type:"text/csv"});
+    try{ if(navigator.share&&(!navigator.canShare||navigator.canShare({files:[file]}))){ await navigator.share({title:"Mapeo estructural",text:"Mapeo estructural exportado desde EBR Geomecánica.",files:[file]}); return; } }
+    catch(err){ if(err&&err.name==="AbortError") return; }
+    const url=URL.createObjectURL(blob), t=document.createElement("a"); t.href=url; t.download=filename; document.body.appendChild(t); t.click(); t.remove(); setTimeout(()=>URL.revokeObjectURL(url),1000);
+  });
+  // dictado de observaciones
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition; let rec=null;
+  if(SR){
+    $m("mDictBtn").onclick=()=>{
+      if(rec){try{rec.stop();}catch(_){}return;}
+      rec=new SR(); rec.lang="es-PE"; rec.continuous=true; rec.interimResults=true;
+      const base=$m("mObs").value.trim(); let done="",tmp="";
+      const paint=()=>{const sp=(done+" "+tmp).replace(/\s+/g," ").trim();$m("mObs").value=base+(base&&sp?" ":"")+sp;};
+      rec.onstart=()=>{$m("mDictBtn").textContent="⏹️ Detener dictado";$m("mDictStatus").textContent="Escuchando…";};
+      rec.onresult=e=>{tmp="";for(let n=e.resultIndex;n<e.results.length;n++){const t=(e.results[n][0]?.transcript||"").trim();if(!t)continue;if(e.results[n].isFinal)done+=(done?" ":"")+t;else tmp+=(tmp?" ":"")+t;}paint();};
+      rec.onerror=e=>{$m("mDictStatus").textContent="Error de dictado: "+(e.error||"desconocido");};
+      rec.onend=()=>{paint(); if(typeof correctGeoText==="function") $m("mObs").value=correctGeoText($m("mObs").value); rec=null; $m("mDictBtn").textContent="🎙️ Dictar observación"; $m("mDictStatus").textContent="";};
+      try{rec.start();}catch(_){rec=null;$m("mDictStatus").textContent="No se pudo iniciar el dictado.";}
+    };
+  } else {
+    $m("mDictBtn").onclick=()=>alert("El dictado directo no está disponible en este navegador. Usa el micrófono del teclado.");
+  }
+  render();
 })();
 </script>
 <script>if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));}</script></body>
