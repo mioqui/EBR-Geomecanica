@@ -226,6 +226,7 @@ html[data-theme="dark"] .sost-box .sost-water{background:#3a2e12;border-color:#6
 #gsiChart .gsi-colh,#gsiChart .gsi-rowh{font-size:11px;font-weight:800;fill:var(--ink)}
 #gsiChart .gsi-colk{font-size:10px;font-weight:700;fill:var(--muted)}
 .gsi-split{display:inline-block;margin:4px 0;color:var(--warn);font-weight:700}
+#gsiChart .gsi-corner{font-size:9px;font-weight:800;fill:#111;paint-order:stroke;stroke:rgba(255,255,255,.7);stroke-width:2.5px;pointer-events:none}
 #gsiChart .gsi-mark{fill:#fff;stroke:#111;stroke-width:3;pointer-events:none}
 html[data-theme="dark"] .seg{background:#1b2a34}
 html[data-theme="dark"] .seg-btn{color:#c8d6de}
@@ -444,11 +445,7 @@ html[data-theme="dark"] #gsiChart .gsi-na-t{fill:#9fb1bc}
 
 <section id="gsi" class="panel">
   <div class="card">
-    <div class="gsi-head">
-      <h2>Cartilla GSI</h2>
-      <button type="button" class="info-btn" id="gsiInfoBtn" aria-label="Información sobre la cartilla GSI" aria-expanded="false" aria-controls="gsiInfoNote">?</button>
-    </div>
-    <div class="info-note hidden" id="gsiInfoNote" role="note">Cartilla de geomecánica versión 9.0 · Clasificación GSI de Hoek modificada para sostenimiento (aberturas de 4.0 a 5.5 m). Se basa en la cantidad de fracturas por metro, medidas in situ con flexómetro; la resistencia se determina golpeando o indentando la roca con una picota, considerando la rugosidad, la alteración de las paredes y el relleno de las discontinuidades.</div>
+    <h2>Cartilla GSI</h2>
     <div class="seg" role="radiogroup" aria-label="Tipo de labor">
       <button type="button" class="seg-btn active" role="radio" aria-checked="true" data-labor="Permanente">Labores permanentes</button>
       <button type="button" class="seg-btn" role="radio" aria-checked="false" data-labor="Temporal">Labores temporales</button>
@@ -1091,9 +1088,9 @@ function csvCell(v){const s=String(v??"");return `"${s.replace(/"/g,'""')}"`;}
 $("exportBtn").onclick=async()=>{
   const a=await dbAll(); if(!a.length){alert("No hay registros para compartir o exportar.");return;}
   const headers=["ID","Fecha","Turno","Nivel","Block","Labor","Tipo de labor","Supervisor","RMR básico","Buzamiento","Rumbo","Sentido","Categoría ajuste","Ajuste","RMR total","Tipo roca","Observaciones","Guardado","Actualizado",
-  "Resistencia","RQD","Espaciamiento","Apertura","Rugosidad","Relleno","Persistencia","Alteración","Agua","RQD medido (%)","RQD usado en GSI (%)","JCond89","GSI estimado","Sostenimiento","Sostenimiento de sacrificio","Restricción","Nota por agua"];
+  "Resistencia","RQD","Espaciamiento","Apertura","Rugosidad","Relleno","Persistencia","Alteración","Agua","Sostenimiento","Sostenimiento de sacrificio","Restricción","Nota por agua"];
   const rows=a.map(x=>[x.id,x.fecha,x.turno,x.nivel,x.block,x.labor,TIPOS_LABOR[x.condicionLabor]||x.condicionLabor||"",x.supervisor,x.rmrBasico,x.buzamiento,x.rumbo,x.sentido,x.ajusteCategoria,x.ajuste,x.rmrTotal,x.tipoRoca,x.observaciones,x.createdAt,x.updatedAt,
-   x.params?.resistencia?.label||"",x.params?.rqd?.label||"",x.params?.espaciamiento?.label||"",x.params?.apertura?.label||"",x.params?.rugosidad?.label||"",x.params?.relleno?.label||"",x.params?.persistencia?.label||"",x.params?.alteracion?.label||"",x.params?.agua?.label||"",x.rqdMedido??"",x.gsiRqd??"",x.jcond89??"",x.gsi??"",...(()=>{ if(x.sostPrincipal!==undefined||x.sostRestriccion!==undefined) return [x.sostPrincipal||"",x.sostSacrificio||"",x.sostRestriccion||"",x.sostNotaAgua||""];
+   x.params?.resistencia?.label||"",x.params?.rqd?.label||"",x.params?.espaciamiento?.label||"",x.params?.apertura?.label||"",x.params?.rugosidad?.label||"",x.params?.relleno?.label||"",x.params?.persistencia?.label||"",x.params?.alteracion?.label||"",x.params?.agua?.label||"",...(()=>{ if(x.sostPrincipal!==undefined||x.sostRestriccion!==undefined) return [x.sostPrincipal||"",x.sostSacrificio||"",x.sostRestriccion||"",x.sostNotaAgua||""];
      const c=cartillaFor(x.rmrTotal,x.condicionLabor,x.params?.agua?.score); return [c.principal,c.sacrificio,c.restriccion,c.notaAgua?(c.aguaAplica?"Aplica: ":"")+c.notaAgua:""]; })()]);
   const csv="\ufeff"+[headers,...rows].map(r=>r.map(csvCell).join(",")).join("\n");
   const filename=`RMR_geomecanica_${today()}.csv`;
@@ -1176,7 +1173,12 @@ recalc();renderHistory();
       const code=r.k+"/"+c.k, x=X0+j*CW, y=Y0+i*CH;
       if(NA.has(code)){svg.appendChild(el("rect",{x,y,width:CW,height:CH,class:"gsi-na"}));svg.appendChild(el("text",{x:x+CW/2,y:y+CH/2+4,class:"gsi-na-t","text-anchor":"middle"},"N/A"));}
       svg.appendChild(el("rect",{x,y,width:CW,height:CH,class:"gsi-cellline"}));
-      if(!NA.has(code)) svg.appendChild(el("text",{x:x+CW/2,y:y+CH/2+4,class:"gsi-code","text-anchor":"middle"},code));
+      if(!NA.has(code)){
+        svg.appendChild(el("text",{x:x+CW/2,y:y+CH/2+4,class:"gsi-code","text-anchor":"middle"},code));
+        const tl=80-10*(i+j), br=Math.max(tl-20,0), f=n=>n<10?"0"+n:String(n);
+        svg.appendChild(el("text",{x:x+3,y:y+10,class:"gsi-corner"},f(tl)));
+        svg.appendChild(el("text",{x:x+CW-3,y:y+CH-4,class:"gsi-corner","text-anchor":"end"},f(br)));
+      }
     }));
     // encabezados
     svg.appendChild(el("text",{x:X0+2*CW,y:14,class:"gsi-axis","text-anchor":"middle"},"CONDICIONES SUPERFICIALES →"));
@@ -1248,8 +1250,6 @@ recalc();renderHistory();
     update();
   }));
   $g("gsiClearBtn").addEventListener("click",()=>{sel=null;$g("gsiEstr").value="";$g("gsiSup").value="";$g("gsiPick").classList.add("hidden");draw();resetResult();});
-  const infoBtn=$g("gsiInfoBtn"), infoNote=$g("gsiInfoNote");
-  infoBtn.addEventListener("click",()=>{const open=infoNote.classList.toggle("hidden")===false;infoBtn.setAttribute("aria-expanded",String(open));});
   draw(); resetResult();
 })();
 </script>
