@@ -197,6 +197,20 @@ html[data-theme="dark"] .info-btn[aria-expanded="true"]{background:#5b9dc0;color
 html[data-theme="dark"] .info-note{background:#3a2e12;border-color:#6b5420;color:#f0d9a4}
 html[data-theme="dark"] .rock-dot{border-color:rgba(255,255,255,.35)}
 html[data-theme="dark"] .gsi-cell[aria-pressed="true"]{outline-color:#fff}
+
+.sost-box{border:1px solid var(--line);border-radius:12px;padding:12px 13px;margin:0 0 12px;background:#f5f9fb;font-size:.9rem;line-height:1.5}
+.sost-box h3{margin:0 0 4px;font-size:.98rem}
+.sost-box .sost-sub{font-size:.78rem;color:var(--muted);font-weight:700;margin-bottom:8px}
+.sost-box .sost-label{display:block;font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin-top:8px}
+.sost-box .sost-text{white-space:pre-line;overflow-wrap:anywhere}
+.sost-box .sost-restr{margin-top:8px;padding:9px 11px;border-radius:10px;background:#fbeaea;border:1px solid #e9b8b8;color:#8a1f1f;font-weight:800}
+.sost-box .sost-water{margin-top:8px;padding:9px 11px;border-radius:10px;background:#fff4e2;border:1px solid #f0d9a4;color:#6b4a0e;font-size:.84rem}
+.sost-box .sost-water.applies{font-weight:700}
+.sost-box .sost-empty{color:var(--muted)}
+.sost-box .sost-foot{margin-top:8px;font-size:.74rem;color:var(--muted)}
+html[data-theme="dark"] .sost-box{background:#1b2a34}
+html[data-theme="dark"] .sost-box .sost-restr{background:#3a1f22;border-color:#7a3a3a;color:#f3b0b0}
+html[data-theme="dark"] .sost-box .sost-water{background:#3a2e12;border-color:#6b5420;color:#f0d9a4}
 </style>
 <link rel="manifest" href="./manifest.webmanifest"></head>
 <body>
@@ -225,7 +239,7 @@ html[data-theme="dark"] .gsi-cell[aria-pressed="true"]{outline-color:#fff}
       <div class="field"><label>Nivel</label><input id="nivel" autocomplete="off" placeholder="Ej. 4055"></div>
       <div class="field"><label>Block</label><input id="block" autocomplete="off" placeholder="Ej. B7998"></div>
       <div class="field"><label>Labor</label><input id="labor" autocomplete="off" placeholder="Ej. GL765N"></div>
-      <div class="field"><label>Condición de labor</label><select id="condicionLabor"><option value="">Seleccionar…</option><option>Temporal</option><option>Permanente</option></select></div>
+      <div class="field full"><label for="condicionLabor">Tipo de labor (cartilla V9.1)</label><select id="condicionLabor"><option value="">Seleccionar…</option><option value="Permanente">Avance permanente (&gt; 1 año)</option><option value="Temporal">Avance temporal (≤ 1 año)</option><option value="Interseccion permanente">Intersección permanente (RC 10)</option><option value="Interseccion temporal">Intersección temporal (RC 6)</option><option value="Explotacion">Explotación: tajo de perforación positiva (ancho &gt; 6 m)</option></select></div>
       <div class="field full"><label>Supervisor / Geomecánico</label><input id="supervisor" autocomplete="off"></div>
     </div>
   </div>
@@ -335,6 +349,7 @@ html[data-theme="dark"] .gsi-cell[aria-pressed="true"]{outline-color:#fff}
       <summary>GSI estimado: <b id="gsiCalcLive">—</b><span class="gsi-calc-hint">Ver cálculo</span></summary>
       <div class="gsi-calc-body" id="gsiCalcTrace">Completa RQD y las cinco condiciones de las juntas para estimar el GSI.</div>
     </details>
+    <div class="sost-box" id="sostBox" aria-live="polite"></div>
 
     <div id="traceLive" class="hidden"></div><div id="nextStep" class="help" style="margin-top:8px"></div>
   </div>
@@ -391,6 +406,7 @@ html[data-theme="dark"] .gsi-cell[aria-pressed="true"]{outline-color:#fff}
     <div id="detailIdentification" class="trace"></div>
     <h3>GSI estimado</h3>
     <div id="detailGsi" class="trace"></div>
+    <div id="detailSost" class="sost-box" style="margin-top:10px"></div>
     <h3>Detalle de puntajes</h3>
     <div id="detailScores" class="score-detail-grid"></div>
     <h3>Fotografías de campo</h3>
@@ -591,6 +607,53 @@ function applyRockColor(cardId,v){
   card.querySelectorAll("b,span").forEach(el=>el.style.color=txt);
 }
 
+// ===== Cartilla geomecánica V9.1 (hoja "cartilla v4_Aprobado (3)") =====
+const TIPOS_LABOR={
+  "Permanente":"Avance permanente (> 1 año)",
+  "Temporal":"Avance temporal (≤ 1 año)",
+  "Interseccion permanente":"Intersección permanente (RC 10)",
+  "Interseccion temporal":"Intersección temporal (RC 6)",
+  "Explotacion":"Explotación: tajo de perforación positiva (ancho > 6 m)"
+};
+// p = sostenimiento principal · s = sacrificio · r = restricción
+const CARTILLA_V91={"Permanente": {"I": {"p": "Sin sostenimiento o empernado ocasional con pernos Swellex, L=7'.", "s": null, "r": null}, "II": {"p": "Malla Cal # 8, Cocada 4\" x 4\" a partir de gradiente + Pernos Swellex L = 7 ft @ = 1.5m con distribucion cuadrada.", "s": null, "r": null}, "IIIA": {"p": "Malla Cal # 8, Cocada 4\" x 4\" a partir de gradiente + Pernos Swellex L = 7 ft @ = 1.5m con distribucion cuadrada.", "s": "Malla electrosoldada cal. # 8 + Split set a partir de 1.50m del piso.", "r": null}, "IIIB": {"p": "Malla Cal # 8 Cocada 4\" x 4\" a partir de gradiente + Pernos Swellex L = 7 ft @ = 1.2m con distribucion cuadrada.", "s": "Malla electrosoldada cal. # 8 + Split set a partir de 1.50m del piso.", "r": null}, "IVA": {"p": "Sh 2'' + P Swellex de 7' esp. 1.2 m c/u ó Malla Cal. # 6 Cocada 3\"x 3\" + P Swellex 7' esp. 1.2m c/u.", "s": "Malla electrosoldada cal. # 8 + Split set a partir de 1.50m del piso.", "r": null}, "IVB1": {"p": "Sh 2\" + Malla Cal # 8 + P Swellex 7' distribución cuadrada + Sh 1\" sobre malla.\nRealizar taladros de alivio en corona + pernos de pre-soporte.", "s": "Sh 2\"", "r": null}, "IVB2": {"p": "Sh 2\" + Malla Cal # 8 + P Swellex 7' distribución cuadrada + Sh 2\" sobre malla.\nRealizar taladros de alivio en corona + pernos de pre-soporte.", "s": "Sh 2\"", "r": null}, "V": {"p": "Sh 2\" + P Swellex 7' (corona y hombros) + Cimbras tipo 6W20 esp a 1.5m + taladros de alivio + Pernos de presoporte.", "s": "Sh 2\" todo el frente + P Swellex", "r": null}}, "Temporal": {"I": {"p": "Sin sostenimiento o empernado ocasional con pernos split set, L=7'.", "s": null, "r": null}, "II": {"p": "Malla Cal # 8, Cocada 4\" x 4\" a partir de gradiente + Pernos Split set L = 7 ft @ = 1.5m con distribucion cuadrada.", "s": null, "r": null}, "IIIA": {"p": "Malla Cal # 8, Cocada 4\" x 4\" a partir de gradiente + Pernos Split set L = 7 ft @ = 1.5m con distribucion cuadrada.", "s": "Malla electrosoldada cal. # 8 + Split set a partir de 1.50m del piso.", "r": null}, "IIIB": {"p": "Malla Cal # 8 Cocada 4\" x 4\" a partir de gradiente + Pernos Split set L = 7 ft @ = 1.2m con distribucion cuadrada.", "s": "Malla electrosoldada cal. # 8 + Split set a partir de 1.50m del piso.", "r": null}, "IVA": {"p": "Malla Cal. # 6 Cocada 3\"x 3\" + P Swellex 7' esp. 1.2m c/u.", "s": "Malla electrosoldada cal. # 8 + Split set a partir de 1.50m del piso.", "r": null}, "IVB1": {"p": "Sh 2\" + Malla Cal # 6 + P Swellex 7' distribución cuadrada\nRealizar taladros de alivio en corona.", "s": "Malla electrosoldada cal. # 8 + Split set a partir de 1.50m del piso.", "r": null}, "IVB2": {"p": "Sh 2\" + Malla Cal # 6 + P Swellex 7' distribución cuadrada + Sh 1\" sobre malla.\nRealizar taladros de alivio en corona + pernos de pre-soporte.", "s": "Sh 2\"", "r": null}, "V": {"p": "Sh 3\" (seccion completa) + Malla Cal # 6 + P Swellex 7' distribucion cuadrada + Sh 1\" sobre malla.", "s": "Sh 3\" todo el frente + P Swellex", "r": null}}, "Interseccion permanente": {"I": {"p": "Pernos Swellex, L=7’, @=1.50m, distribución en cuadrado.", "s": null, "r": null}, "II": {"p": "Malla Cal # 6 + P Swellex 7' esp 1.2m c/u (en corona y hombros)", "s": null, "r": null}, "IIIA": {"p": "Malla Cal # 6 + P Swellex 7' esp 1.2m c/u (en corona y hombros)", "s": null, "r": null}, "IIIB": {"p": "Malla Cal # 6 + P Swellex 7' esp 1.2m c/u (en corona y hombros)", "s": null, "r": null}, "IVA": {"p": "Sh 2\" + Malla Cal # 6 + P Swellex 7' esp 1.2m c/u + Sh 1\" sobre malla:\nAdicionar Cable bolt de 6m esp. 3m c/u (Perpendicular a la corona de la excavaacion)", "s": null, "r": null}, "IVB1": {"p": "Sh 2\" + Malla Cal # 6 + P Swellex 7' esp 1.2m c/u + Sh 1\" sobre malla:\nAdicionar Cable bolt de 9m esp 3m c/u (Perpendicular a la corona de la excavaacion)", "s": null, "r": null}, "IVB2": {"p": "Sh 2\" + Malla Cal # 6 + P Swellex 7' esp 1.2m c/u + Sh 1\" sobre malla:\nAdicionar Cable bolt de 9m esp 3m c/u (Perpendicular a la corona de la excavaacion)", "s": null, "r": null}, "V": {"p": null, "s": null, "r": "No abrir intersecciones en roca Tipo V"}}, "Interseccion temporal": {"I": null, "II": {"p": "Malla Cal # 6 + P Split set 7' esp 1.2m c/u (en corona y hombros)", "s": null, "r": null}, "IIIA": {"p": "Malla Cal # 6 + P Split set 7' esp 1.2m c/u (en corona y hombros)", "s": null, "r": null}, "IIIB": {"p": "Malla Cal # 6 + P Swellex 7' esp 1.2m c/u (en corona y hombros)", "s": null, "r": null}, "IVA": {"p": "Sh 2\" + Malla Cal # 6 + P Swellex 7' esp 1.2m c/u.\nAdicionar Cable bolt de 6m esp. 3m c/u (Perpendicular a la corona de la excavaacion)", "s": null, "r": null}, "IVB1": {"p": "Sh 2\" + Malla Cal # 6 + P Swellex 7' esp 1.2m c/u + Sh 1\" sobre malla:\nAdicionar Cable bolt de 6m esp 2.5m c/u (Perpendicular a la corona de la excavaacion)", "s": null, "r": null}, "IVB2": {"p": "Sh 2\" + Malla Cal # 6 + P Swellex 7' esp 1.2m c/u + Sh 1\" sobre malla:\nAdicionar Cable bolt de 6m esp 2.5m c/u (Perpendicular a la corona de la excavaacion)", "s": null, "r": null}, "V": {"p": null, "s": null, "r": "No abrir intersecciones en roca Tipo V"}}, "Explotacion": {"I": null, "II": {"p": "Malla Cal # 6 a partir de la gradiente + Pernos Swellex L=7' @=1.20m distribución en cocada. Reforzamiento con cable bolting según diseño geomecánico.", "s": null, "r": null}, "IIIA": {"p": "Malla Cal # 6 a partir de la gradiente + Pernos Swellex L=7' @=1.20m distribución en cocada. Reforzamiento con cable bolting según diseño geomecánico.", "s": null, "r": null}, "IIIB": {"p": "Malla Cal # 6 a partir de la gradiente + Pernos Swellex L=7' @=1.20m distribución en cocada. Reforzamiento con cable bolting según diseño geomecánico.", "s": null, "r": null}, "IVA": {"p": "SH 2\" (4 Kg/m3 de fibra sintetica) a sección completa + Malla Cal # 6 + P Swellex 7' esp. 1.20m, distribución en cocada (reforzamiento del sostenimiento antes del sellado de la intersección). Reforzamiento con cable bolting según recomendación geomecánica.", "s": null, "r": null}, "IVB1": {"p": null, "s": null, "r": "No minar en positivo en roca tipo IV B"}, "IVB2": {"p": null, "s": null, "r": "No minar en positivo en roca tipo IV B"}, "V": {"p": null, "s": null, "r": "No minar en positivo en roca tipo V"}}};
+const CARTILLA_NOTA_AGUA="Si el frente en roca IV-B o V presenta filtración de agua: reforzar con SH de sacrificio e=1.5\" a sección completa + malla electrosoldada con P. Swellex.";
+function cartillaRockKey(v){
+  if(v===null||v===undefined||v===""||Number.isNaN(Number(v))) return null;
+  v=Number(v);
+  if(v>=81) return "I"; if(v>=61) return "II"; if(v>=51) return "IIIA"; if(v>=41) return "IIIB";
+  if(v>=31) return "IVA"; if(v>=26) return "IVB1"; if(v>=21) return "IVB2"; return "V";
+}
+function cartillaFor(rmrTotal,tipoLabor,aguaScore){
+  const key=cartillaRockKey(rmrTotal);
+  const out={key,tipoLabor:tipoLabor||"",tipoLaborLabel:TIPOS_LABOR[tipoLabor]||tipoLabor||"",
+    principal:"",sacrificio:"",restriccion:"",notaAgua:"",aguaAplica:false,estado:""};
+  if(!tipoLabor||!CARTILLA_V91[tipoLabor]){ out.estado="sin-labor"; return out; }
+  if(!key){ out.estado="sin-rmr"; return out; }
+  const c=CARTILLA_V91[tipoLabor][key];
+  if(!c){ out.estado="sin-dato"; }
+  else{
+    out.estado="ok"; out.principal=c.p||""; out.sacrificio=c.s||""; out.restriccion=c.r||"";
+  }
+  if(key==="IVB1"||key==="IVB2"||key==="V"){
+    out.notaAgua=CARTILLA_NOTA_AGUA;
+    out.aguaAplica=aguaScore!==null&&aguaScore!==undefined&&aguaScore<=4;
+  }
+  return out;
+}
+function sostHtml(c,rockLabel){
+  if(c.estado==="sin-labor") return `<h3>Sostenimiento recomendado</h3><div class="sost-empty">Selecciona el <strong>tipo de labor</strong> en Identificación para ver el sostenimiento de la cartilla.</div>`;
+  if(c.estado==="sin-rmr") return `<h3>Sostenimiento recomendado</h3><div class="sost-empty">Se mostrará cuando el RMR total esté completo.</div>`;
+  let h=`<h3>Sostenimiento recomendado</h3><div class="sost-sub">${esc(c.tipoLaborLabel)} · Roca ${esc(rockLabel||"")}</div>`;
+  if(c.estado==="sin-dato") h+=`<div class="sost-empty">La cartilla V9.1 no define sostenimiento para esta combinación. Consultar con el área de Geomecánica.</div>`;
+  if(c.principal) h+=`<span class="sost-label">Sostenimiento</span><div class="sost-text">${esc(c.principal)}</div>`;
+  if(c.sacrificio) h+=`<span class="sost-label">Sacrificio</span><div class="sost-text">${esc(c.sacrificio)}</div>`;
+  if(c.restriccion) h+=`<div class="sost-restr">⛔ ${esc(c.restriccion)}</div>`;
+  if(c.notaAgua) h+=`<div class="sost-water${c.aguaAplica?" applies":""}">${c.aguaAplica?"💧 Aplica por el agua registrada (goteo o flujo): ":"💧 "}${esc(c.notaAgua)}</div>`;
+  h+=`<div class="sost-foot">Fuente: Cartilla geomecánica V.9 (SMEB). Todo sostenimiento se instala hasta el tope de la labor. Tolerancia de espaciamiento de pernos: ±5 cm.</div>`;
+  return h;
+}
+
 function recalc(){
   orientation();
   const vals=rmrIds.map(score), complete=vals.every(v=>v!==null);
@@ -620,9 +683,11 @@ function recalc(){
   $("gsiCalcTrace").innerHTML=gsi.html;
   $("rqdMedidoHelp").textContent=gsi.rqdWarn||"Opcional. Si lo dejas vacío, el GSI usa el punto medio del rango.";
   $("rqdMedidoHelp").style.color=gsi.rqdWarn?"var(--warn)":"";
-  return {complete, basic, orientation:o, total, rock:rockType(total), gsi};
+  const sost=cartillaFor(total,$("condicionLabor").value,score("agua"));
+  $("sostBox").innerHTML=sostHtml(sost,rockType(total));
+  return {complete, basic, orientation:o, total, rock:rockType(total), gsi, sost};
 }
-["buzamiento","rumbo","sentido","rqdMedido",...rmrIds].forEach(id=>{
+["buzamiento","rumbo","sentido","rqdMedido","condicionLabor",...rmrIds].forEach(id=>{
   ["input","change"].forEach(ev=>$(id).addEventListener(ev,recalc));
 });
 
@@ -817,6 +882,7 @@ function collect(){
     ajusteCategoria:calc.orientation.cat,ajuste:calc.orientation.adj,trazabilidad:calc.orientation.trace,
     rmrBasico:calc.basic,rmrTotal:calc.total,tipoRoca:calc.rock,
     rqdMedido:$("rqdMedido").value.trim()===""?null:Number($("rqdMedido").value),gsi:calc.gsi.value,jcond89:calc.gsi.jcond,gsiRqd:calc.gsi.rqd,
+    sostTipoLabor:calc.sost.tipoLaborLabel,sostPrincipal:calc.sost.principal,sostSacrificio:calc.sost.sacrificio,sostRestriccion:calc.sost.restriccion,sostNotaAgua:calc.sost.notaAgua?(calc.sost.aguaAplica?"Aplica: ":"")+calc.sost.notaAgua:"",
     observaciones:$("observaciones").value.trim(),photos:[...currentPhotos]
   };
 }
@@ -913,8 +979,11 @@ async function showHistoryDetail(id){
     $("detailTotal").textContent=x.rmrTotal??"—";
     $("detailRock").textContent=x.tipoRoca||"—";
     applyRockColor("detailRockCard",x.rmrTotal);
-    $("detailIdentification").innerHTML=`<strong>Labor:</strong> ${esc(x.labor||"—")}<br><strong>Nivel:</strong> ${esc(x.nivel||"—")} · <strong>Block:</strong> ${esc(x.block||"—")}<br><strong>Turno:</strong> ${esc(x.turno||"—")} · <strong>Condición:</strong> ${esc(x.condicionLabor||"—")}<br><strong>Supervisor / Geomecánico:</strong> ${esc(x.supervisor||"—")}<br><strong>Fecha y hora de guardado:</strong> ${esc(formatSavedAt(x.createdAt))}${x.updatedAt?`<br><strong>Última actualización:</strong> ${esc(formatSavedAt(x.updatedAt))}`:""}`;
+    $("detailIdentification").innerHTML=`<strong>Labor:</strong> ${esc(x.labor||"—")}<br><strong>Nivel:</strong> ${esc(x.nivel||"—")} · <strong>Block:</strong> ${esc(x.block||"—")}<br><strong>Turno:</strong> ${esc(x.turno||"—")} · <strong>Tipo de labor:</strong> ${esc(TIPOS_LABOR[x.condicionLabor]||x.condicionLabor||"—")}<br><strong>Supervisor / Geomecánico:</strong> ${esc(x.supervisor||"—")}<br><strong>Fecha y hora de guardado:</strong> ${esc(formatSavedAt(x.createdAt))}${x.updatedAt?`<br><strong>Última actualización:</strong> ${esc(formatSavedAt(x.updatedAt))}`:""}`;
     $("detailGsi").innerHTML=(x.gsi===null||x.gsi===undefined)?"Sin GSI calculado (evaluación anterior a esta función o datos incompletos).":`<strong>GSI ${esc(x.gsi)}</strong> · JCond89 = ${esc(x.jcond89)} · RQD = ${esc(x.gsiRqd)} %${x.rqdMedido!==null&&x.rqdMedido!==undefined?" (medido)":" (punto medio del rango)"}`;
+    { const c=cartillaFor(x.rmrTotal,x.condicionLabor,x.params?.agua?.score);
+      if(x.sostPrincipal!==undefined||x.sostRestriccion!==undefined){ c.principal=x.sostPrincipal||""; c.sacrificio=x.sostSacrificio||""; c.restriccion=x.sostRestriccion||""; if(c.estado==="ok"||c.estado==="sin-dato") c.estado=(c.principal||c.restriccion)?"ok":c.estado; }
+      $("detailSost").innerHTML=sostHtml(c,x.tipoRoca); }
     $("detailScores").innerHTML=scoreCards(x.params||{});
     $("detailPhotos").innerHTML=(x.photos&&x.photos.length)?x.photos.map((src,i)=>`<div class="photo-item"><img class="detail-photo" src="${src}" alt="Foto de campo ${i+1}" title="Toca para ampliar"></div>`).join(""):`<div class="small">Sin fotografías adjuntas.</div>`;
     document.querySelectorAll(".detail-photo").forEach(img=>img.onclick=()=>openPhotoModal(img.src));
@@ -973,7 +1042,7 @@ function importedRecord(headers,row){
   return {
     id,createdAt:o["Guardado"]||new Date().toISOString(),updatedAt:o["Actualizado"]||null,
     fecha:o["Fecha"]||"",turno:o["Turno"]||"",nivel:o["Nivel"]||"",block:o["Block"]||"",labor:o["Labor"]||"",
-    condicionLabor:o["Condición labor"]||"",supervisor:o["Supervisor"]||"",params,
+    condicionLabor:(v=>{const k=Object.keys(TIPOS_LABOR).find(k=>TIPOS_LABOR[k]===v);return k||v;})(o["Tipo de labor"]||o["Condición labor"]||""),supervisor:o["Supervisor"]||"",params,
     buzamiento:o["Buzamiento"]||"",rumbo:o["Rumbo"]||"",sentido:o["Sentido"]||"",
     ajusteCategoria:o["Categoría ajuste"]||"",ajuste:o["Ajuste"]===""?null:Number(o["Ajuste"]),
     rmrBasico:o["RMR básico"]===""?null:Number(o["RMR básico"]),rmrTotal:o["RMR total"]===""?null:Number(o["RMR total"]),
@@ -1012,10 +1081,11 @@ $("importInput").addEventListener("change",async e=>{
 function csvCell(v){const s=String(v??"");return `"${s.replace(/"/g,'""')}"`;}
 $("exportBtn").onclick=async()=>{
   const a=await dbAll(); if(!a.length){alert("No hay registros para compartir o exportar.");return;}
-  const headers=["ID","Fecha","Turno","Nivel","Block","Labor","Condición labor","Supervisor","RMR básico","Buzamiento","Rumbo","Sentido","Categoría ajuste","Ajuste","RMR total","Tipo roca","Observaciones","Guardado","Actualizado",
-  "Resistencia","RQD","Espaciamiento","Apertura","Rugosidad","Relleno","Persistencia","Alteración","Agua","RQD medido (%)","RQD usado en GSI (%)","JCond89","GSI estimado"];
-  const rows=a.map(x=>[x.id,x.fecha,x.turno,x.nivel,x.block,x.labor,x.condicionLabor,x.supervisor,x.rmrBasico,x.buzamiento,x.rumbo,x.sentido,x.ajusteCategoria,x.ajuste,x.rmrTotal,x.tipoRoca,x.observaciones,x.createdAt,x.updatedAt,
-   x.params?.resistencia?.label||"",x.params?.rqd?.label||"",x.params?.espaciamiento?.label||"",x.params?.apertura?.label||"",x.params?.rugosidad?.label||"",x.params?.relleno?.label||"",x.params?.persistencia?.label||"",x.params?.alteracion?.label||"",x.params?.agua?.label||"",x.rqdMedido??"",x.gsiRqd??"",x.jcond89??"",x.gsi??""]);
+  const headers=["ID","Fecha","Turno","Nivel","Block","Labor","Tipo de labor","Supervisor","RMR básico","Buzamiento","Rumbo","Sentido","Categoría ajuste","Ajuste","RMR total","Tipo roca","Observaciones","Guardado","Actualizado",
+  "Resistencia","RQD","Espaciamiento","Apertura","Rugosidad","Relleno","Persistencia","Alteración","Agua","RQD medido (%)","RQD usado en GSI (%)","JCond89","GSI estimado","Sostenimiento","Sostenimiento de sacrificio","Restricción","Nota por agua"];
+  const rows=a.map(x=>[x.id,x.fecha,x.turno,x.nivel,x.block,x.labor,TIPOS_LABOR[x.condicionLabor]||x.condicionLabor||"",x.supervisor,x.rmrBasico,x.buzamiento,x.rumbo,x.sentido,x.ajusteCategoria,x.ajuste,x.rmrTotal,x.tipoRoca,x.observaciones,x.createdAt,x.updatedAt,
+   x.params?.resistencia?.label||"",x.params?.rqd?.label||"",x.params?.espaciamiento?.label||"",x.params?.apertura?.label||"",x.params?.rugosidad?.label||"",x.params?.relleno?.label||"",x.params?.persistencia?.label||"",x.params?.alteracion?.label||"",x.params?.agua?.label||"",x.rqdMedido??"",x.gsiRqd??"",x.jcond89??"",x.gsi??"",...(()=>{ if(x.sostPrincipal!==undefined||x.sostRestriccion!==undefined) return [x.sostPrincipal||"",x.sostSacrificio||"",x.sostRestriccion||"",x.sostNotaAgua||""];
+     const c=cartillaFor(x.rmrTotal,x.condicionLabor,x.params?.agua?.score); return [c.principal,c.sacrificio,c.restriccion,c.notaAgua?(c.aguaAplica?"Aplica: ":"")+c.notaAgua:""]; })()]);
   const csv="\ufeff"+[headers,...rows].map(r=>r.map(csvCell).join(",")).join("\n");
   const filename=`RMR_geomecanica_${today()}.csv`;
   const blob=new Blob([csv],{type:"text/csv;charset=utf-8"});
