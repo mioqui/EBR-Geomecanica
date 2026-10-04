@@ -1151,12 +1151,30 @@ $("importInput").addEventListener("change",async e=>{
 
 function csvCell(v){const s=String(v??"");return `"${s.replace(/"/g,'""')}"`;}
 function rmrTable(a){
-  const headers=["ID","Fecha","Turno","Nivel","Block","Labor","Tipo de labor","Supervisor","RMR básico","Buzamiento","Rumbo","Sentido","Categoría ajuste","Ajuste","RMR total","Tipo roca","Observaciones","Guardado","Actualizado",
-  "Resistencia","RQD","Espaciamiento","Apertura","Rugosidad","Relleno","Persistencia","Alteración","Agua","Sostenimiento","Sostenimiento de sacrificio","Restricción","Nota por agua"];
-  const rows=a.map(x=>[x.id,x.fecha,x.turno,x.nivel,x.block,x.labor,TIPOS_LABOR[x.condicionLabor]||x.condicionLabor||"",x.supervisor,x.rmrBasico,x.buzamiento,x.rumbo,x.sentido,x.ajusteCategoria,x.ajuste,x.rmrTotal,x.tipoRoca,x.observaciones,x.createdAt,x.updatedAt,
-   x.params?.resistencia?.label||"",x.params?.rqd?.label||"",x.params?.espaciamiento?.label||"",x.params?.apertura?.label||"",x.params?.rugosidad?.label||"",x.params?.relleno?.label||"",x.params?.persistencia?.label||"",x.params?.alteracion?.label||"",x.params?.agua?.label||"",...(()=>{ if(x.sostPrincipal!==undefined||x.sostRestriccion!==undefined) return [x.sostPrincipal||"",x.sostSacrificio||"",x.sostRestriccion||"",x.sostNotaAgua||""];
-     const c=cartillaFor(x.rmrTotal,x.condicionLabor,x.params?.agua?.score); return [c.principal,c.sacrificio,c.restriccion,c.notaAgua?(c.aguaAplica?"Aplica: ":"")+c.notaAgua:""]; })()]);
-  return {headers,rows};
+  // Mismo orden que el formulario: identificación, parámetros RMR, orientación, resultado, sostenimiento, observaciones y fotos
+  const maxFotos=Math.max(0,...a.map(x=>(x.photos||[]).length));
+  const fotoHeaders=Array.from({length:maxFotos},(_,i)=>`Foto ${i+1}`);
+  const headers=["Fecha","Turno","Nivel","Block","Labor","Tipo de labor","Supervisor / Geomecánico",
+    "Resistencia de la roca intacta","RQD","Espaciamiento","Apertura","Rugosidad","Relleno","Persistencia","Alteración","Agua subterránea","RMR básico",
+    "Rango de buzamiento","Rumbo respecto al eje","Sentido de excavación","Categoría ajuste","Ajuste orientación","RMR total","Tipo de roca",
+    "Sostenimiento","Sostenimiento de sacrificio","Restricción","Nota por agua",
+    "Observaciones","N° fotos",...fotoHeaders,"Guardado","Actualizado","ID"];
+  const photos=[];
+  const rows=a.map((x,ri)=>{
+    const P=x.params||{}, L=k=>P[k]?.label||"";
+    const sost=(x.sostPrincipal!==undefined||x.sostRestriccion!==undefined)
+      ?[x.sostPrincipal||"",x.sostSacrificio||"",x.sostRestriccion||"",x.sostNotaAgua||""]
+      :(c=>[c.principal,c.sacrificio,c.restriccion,c.notaAgua?(c.aguaAplica?"Aplica: ":"")+c.notaAgua:""])(cartillaFor(x.rmrTotal,x.condicionLabor,P.agua?.score));
+    const fotos=x.photos||[];
+    const firstFotoCol=30;
+    fotos.forEach((src,i)=>photos.push({row:ri,col:firstFotoCol+i,src}));
+    return [x.fecha,x.turno,x.nivel,x.block,x.labor,TIPOS_LABOR[x.condicionLabor]||x.condicionLabor||"",x.supervisor,
+      L("resistencia"),L("rqd"),L("espaciamiento"),L("apertura"),L("rugosidad"),L("relleno"),L("persistencia"),L("alteracion"),L("agua"),x.rmrBasico,
+      x.buzamiento,x.rumbo,x.sentido,x.ajusteCategoria,x.ajuste,x.rmrTotal,x.tipoRoca,
+      ...sost,
+      x.observaciones,fotos.length,...Array.from({length:maxFotos},()=>""),x.createdAt,x.updatedAt,x.id];
+  });
+  return {headers,rows,photos,photoCols:maxFotos?Array.from({length:maxFotos},(_,i)=>30+i):[]};
 }
 $("deleteAllBtn").onclick=async()=>{if(confirm("¿Borrar todo el historial local de este dispositivo?")){await dbDeleteAll();renderHistory();}};
 function clearForm(){
@@ -1388,8 +1406,8 @@ recalc();renderHistory();
   $m("mClearBtn").addEventListener("click",()=>clearStructure(false));
   const tramo=x=>(x.desde===null&&x.hasta===null)?"Sin tramo":`Tramo ${x.desde??"—"} – ${x.hasta??"—"} m`;
   function table(a){
-    const headers=["ID","Fecha","Turno","Nivel","Block","Labor","Geomecánico","Tipo estructura","Tipo estructura (nombre)","Otros (detalle)","Buzamiento (Dip)","Dirección de buzamiento (Dip Direction)","Tramo desde (m)","Tramo hasta (m)","Persistencia","Rugosidad","Relleno","Observaciones","Guardado"];
-    const rows=a.map(x=>[x.id,x.fecha,x.turno,x.nivel,x.block,x.labor,x.geomecanico,x.tipo,x.tipoNombre,x.otro,x.dip,x.dipDir,x.desde??"",x.hasta??"",x.persistencia,x.rugosidad,x.relleno,x.observaciones,x.createdAt]);
+    const headers=["Fecha","Turno","Nivel","Block","Labor","Geomecánico","Tipo de estructura","Tipo de estructura (nombre)","Otros (detalle)","Buzamiento (Dip)","Dirección de buzamiento (Dip Direction)","Tramo desde (m)","Tramo hasta (m)","Persistencia","Rugosidad","Relleno","Observaciones","Guardado","ID"];
+    const rows=a.map(x=>[x.fecha,x.turno,x.nivel,x.block,x.labor,x.geomecanico,x.tipo,x.tipoNombre,x.otro,x.dip,x.dipDir,x.desde??"",x.hasta??"",x.persistencia,x.rugosidad,x.relleno,x.observaciones,x.createdAt,x.id]);
     return {headers,rows};
   }
   window.mapeoDB={all,del,clearAll,table,tramo,pad3};
@@ -1461,7 +1479,7 @@ recalc();renderHistory();
     const parts=[],central=[];let off=0;
     const u16=v=>[v&255,(v>>>8)&255], u32=v=>[v&255,(v>>>8)&255,(v>>>16)&255,(v>>>24)&255];
     files.forEach(f=>{
-      const name=enc.encode(f.name), data=enc.encode(f.data), crc=crc32(data);
+      const name=enc.encode(f.name), data=(f.data instanceof Uint8Array)?f.data:enc.encode(f.data), crc=crc32(data);
       const local=new Uint8Array([0x50,0x4b,0x03,0x04,...u16(20),...u16(0),...u16(0),...u16(0),...u16(0x21),...u32(crc),...u32(data.length),...u32(data.length),...u16(name.length),...u16(0)]);
       parts.push(local,name,data);
       central.push(new Uint8Array([0x50,0x4b,0x01,0x02,...u16(20),...u16(20),...u16(0),...u16(0),...u16(0),...u16(0x21),...u32(crc),...u32(data.length),...u32(data.length),...u16(name.length),...u16(0),...u16(0),...u16(0),...u16(0),...u32(0),...u32(off)]),name);
@@ -1473,35 +1491,62 @@ recalc();renderHistory();
   }
   const xesc=v=>String(v).replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g,"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
   const colName=i=>{let s="";i++;while(i>0){const m=(i-1)%26;s=String.fromCharCode(65+m)+s;i=Math.floor((i-1)/26);}return s;};
-  function sheetXml(headers,rows,wide){
-    const cols=headers.map((h,i)=>`<col min="${i+1}" max="${i+1}" width="${wide.includes(h)?60:Math.min(Math.max(h.length+2,12),34)}" customWidth="1"/>`).join("");
+  const IMG_W=150, IMG_H=112; // px por foto
+  function sheetXml(headers,rows,wide,photoCols,photoRows,hasDrawing){
+    photoCols=photoCols||[]; photoRows=photoRows||new Set();
+    const cols=headers.map((h,i)=>`<col min="${i+1}" max="${i+1}" width="${photoCols.includes(i)?22:wide.includes(h)?60:Math.min(Math.max(h.length+2,12),34)}" customWidth="1"/>`).join("");
     const cell=(v,r,c,st)=>{const ref=colName(c)+r;
       if(v===null||v===undefined||v==="") return "";
       if(typeof v==="number"&&Number.isFinite(v)) return `<c r="${ref}"${st?` s="${st}"`:""}><v>${v}</v></c>`;
       return `<c r="${ref}" t="inlineStr"${st?` s="${st}"`:""}><is><t xml:space="preserve">${xesc(v)}</t></is></c>`;};
     const head=`<row r="1">${headers.map((h,c)=>cell(h,1,c,1)).join("")}</row>`;
-    const body=rows.map((row,i)=>`<row r="${i+2}">${row.map((v,c)=>cell(v,i+2,c,wide.includes(headers[c])?2:0)).join("")}</row>`).join("");
+    const body=rows.map((row,i)=>`<row r="${i+2}"${photoRows.has(i)?` ht="${Math.round((IMG_H+8)*0.75)}" customHeight="1"`:""}>${row.map((v,c)=>cell(v,i+2,c,wide.includes(headers[c])?2:(photoRows.has(i)?3:0))).join("")}</row>`).join("");
     const last=colName(headers.length-1)+(rows.length+1);
-    return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><cols>${cols}</cols><sheetData>${head}${body}</sheetData>${rows.length?`<autoFilter ref="A1:${last}"/>`:""}</worksheet>`;
+    return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><cols>${cols}</cols><sheetData>${head}${body}</sheetData>${rows.length?`<autoFilter ref="A1:${last}"/>`:""}${hasDrawing?'<drawing r:id="rId1"/>':""}</worksheet>`;
   }
-  function workbook(sheets){
+  function loadImg(src){
+    return new Promise(res=>{
+      const m=/^data:image\/(jpeg|jpg|png);base64,(.*)$/i.exec(src||""); if(!m){res(null);return;}
+      const bin=atob(m[2]), bytes=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) bytes[i]=bin.charCodeAt(i);
+      const ext=m[1].toLowerCase()==="png"?"png":"jpeg";
+      const img=new Image();
+      img.onload=()=>{const k=Math.min(IMG_W/img.naturalWidth,IMG_H/img.naturalHeight,1);res({bytes,ext,w:Math.max(1,Math.round(img.naturalWidth*k)),h:Math.max(1,Math.round(img.naturalHeight*k))});};
+      img.onerror=()=>res({bytes,ext,w:IMG_W,h:IMG_H});
+      img.src=src;
+    });
+  }
+  async function workbook(sheets){
+    // preparar imágenes
+    let imgN=0;
+    for(const sh of sheets){ sh._imgs=[]; for(const ph of (sh.photos||[])){ const im=await loadImg(ph.src); if(im){ imgN++; sh._imgs.push({...ph,...im,n:imgN}); } } }
+    const anyImg=sheets.some(sh=>sh._imgs.length);
     const files=[
-      {name:"[Content_Types].xml",data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>${sheets.map((s,i)=>`<Override PartName="/xl/worksheets/sheet${i+1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join("")}</Types>`},
+      {name:"[Content_Types].xml",data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/>${anyImg?'<Default Extension="jpeg" ContentType="image/jpeg"/><Default Extension="png" ContentType="image/png"/>':""}<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>${sheets.map((s,i)=>`<Override PartName="/xl/worksheets/sheet${i+1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`+(s._imgs.length?`<Override PartName="/xl/drawings/drawing${i+1}.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/>`:"")).join("")}</Types>`},
       {name:"_rels/.rels",data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`},
       {name:"xl/workbook.xml",data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>${sheets.map((s,i)=>`<sheet name="${xesc(s.name)}" sheetId="${i+1}" r:id="rId${i+1}"/>`).join("")}</sheets></workbook>`},
       {name:"xl/_rels/workbook.xml.rels",data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${sheets.map((s,i)=>`<Relationship Id="rId${i+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i+1}.xml"/>`).join("")}<Relationship Id="rId${sheets.length+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`},
-      {name:"xl/styles.xml",data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF123D5A"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="3"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"><alignment vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`}
+      {name:"xl/styles.xml",data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF123D5A"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="4"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"><alignment vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="top"/></xf></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`}
     ];
-    sheets.forEach((s,i)=>files.push({name:`xl/worksheets/sheet${i+1}.xml`,data:sheetXml(s.headers,s.rows,s.wide||[])}));
+    sheets.forEach((s,i)=>{
+      const has=s._imgs.length>0, prow=new Set(s._imgs.map(m=>m.row));
+      files.push({name:`xl/worksheets/sheet${i+1}.xml`,data:sheetXml(s.headers,s.rows,s.wide||[],s.photoCols,prow,has)});
+      if(!has) return;
+      files.push({name:`xl/worksheets/_rels/sheet${i+1}.xml.rels`,data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/drawing${i+1}.xml"/></Relationships>`});
+      const anchors=s._imgs.map((m,k)=>`<xdr:oneCellAnchor><xdr:from><xdr:col>${m.col}</xdr:col><xdr:colOff>38100</xdr:colOff><xdr:row>${m.row+1}</xdr:row><xdr:rowOff>38100</xdr:rowOff></xdr:from><xdr:ext cx="${m.w*9525}" cy="${m.h*9525}"/><xdr:pic><xdr:nvPicPr><xdr:cNvPr id="${k+2}" name="Foto ${k+1}"/><xdr:cNvPicPr><a:picLocks noChangeAspect="1"/></xdr:cNvPicPr></xdr:nvPicPr><xdr:blipFill><a:blip r:embed="rId${k+1}"/><a:stretch><a:fillRect/></a:stretch></xdr:blipFill><xdr:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${m.w*9525}" cy="${m.h*9525}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></xdr:spPr></xdr:pic><xdr:clientData/></xdr:oneCellAnchor>`).join("");
+      files.push({name:`xl/drawings/drawing${i+1}.xml`,data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">${anchors}</xdr:wsDr>`});
+      files.push({name:`xl/drawings/_rels/drawing${i+1}.xml.rels`,data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${s._imgs.map((m,k)=>`<Relationship Id="rId${k+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/image${m.n}.${m.ext}"/>`).join("")}</Relationships>`});
+      s._imgs.forEach(m=>files.push({name:`xl/media/image${m.n}.${m.ext}`,data:m.bytes}));
+    });
     return zip(files);
   }
   window.buildWorkbook=workbook;
   $("exportBtn").onclick=async()=>{
     const r=await dbAll(); let m=[]; try{ m=await M().all(); }catch(e){}
     if(!r.length&&!m.length){alert("No hay registros para compartir o exportar.");return;}
-    const t1=rmrTable(r), t2=M().table(m);
-    const blob=workbook([
-      {name:"RMR",headers:t1.headers,rows:t1.rows,wide:["Observaciones","Sostenimiento","Sostenimiento de sacrificio","Restricción","Nota por agua"]},
+    // filas en orden de registro: del más antiguo al más reciente
+    const t1=rmrTable([...r].reverse()), t2=M().table([...m].reverse());
+    const blob=await workbook([
+      {name:"RMR",headers:t1.headers,rows:t1.rows,photos:t1.photos,photoCols:t1.photoCols,wide:["Observaciones","Sostenimiento","Sostenimiento de sacrificio","Restricción","Nota por agua"]},
       {name:"Mapeo estructural",headers:t2.headers,rows:t2.rows,wide:["Observaciones"]}
     ]);
     const filename=`Geomecanica_${today()}.xlsx`, file=new File([blob],filename,{type:blob.type});
