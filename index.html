@@ -238,6 +238,12 @@ html[data-theme="dark"] #gsiChart .gsi-na-t{fill:#9fb1bc}
 @media(max-width:430px){.tabs{gap:5px}.tab{padding:9px 9px;font-size:.9rem}.theme-btn{width:38px;height:38px;font-size:1rem}}
 @media(max-width:380px){.tab{padding:9px 7px;font-size:.86rem}}
 @media(max-width:340px){.tabs{gap:4px}.tab{padding:8px 5px;font-size:.8rem}.theme-btn{width:34px;height:34px}}
+
+.kind{display:inline-block;font-size:.68rem;font-weight:900;letter-spacing:.04em;text-transform:uppercase;border-radius:6px;padding:2px 7px;margin-bottom:4px}
+.kind.rmr{background:#e3eef5;color:#123d5a}
+.kind.map{background:#fbeccf;color:#7a4a06}
+html[data-theme="dark"] .kind.rmr{background:#1d3a4d;color:#9fd0ea}
+html[data-theme="dark"] .kind.map{background:#3a2e12;color:#f0d9a4}
 </style>
 <link rel="manifest" href="./manifest.webmanifest"></head>
 <body>
@@ -248,10 +254,10 @@ html[data-theme="dark"] #gsiChart .gsi-na-t{fill:#9fb1bc}
 </header>
 
 <nav class="tabs" aria-label="Secciones">
-  <button class="tab active" data-tab="evaluacion">Evaluación</button>
-  <button class="tab" data-tab="historial">Historial</button>
+  <button class="tab active" data-tab="evaluacion">RMR</button>
   <button class="tab" data-tab="gsi">GSI</button>
   <button class="tab" data-tab="mapeo">Mapeo</button>
+  <button class="tab" data-tab="historial">Historial</button>
   <button type="button" class="theme-btn" id="themeBtn" aria-label="Cambiar a modo oscuro" title="Cambiar a modo oscuro">🌙</button>
 </nav>
 
@@ -407,14 +413,19 @@ html[data-theme="dark"] #gsiChart .gsi-na-t{fill:#9fb1bc}
 <section id="historial" class="panel">
   <div class="card" id="historyMain">
     <div class="history-top">
-      <div><h2 style="margin-bottom:3px">Historial local</h2><div class="small">Evaluaciones guardadas en este dispositivo.</div></div>
+      <div><h2 style="margin-bottom:3px">Historial local</h2><div class="small">Evaluaciones RMR y mapeos estructurales guardados en este dispositivo.</div></div>
       <span id="countPill" class="pill">0 registros</span>
     </div>
     <div class="actions">
-      <button class="btn" id="exportBtn" type="button">Compartir / Exportar CSV</button>
+      <button class="btn ok" id="exportBtn" type="button">Compartir / Exportar Excel</button>
       <button class="btn" id="importBtn" type="button">Importar CSV</button>
       <input id="importInput" type="file" accept=".csv,text/csv" multiple class="hidden">
       <button class="btn danger" id="deleteAllBtn" type="button">Borrar historial local</button>
+    </div>
+    <div class="seg" role="radiogroup" aria-label="Filtrar historial" style="margin-top:12px">
+      <button type="button" class="seg-btn active" role="radio" aria-checked="true" data-hf="todos">Todos</button>
+      <button type="button" class="seg-btn" role="radio" aria-checked="false" data-hf="rmr">RMR</button>
+      <button type="button" class="seg-btn" role="radio" aria-checked="false" data-hf="mapeo">Mapeo</button>
     </div>
     <div id="historyList" style="margin-top:12px"></div>
   </div>
@@ -432,8 +443,8 @@ html[data-theme="dark"] #gsiChart .gsi-na-t{fill:#9fb1bc}
     </div>
     <h3>Identificación</h3>
     <div id="detailIdentification" class="trace"></div>
-    <h3>GSI estimado</h3>
-    <div id="detailGsi" class="trace"></div>
+    <h3 class="hidden">GSI estimado</h3>
+    <div id="detailGsi" class="trace hidden"></div>
     <div id="detailSost" class="sost-box" style="margin-top:10px"></div>
     <h3>Detalle de puntajes</h3>
     <div id="detailScores" class="score-detail-grid"></div>
@@ -522,12 +533,6 @@ html[data-theme="dark"] #gsiChart .gsi-na-t{fill:#9fb1bc}
     <div class="save-confirm hidden" id="mSaved"></div>
   </div>
 
-  <div class="card">
-    <h2>Estructuras registradas</h2>
-    <div class="small" id="mCount"></div>
-    <div id="mList" style="margin-top:10px"></div>
-    <div class="actions"><button class="btn ok" id="mExportBtn" type="button">Exportar CSV</button><button class="btn danger" id="mDeleteAllBtn" type="button">Borrar todo el mapeo</button></div>
-  </div>
 </section>
 </div>
 <div id="photoModal" class="photo-modal hidden" role="dialog" aria-modal="true" aria-label="Vista ampliada de fotografía">
@@ -983,7 +988,7 @@ async function saveEval(){
     openTab("historial");
     await renderHistory();
 
-    document.querySelectorAll(".save-confirm").forEach(el=>el.remove());
+    document.querySelectorAll(".save-confirm:not(#mSaved)").forEach(el=>el.remove());
     const msg=document.createElement("div");
     msg.className="save-confirm";
     msg.innerHTML=`<b>${wasEditing?"Evaluación actualizada":"Evaluación guardada correctamente"}</b><span>${formatSavedAt(wasEditing?x.updatedAt:x.createdAt)} · Registro disponible en el Historial.</span>`;
@@ -1145,30 +1150,14 @@ $("importInput").addEventListener("change",async e=>{
 });
 
 function csvCell(v){const s=String(v??"");return `"${s.replace(/"/g,'""')}"`;}
-$("exportBtn").onclick=async()=>{
-  const a=await dbAll(); if(!a.length){alert("No hay registros para compartir o exportar.");return;}
+function rmrTable(a){
   const headers=["ID","Fecha","Turno","Nivel","Block","Labor","Tipo de labor","Supervisor","RMR básico","Buzamiento","Rumbo","Sentido","Categoría ajuste","Ajuste","RMR total","Tipo roca","Observaciones","Guardado","Actualizado",
   "Resistencia","RQD","Espaciamiento","Apertura","Rugosidad","Relleno","Persistencia","Alteración","Agua","Sostenimiento","Sostenimiento de sacrificio","Restricción","Nota por agua"];
   const rows=a.map(x=>[x.id,x.fecha,x.turno,x.nivel,x.block,x.labor,TIPOS_LABOR[x.condicionLabor]||x.condicionLabor||"",x.supervisor,x.rmrBasico,x.buzamiento,x.rumbo,x.sentido,x.ajusteCategoria,x.ajuste,x.rmrTotal,x.tipoRoca,x.observaciones,x.createdAt,x.updatedAt,
    x.params?.resistencia?.label||"",x.params?.rqd?.label||"",x.params?.espaciamiento?.label||"",x.params?.apertura?.label||"",x.params?.rugosidad?.label||"",x.params?.relleno?.label||"",x.params?.persistencia?.label||"",x.params?.alteracion?.label||"",x.params?.agua?.label||"",...(()=>{ if(x.sostPrincipal!==undefined||x.sostRestriccion!==undefined) return [x.sostPrincipal||"",x.sostSacrificio||"",x.sostRestriccion||"",x.sostNotaAgua||""];
      const c=cartillaFor(x.rmrTotal,x.condicionLabor,x.params?.agua?.score); return [c.principal,c.sacrificio,c.restriccion,c.notaAgua?(c.aguaAplica?"Aplica: ":"")+c.notaAgua:""]; })()]);
-  const csv="\ufeff"+[headers,...rows].map(r=>r.map(csvCell).join(",")).join("\n");
-  const filename=`RMR_geomecanica_${today()}.csv`;
-  const blob=new Blob([csv],{type:"text/csv;charset=utf-8"});
-  const file=new File([blob],filename,{type:"text/csv"});
-  try{
-    if(navigator.share && (!navigator.canShare || navigator.canShare({files:[file]}))){
-      await navigator.share({title:"Evaluaciones RMR Geomecánica",text:"Evaluaciones RMR exportadas desde EBR Geomecánica.",files:[file]});
-      return;
-    }
-  }catch(err){
-    if(err && err.name==="AbortError") return;
-  }
-  const url=URL.createObjectURL(blob), aTag=document.createElement("a");
-  aTag.href=url;aTag.download=filename;document.body.appendChild(aTag);aTag.click();aTag.remove();
-  setTimeout(()=>URL.revokeObjectURL(url),1000);
-  alert("El dispositivo no permitió compartir directamente. El CSV se descargó para que puedas enviarlo desde Archivos, correo, WhatsApp u otra aplicación.");
-};
+  return {headers,rows};
+}
 $("deleteAllBtn").onclick=async()=>{if(confirm("¿Borrar todo el historial local de este dispositivo?")){await dbDeleteAll();renderHistory();}};
 function clearForm(){
  ["turno","nivel","block","labor","condicionLabor","supervisor","resistencia","rqd","espaciamiento","apertura","rugosidad","relleno","persistencia","alteracion","agua","buzamiento","rumbo","sentido","observaciones","rqdMedido"].forEach(id=>$(id).value="");
@@ -1388,7 +1377,7 @@ recalc();renderHistory();
       observaciones:$m("mObs").value.trim()};
     try{ await put(x); }catch(e){ $m("mError").textContent="No se pudo guardar: "+(e.message||e); return; }
     $m("mSaved").classList.remove("hidden");
-    $m("mSaved").innerHTML=`<strong>Estructura guardada</strong><span>${esc(x.tipo)} · ${x.dip}° / ${pad3(x.dipDir)}° · ${esc(x.labor)}</span>`;
+    $m("mSaved").innerHTML=`<strong>Estructura guardada</strong><span>${esc(x.tipo)} · ${x.dip}° / ${pad3(x.dipDir)}° · ${esc(x.labor)} · Puedes verla en Historial.</span>`;
     clearStructure(true); render();
   });
   function clearStructure(keepMsg){
@@ -1398,28 +1387,13 @@ recalc();renderHistory();
   }
   $m("mClearBtn").addEventListener("click",()=>clearStructure(false));
   const tramo=x=>(x.desde===null&&x.hasta===null)?"Sin tramo":`Tramo ${x.desde??"—"} – ${x.hasta??"—"} m`;
-  async function render(){
-    let a=[]; try{a=await all();}catch(e){}
-    $m("mCount").textContent=a.length?`${a.length} estructura${a.length===1?"":"s"} registrada${a.length===1?"":"s"} en este dispositivo.`:"Aún no hay estructuras registradas.";
-    $m("mList").innerHTML=a.map(x=>`<div class="history-item"><div class="history-top"><div><b>${esc(x.tipo)} · ${esc(x.tipo==="O"&&x.otro?x.otro:x.tipoNombre)}</b>
-      <div class="small">${esc(x.labor)} · ${esc(x.fecha||"")}${x.nivel?" · Nv "+esc(x.nivel):""}</div>
-      <div class="small">${tramo(x)}${x.observaciones?" · "+esc(x.observaciones):""}</div></div>
-      <span class="pill">${x.dip}° / ${pad3(x.dipDir)}°</span></div>
-      <div class="actions" style="margin-top:6px"><button class="btn danger" data-del="${esc(x.id)}" type="button">Eliminar</button></div></div>`).join("");
-    $m("mList").querySelectorAll("[data-del]").forEach(b=>b.onclick=async()=>{if(confirm("¿Eliminar esta estructura?")){await del(b.dataset.del);render();}});
+  function table(a){
+    const headers=["ID","Fecha","Turno","Nivel","Block","Labor","Geomecánico","Tipo estructura","Tipo estructura (nombre)","Otros (detalle)","Buzamiento (Dip)","Dirección de buzamiento (Dip Direction)","Tramo desde (m)","Tramo hasta (m)","Persistencia","Rugosidad","Relleno","Observaciones","Guardado"];
+    const rows=a.map(x=>[x.id,x.fecha,x.turno,x.nivel,x.block,x.labor,x.geomecanico,x.tipo,x.tipoNombre,x.otro,x.dip,x.dipDir,x.desde??"",x.hasta??"",x.persistencia,x.rugosidad,x.relleno,x.observaciones,x.createdAt]);
+    return {headers,rows};
   }
-  $m("mDeleteAllBtn").addEventListener("click",async()=>{if(confirm("¿Borrar todo el mapeo estructural de este dispositivo?")){await clearAll();render();}});
-  const cell=v=>`"${String(v??"").replace(/"/g,'""')}"`;
-  $m("mExportBtn").addEventListener("click",async()=>{
-    const a=await all(); if(!a.length){alert("No hay estructuras para exportar.");return;}
-    const H=["ID","Fecha","Turno","Nivel","Block","Labor","Geomecánico","Tipo estructura","Tipo estructura (nombre)","Otros (detalle)","Buzamiento (Dip)","Dirección de buzamiento (Dip Direction)","Tramo desde (m)","Tramo hasta (m)","Persistencia","Rugosidad","Relleno","Observaciones","Guardado"];
-    const R=a.map(x=>[x.id,x.fecha,x.turno,x.nivel,x.block,x.labor,x.geomecanico,x.tipo,x.tipoNombre,x.otro,x.dip,pad3(x.dipDir),x.desde??"",x.hasta??"",x.persistencia,x.rugosidad,x.relleno,x.observaciones,x.createdAt]);
-    const csv="\ufeff"+[H,...R].map(r=>r.map(cell).join(",")).join("\n");
-    const filename=`Mapeo_estructural_${today()}.csv`, blob=new Blob([csv],{type:"text/csv;charset=utf-8"}), file=new File([blob],filename,{type:"text/csv"});
-    try{ if(navigator.share&&(!navigator.canShare||navigator.canShare({files:[file]}))){ await navigator.share({title:"Mapeo estructural",text:"Mapeo estructural exportado desde EBR Geomecánica.",files:[file]}); return; } }
-    catch(err){ if(err&&err.name==="AbortError") return; }
-    const url=URL.createObjectURL(blob), t=document.createElement("a"); t.href=url; t.download=filename; document.body.appendChild(t); t.click(); t.remove(); setTimeout(()=>URL.revokeObjectURL(url),1000);
-  });
+  window.mapeoDB={all,del,clearAll,table,tramo,pad3};
+  function render(){}
   // dictado de observaciones
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition; let rec=null;
   if(SR){
@@ -1438,6 +1412,107 @@ recalc();renderHistory();
     $m("mDictBtn").onclick=()=>alert("El dictado directo no está disponible en este navegador. Usa el micrófono del teclado.");
   }
   render();
+})();
+</script>
+<script>
+(function(){
+  let filtro="todos";
+  document.querySelectorAll('#historial .seg-btn').forEach(b=>b.addEventListener("click",()=>{
+    filtro=b.dataset.hf;
+    document.querySelectorAll('#historial .seg-btn').forEach(x=>{const on=x===b;x.classList.toggle("active",on);x.setAttribute("aria-checked",String(on));});
+    renderHistory();
+  }));
+  const M=()=>window.mapeoDB;
+  renderHistory=async function(){
+    $("historyMain").classList.remove("hidden"); $("historyDetail").classList.add("hidden");
+    const r=await dbAll(); let m=[]; try{ m=await M().all(); }catch(e){}
+    $("countPill").textContent=`${r.length} RMR · ${m.length} mapeo`;
+    const items=[...r.map(x=>({k:"rmr",x})),...m.map(x=>({k:"map",x}))]
+      .filter(i=>filtro==="todos"||(filtro==="rmr"&&i.k==="rmr")||(filtro==="mapeo"&&i.k==="map"))
+      .sort((a,b)=>String(b.x.createdAt||"").localeCompare(String(a.x.createdAt||"")));
+    if(!items.length){ $("historyList").innerHTML=`<div class="small" style="padding:14px 0">No hay registros guardados${filtro==="todos"?"":" de este tipo"}.</div>`; return; }
+    $("historyList").innerHTML=items.map(({k,x})=>{
+      if(k==="rmr") return `<div class="history-item" role="button" tabindex="0" data-id="${esc(x.id)}" style="cursor:pointer">
+        <span class="kind rmr">Evaluación RMR</span>
+        <div class="history-top"><div><b>${esc(x.labor||"Sin labor")}</b><div class="small">${esc(x.fecha)} · ${esc(x.nivel||"Sin nivel")} · ${esc(x.supervisor||"Sin supervisor")}</div><div class="saved-at">Guardado: ${esc(formatSavedAt(x.createdAt))}${x.updatedAt?` · Actualizado: ${esc(formatSavedAt(x.updatedAt))}`:""}</div></div>
+        <span class="pill"><span class="rock-dot" style="background:${rockColor(x.rmrTotal)||"#fff"}"></span>RMR ${x.rmrTotal??"—"} · ${esc(x.tipoRoca||"")}</span></div>
+        <div class="small" style="margin-top:7px">Toca para ver el detalle</div></div>`;
+      return `<div class="history-item">
+        <span class="kind map">Mapeo estructural</span>
+        <div class="history-top"><div><b>${esc(x.labor||"Sin labor")} · ${esc(x.tipo)} ${esc(x.tipo==="O"&&x.otro?x.otro:x.tipoNombre)}</b>
+        <div class="small">${esc(x.fecha||"")}${x.nivel?" · Nv "+esc(x.nivel):""}${x.geomecanico?" · "+esc(x.geomecanico):""} · ${M().tramo(x)}</div>
+        ${x.observaciones?`<div class="small">${esc(x.observaciones)}</div>`:""}
+        <div class="saved-at">Guardado: ${esc(formatSavedAt(x.createdAt))}</div></div>
+        <span class="pill">Dip ${x.dip}° / Dir ${M().pad3(x.dipDir)}°</span></div>
+        <div class="actions" style="margin-top:6px"><button class="btn danger" data-mdel="${esc(x.id)}" type="button">Eliminar</button></div></div>`;
+    }).join("");
+    document.querySelectorAll(".history-item[data-id]").forEach(el=>{
+      el.onclick=()=>showHistoryDetail(el.dataset.id);
+      el.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();showHistoryDetail(el.dataset.id);}};
+    });
+    document.querySelectorAll("[data-mdel]").forEach(b=>b.onclick=async ev=>{ev.stopPropagation(); if(confirm("¿Eliminar esta estructura del mapeo?")){await M().del(b.dataset.mdel); renderHistory();}});
+  };
+
+  // ---- XLSX sin librerías (funciona sin conexión) ----
+  const enc=new TextEncoder();
+  const CRC=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0;}return t;})();
+  const crc32=b=>{let c=0xFFFFFFFF;for(let i=0;i<b.length;i++)c=CRC[(c^b[i])&255]^(c>>>8);return (c^0xFFFFFFFF)>>>0;};
+  function zip(files){
+    const parts=[],central=[];let off=0;
+    const u16=v=>[v&255,(v>>>8)&255], u32=v=>[v&255,(v>>>8)&255,(v>>>16)&255,(v>>>24)&255];
+    files.forEach(f=>{
+      const name=enc.encode(f.name), data=enc.encode(f.data), crc=crc32(data);
+      const local=new Uint8Array([0x50,0x4b,0x03,0x04,...u16(20),...u16(0),...u16(0),...u16(0),...u16(0x21),...u32(crc),...u32(data.length),...u32(data.length),...u16(name.length),...u16(0)]);
+      parts.push(local,name,data);
+      central.push(new Uint8Array([0x50,0x4b,0x01,0x02,...u16(20),...u16(20),...u16(0),...u16(0),...u16(0),...u16(0x21),...u32(crc),...u32(data.length),...u32(data.length),...u16(name.length),...u16(0),...u16(0),...u16(0),...u16(0),...u32(0),...u32(off)]),name);
+      off+=local.length+name.length+data.length;
+    });
+    const cdSize=central.reduce((s,a)=>s+a.length,0);
+    const end=new Uint8Array([0x50,0x4b,0x05,0x06,...u16(0),...u16(0),...u16(files.length),...u16(files.length),...u32(cdSize),...u32(off),...u16(0)]);
+    return new Blob([...parts,...central,end],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
+  }
+  const xesc=v=>String(v).replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g,"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+  const colName=i=>{let s="";i++;while(i>0){const m=(i-1)%26;s=String.fromCharCode(65+m)+s;i=Math.floor((i-1)/26);}return s;};
+  function sheetXml(headers,rows,wide){
+    const cols=headers.map((h,i)=>`<col min="${i+1}" max="${i+1}" width="${wide.includes(h)?60:Math.min(Math.max(h.length+2,12),34)}" customWidth="1"/>`).join("");
+    const cell=(v,r,c,st)=>{const ref=colName(c)+r;
+      if(v===null||v===undefined||v==="") return "";
+      if(typeof v==="number"&&Number.isFinite(v)) return `<c r="${ref}"${st?` s="${st}"`:""}><v>${v}</v></c>`;
+      return `<c r="${ref}" t="inlineStr"${st?` s="${st}"`:""}><is><t xml:space="preserve">${xesc(v)}</t></is></c>`;};
+    const head=`<row r="1">${headers.map((h,c)=>cell(h,1,c,1)).join("")}</row>`;
+    const body=rows.map((row,i)=>`<row r="${i+2}">${row.map((v,c)=>cell(v,i+2,c,wide.includes(headers[c])?2:0)).join("")}</row>`).join("");
+    const last=colName(headers.length-1)+(rows.length+1);
+    return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><cols>${cols}</cols><sheetData>${head}${body}</sheetData>${rows.length?`<autoFilter ref="A1:${last}"/>`:""}</worksheet>`;
+  }
+  function workbook(sheets){
+    const files=[
+      {name:"[Content_Types].xml",data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>${sheets.map((s,i)=>`<Override PartName="/xl/worksheets/sheet${i+1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join("")}</Types>`},
+      {name:"_rels/.rels",data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`},
+      {name:"xl/workbook.xml",data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>${sheets.map((s,i)=>`<sheet name="${xesc(s.name)}" sheetId="${i+1}" r:id="rId${i+1}"/>`).join("")}</sheets></workbook>`},
+      {name:"xl/_rels/workbook.xml.rels",data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${sheets.map((s,i)=>`<Relationship Id="rId${i+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i+1}.xml"/>`).join("")}<Relationship Id="rId${sheets.length+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`},
+      {name:"xl/styles.xml",data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF123D5A"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="3"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"><alignment vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`}
+    ];
+    sheets.forEach((s,i)=>files.push({name:`xl/worksheets/sheet${i+1}.xml`,data:sheetXml(s.headers,s.rows,s.wide||[])}));
+    return zip(files);
+  }
+  window.buildWorkbook=workbook;
+  $("exportBtn").onclick=async()=>{
+    const r=await dbAll(); let m=[]; try{ m=await M().all(); }catch(e){}
+    if(!r.length&&!m.length){alert("No hay registros para compartir o exportar.");return;}
+    const t1=rmrTable(r), t2=M().table(m);
+    const blob=workbook([
+      {name:"RMR",headers:t1.headers,rows:t1.rows,wide:["Observaciones","Sostenimiento","Sostenimiento de sacrificio","Restricción","Nota por agua"]},
+      {name:"Mapeo estructural",headers:t2.headers,rows:t2.rows,wide:["Observaciones"]}
+    ]);
+    const filename=`Geomecanica_${today()}.xlsx`, file=new File([blob],filename,{type:blob.type});
+    try{ if(navigator.share&&(!navigator.canShare||navigator.canShare({files:[file]}))){ await navigator.share({title:"EBR Geomecánica",text:"Evaluaciones RMR y mapeo estructural exportados desde EBR Geomecánica.",files:[file]}); return; } }
+    catch(err){ if(err&&err.name==="AbortError") return; }
+    const url=URL.createObjectURL(blob), a=document.createElement("a"); a.href=url; a.download=filename; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),1000);
+  };
+  $("deleteAllBtn").onclick=async()=>{
+    if(!confirm("¿Borrar todo el historial local de este dispositivo? Se eliminarán las evaluaciones RMR y el mapeo estructural.")) return;
+    await dbDeleteAll(); try{ await M().clearAll(); }catch(e){} renderHistory();
+  };
 })();
 </script>
 <script>if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));}</script></body>
