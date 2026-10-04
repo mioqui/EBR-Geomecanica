@@ -239,7 +239,7 @@ html[data-theme="dark"] .sost-box .sost-water{background:#3a2e12;border-color:#6
       <div class="field"><label>Nivel</label><input id="nivel" autocomplete="off" placeholder="Ej. 4055"></div>
       <div class="field"><label>Block</label><input id="block" autocomplete="off" placeholder="Ej. B7998"></div>
       <div class="field"><label>Labor</label><input id="labor" autocomplete="off" placeholder="Ej. GL765N"></div>
-      <div class="field full"><label for="condicionLabor">Tipo de labor (cartilla V9.1)</label><select id="condicionLabor"><option value="">Seleccionar…</option><option value="Permanente">Avance permanente (&gt; 1 año)</option><option value="Temporal">Avance temporal (≤ 1 año)</option><option value="Interseccion permanente">Intersección permanente (RC 10)</option><option value="Interseccion temporal">Intersección temporal (RC 6)</option><option value="Explotacion">Explotación: tajo de perforación positiva (ancho &gt; 6 m)</option></select></div>
+      <div class="field full"><label for="condicionLabor">Tipo de labor</label><select id="condicionLabor"><option value="">Seleccionar…</option><option value="Permanente">Avance permanente (&gt; 1 año)</option><option value="Temporal">Avance temporal (≤ 1 año)</option><option value="Interseccion permanente">Intersección permanente (RC 10)</option><option value="Interseccion temporal">Intersección temporal (RC 6)</option><option value="Explotacion">Explotación: tajo de perforación positiva (ancho &gt; 6 m)</option></select></div>
       <div class="field full"><label>Supervisor / Geomecánico</label><input id="supervisor" autocomplete="off"></div>
     </div>
   </div>
@@ -650,7 +650,6 @@ function sostHtml(c,rockLabel){
   if(c.sacrificio) h+=`<span class="sost-label">Sacrificio</span><div class="sost-text">${esc(c.sacrificio)}</div>`;
   if(c.restriccion) h+=`<div class="sost-restr">⛔ ${esc(c.restriccion)}</div>`;
   if(c.notaAgua) h+=`<div class="sost-water${c.aguaAplica?" applies":""}">${c.aguaAplica?"💧 Aplica por el agua registrada (goteo o flujo): ":"💧 "}${esc(c.notaAgua)}</div>`;
-  h+=`<div class="sost-foot">Fuente: Cartilla geomecánica V.9 (SMEB). Todo sostenimiento se instala hasta el tope de la labor. Tolerancia de espaciamiento de pernos: ±5 cm.</div>`;
   return h;
 }
 
@@ -673,10 +672,10 @@ function recalc(){
   let paso="";
   const b=$("buzamiento").value, r=$("rumbo").value, s=$("sentido").value;
   if(!b) paso="Siguiente: selecciona el rango de buzamiento.";
-  else if(b==="0-20") paso="Ruta completa: para 0°–20° no se requiere evaluar rumbo ni sentido de excavación.";
+  else if(b==="0-20") paso="";
   else if(!r) paso="Siguiente: selecciona si el rumbo es paralelo o perpendicular al eje de la labor.";
   else if(r==="perpendicular" && !s) paso="Siguiente: selecciona si la excavación va con o contra el buzamiento.";
-  else paso="Ruta de orientación completa. El ajuste y el RMR total ya están calculados.";
+  else paso="";
   $("nextStep").textContent=paso;
   const gsi=gsiFromRMR();
   $("gsiCalcLive").textContent=gsi.value===null?"—":gsi.value;
