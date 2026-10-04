@@ -211,6 +211,28 @@ html[data-theme="dark"] .gsi-cell[aria-pressed="true"]{outline-color:#fff}
 html[data-theme="dark"] .sost-box{background:#1b2a34}
 html[data-theme="dark"] .sost-box .sost-restr{background:#3a1f22;border-color:#7a3a3a;color:#f3b0b0}
 html[data-theme="dark"] .sost-box .sost-water{background:#3a2e12;border-color:#6b5420;color:#f0d9a4}
+
+.seg{display:flex;gap:6px;background:#eef3f6;border:1px solid var(--line);border-radius:12px;padding:4px}
+.seg-btn{flex:1;border:0;border-radius:9px;padding:9px 8px;font-weight:800;background:transparent;color:#405765;cursor:pointer}
+.seg-btn.active{background:var(--brand);color:#fff}
+.gsi-chart-wrap{margin-top:10px;overflow-x:auto}
+#gsiChart{display:block;width:100%;max-width:520px;margin:0 auto;font-family:inherit;touch-action:manipulation}
+#gsiChart .gsi-cellline{fill:none;stroke:#1f2b33;stroke-width:1}
+#gsiChart .gsi-diag{stroke:rgba(0,0,0,.35);stroke-width:.8}
+#gsiChart .gsi-na{fill:#e8edf0}
+#gsiChart .gsi-na-t{font-size:11px;font-weight:700;fill:#6b7c86}
+#gsiChart .gsi-code{font-size:12px;font-weight:900;fill:#111;paint-order:stroke;stroke:rgba(255,255,255,.75);stroke-width:3px;pointer-events:none}
+#gsiChart .gsi-axis{font-size:9.5px;font-weight:800;fill:var(--muted);letter-spacing:.04em}
+#gsiChart .gsi-colh,#gsiChart .gsi-rowh{font-size:11px;font-weight:800;fill:var(--ink)}
+#gsiChart .gsi-colk{font-size:10px;font-weight:700;fill:var(--muted)}
+.gsi-split{display:inline-block;margin:4px 0;color:var(--warn);font-weight:700}
+#gsiChart .gsi-mark{fill:#fff;stroke:#111;stroke-width:3;pointer-events:none}
+html[data-theme="dark"] .seg{background:#1b2a34}
+html[data-theme="dark"] .seg-btn{color:#c8d6de}
+html[data-theme="dark"] .seg-btn.active{background:var(--brand2);color:#fff}
+html[data-theme="dark"] #gsiChart .gsi-cellline{stroke:#c8d6de}
+html[data-theme="dark"] #gsiChart .gsi-na{fill:#22333d}
+html[data-theme="dark"] #gsiChart .gsi-na-t{fill:#9fb1bc}
 </style>
 <link rel="manifest" href="./manifest.webmanifest"></head>
 <body>
@@ -345,7 +367,7 @@ html[data-theme="dark"] .sost-box .sost-water{background:#3a2e12;border-color:#6
       <div class="kpi final-result"><span>RMR total</span><b id="totalOrientLive">—</b></div>
       <div class="kpi rock-result" id="rockOrientCard"><span>Tipo de roca</span><b id="rockOrientLive">—</b></div>
     </div>
-    <details class="gsi-calc" id="gsiCalcBox">
+    <details class="gsi-calc hidden" id="gsiCalcBox">
       <summary>GSI estimado: <b id="gsiCalcLive">—</b><span class="gsi-calc-hint">Ver cálculo</span></summary>
       <div class="gsi-calc-body" id="gsiCalcTrace">Completa RQD y las cinco condiciones de las juntas para estimar el GSI.</div>
     </details>
@@ -423,42 +445,30 @@ html[data-theme="dark"] .sost-box .sost-water{background:#3a2e12;border-color:#6
 <section id="gsi" class="panel">
   <div class="card">
     <div class="gsi-head">
-      <h2>Clasificación rápida GSI</h2>
-      <button type="button" class="info-btn" id="gsiInfoBtn" aria-label="Información sobre la tabla GSI" aria-expanded="false" aria-controls="gsiInfoNote">?</button>
+      <h2>Cartilla GSI</h2>
+      <button type="button" class="info-btn" id="gsiInfoBtn" aria-label="Información sobre la cartilla GSI" aria-expanded="false" aria-controls="gsiInfoNote">?</button>
     </div>
-    <div class="info-note hidden" id="gsiInfoNote" role="note">Los valores son provisionales hasta calibrarlos con la tabla GSI oficial del área.</div>
-    <div class="section-note">Toca la celda que corresponde a la estructura (fracturas por metro) y a la condición de la roca (golpe de picota y estado de las juntas).</div>
-    <div class="gsi-wrap" style="margin-top:12px">
-      <table class="gsi-table" aria-label="Tabla GSI">
-        <thead><tr><th class="row-h">Estructura</th><th>Muy buena</th><th>Buena</th><th>Regular</th><th>Pobre</th><th>Muy pobre</th></tr></thead>
-        <tbody id="gsiBody"></tbody>
-      </table>
+    <div class="info-note hidden" id="gsiInfoNote" role="note">Cartilla de geomecánica versión 9.0 · Clasificación GSI de Hoek modificada para sostenimiento (aberturas de 4.0 a 5.5 m). Se basa en la cantidad de fracturas por metro, medidas in situ con flexómetro; la resistencia se determina golpeando o indentando la roca con una picota, considerando la rugosidad, la alteración de las paredes y el relleno de las discontinuidades.</div>
+    <div class="seg" role="radiogroup" aria-label="Tipo de labor">
+      <button type="button" class="seg-btn active" role="radio" aria-checked="true" data-labor="Permanente">Labores permanentes</button>
+      <button type="button" class="seg-btn" role="radio" aria-checked="false" data-labor="Temporal">Labores temporales</button>
     </div>
-    <details class="gsi-desc">
-      <summary>Cómo elegir la fila y la columna</summary>
-      <dl>
-        <dt>Levemente fracturada</dt><dd>2 a 6 fracturas por metro. Bloques grandes.</dd>
-        <dt>Moderadamente fracturada</dt><dd>6 a 12 fracturas por metro.</dd>
-        <dt>Muy fracturada</dt><dd>12 a 20 fracturas por metro.</dd>
-        <dt>Intensamente fracturada</dt><dd>Más de 20 fracturas por metro. Bloques pequeños.</dd>
-        <dt>Triturada</dt><dd>Roca brechada o molida, sin bloques definidos.</dd>
-      </dl>
-      <dl>
-        <dt>Muy buena</dt><dd>Roca fresca. Se rompe con varios golpes de picota. Juntas muy rugosas y cerradas.</dd>
-        <dt>Buena</dt><dd>Levemente alterada. Se rompe con tres o más golpes. Juntas rugosas, con manchas de óxido.</dd>
-        <dt>Regular</dt><dd>Moderadamente alterada. Se rompe con uno o dos golpes. Juntas lisas, ligeramente abiertas.</dd>
-        <dt>Pobre</dt><dd>Muy alterada. La picota marca la superficie. Juntas pulidas o con relleno compacto.</dd>
-        <dt>Muy pobre</dt><dd>Blanda. La picota se hunde. Juntas abiertas con relleno de arcilla blanda.</dd>
-      </dl>
-    </details>
+    <div class="grid" style="margin-top:12px">
+      <div class="field"><label for="gsiEstr">Condición estructural</label><select id="gsiEstr"><option value="">Seleccionar…</option></select></div>
+      <div class="field"><label for="gsiSup">Condición superficial</label><select id="gsiSup"><option value="">Seleccionar…</option></select></div>
+    </div>
+    <div class="gsi-chart-wrap"><svg id="gsiChart" viewBox="0 0 340 330" role="img" aria-label="Cartilla GSI: condiciones estructurales contra condiciones superficiales"></svg></div>
+    <div class="help">Elige las condiciones en las listas o toca directamente el punto de la cartilla que mejor representa la roca.</div>
+    <div id="gsiPick" class="trace hidden" style="margin-top:10px"></div>
   </div>
 
   <div class="card" id="gsiResultCard">
     <h2>Resultado</h2>
     <div class="scoregrid">
       <div class="kpi" style="grid-column:1/-1"><span>GSI</span><b id="gsiValue">—</b></div>
-      <div class="kpi rock-result" id="gsiRockCard" style="grid-column:1/-1"><span>Tipo de roca</span><b id="gsiRock">Selecciona una celda</b></div>
+      <div class="kpi rock-result" id="gsiRockCard" style="grid-column:1/-1"><span>Tipo de roca</span><b id="gsiRock">Selecciona en la cartilla</b></div>
     </div>
+    <div class="sost-box" id="gsiSost" style="margin-top:12px"></div>
     <div class="actions"><button class="btn" id="gsiClearBtn" type="button">Limpiar selección</button></div>
   </div>
 </section>
@@ -1115,48 +1125,132 @@ recalc();renderHistory();
 <script>
 (function(){
   const $g=id=>document.getElementById(id);
-  const conds=["Muy buena","Buena","Regular","Pobre","Muy pobre"];
-  // Matriz calculada con relaciones publicadas (pendiente de calibrar con la tabla oficial del área):
-  //  - Estructura: fracturas por metro (λ) → RQD = 100·e^(−0.1λ)·(0.1λ + 1)  (Priest y Hudson, 1976)
-  //  - Condición: JCond89 representativo por columna (escala 0–30 del RMR 89 dividida en quintos)
-  //  - GSI = 1.5 × JCond89 + RQD/2  (Hoek, Carter y Diederichs, 2013)
-  //  - Tipo de roca: RMR89 ≈ GSI + 5 (Hoek, 1995) con los rangos del formato F-EBR-GM-01.02
-  const JC=[27,21,15,9,3];
-  const rqdPH=l=>100*Math.exp(-0.1*l)*(0.1*l+1);
-  const rowsBase=[
-    ["Levemente fracturada","2–6 /m","Levemente fract.",4],
-    ["Moderadamente fracturada","6–12 /m","Moderad. fract.",9],
-    ["Muy fracturada","12–20 /m","Muy fracturada",16],
-    ["Intensamente fracturada",">20 /m","Intensam. fract.",25],
-    ["Triturada","brechada","Triturada",35]
+  // Cartilla GSI El Brocal V9.0: 4 condiciones estructurales x 4 superficiales.
+  // GSI en las esquinas: 80 arriba a la izquierda, baja 10 por columna y por fila (lineas diagonales del plano).
+  const EST=[
+    {k:"F",n:"Fracturada",d:"Bloques de gran espesor o estratos gruesos, formados por 2 o 3 familias de discontinuidades. RQD 51–75 · 6 a 12 fracturas/m."},
+    {k:"MF",n:"Muy fracturada",d:"Estratos gruesos con estratos finos intercalados, 3 o 4 familias de discontinuidades. RQD 25–50 · 12 a 20 fracturas/m."},
+    {k:"IF",n:"Intensamente fracturada",d:"Estratos finos con muchas discontinuidades, formando bloques angulosos e irregulares. RQD < 25 · más de 20 fracturas/m."},
+    {k:"T",n:"Triturada",d:"Tectónicamente distorsionada, intensamente plegada, con estructuras rotas y fracturadas dentro de ella. Sin RQD."}
   ];
-  const rows=rowsBase.map(r=>{const rqd=Math.round(rqdPH(r[3]));return [r[0],r[1],r[2],JC.map(j=>Math.round(1.5*j+rqd/2)),r[3],rqd];});
-  const classes=RMR_CLASSES.map(c=>{const [code,name]=c.label.split(" · ");return [c.min,code,name,c.color,c.text];});
-  const classOf=rmr=>classes.find(c=>rmr>=c[0]);
-  const body=$g("gsiBody"); if(!body) return;
-  body.innerHTML=rows.map((r,i)=>`<tr><th class="row-h" scope="row">${r[2]}<span>${r[1]}</span></th>${r[3].map((g,j)=>{
-    const c=classOf(Math.min(100,g+5));
-    return `<td><button type="button" class="gsi-cell" data-r="${i}" data-c="${j}" aria-pressed="false" aria-label="${r[0]}, ${conds[j]}: ${c[1]} ${c[2]}, GSI ${g}" style="background:${c[3]};color:${c[4]}">${c[1]}<small>GSI ${g}</small></button></td>`;
-  }).join("")}</tr>`).join("");
-  const card=$g("gsiRockCard");
-  function clear(){
-    body.querySelectorAll(".gsi-cell").forEach(b=>b.setAttribute("aria-pressed","false"));
-    $g("gsiValue").textContent="—"; $g("gsiRock").textContent="Selecciona una celda";
-    card.style.background=""; card.style.color=""; card.style.borderColor="";
-    card.querySelectorAll("span,b").forEach(e=>e.style.color="");
+  const SUP=[
+    {k:"B",n:"Buena",d:"Rugosa escalonada, fresca. Muy rugosa, levemente alterada; se rompe con varios golpes de picota o barretilla. RC 100 a 250 MPa."},
+    {k:"R",n:"Regular",d:"Rugosa y levemente meteorizada. Moderadamente alterada y abierta; se rompe con 2–3 golpes de picota o barretilla. RC 50 a 100 MPa."},
+    {k:"P",n:"Pobre",d:"Lisa, moderadamente meteorizada. Muy alterada y abierta; se indenta superficialmente. RC 25 a 50 MPa."},
+    {k:"MP",n:"Muy pobre",d:"Muy lisa y abierta, con relleno de arcilla; se disgrega y se indenta profundamente. RC < 25 MPa."}
+  ];
+  const NA=new Set(["F/MP","IF/B","T/B","T/R"]);
+  const X0=70,Y0=58,CW=66,CH=66,NS="http://www.w3.org/2000/svg";
+  const svg=$g("gsiChart"); if(!svg) return;
+  let labor="Permanente", sel=null;
+  const gsiAt=(u,v)=>80-10*(u+v);
+  const el=(t,a,txt)=>{const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);if(txt!==undefined)e.textContent=txt;return e;};
+  function clip(poly,a,b,c){ // conserva a*u+b*v<=c
+    const out=[];for(let i=0;i<poly.length;i++){const P=poly[i],Q=poly[(i+1)%poly.length];
+      const fp=a*P[0]+b*P[1]-c, fq=a*Q[0]+b*Q[1]-c;
+      if(fp<=0) out.push(P);
+      if((fp<0&&fq>0)||(fp>0&&fq<0)){const t=fp/(fp-fq);out.push([P[0]+t*(Q[0]-P[0]),P[1]+t*(Q[1]-P[1])]);}
+    }return out;}
+  function draw(){
+    svg.innerHTML="";
+    const defs=el("defs",{}),cp=el("clipPath",{id:"gsiValid"});
+    EST.forEach((r,i)=>SUP.forEach((c,j)=>{ if(!NA.has(r.k+"/"+c.k)) cp.appendChild(el("rect",{x:X0+j*CW,y:Y0+i*CH,width:CW,height:CH})); }));
+    defs.appendChild(cp); svg.appendChild(defs);
+    const g=el("g",{"clip-path":"url(#gsiValid)"});
+    // bandas por tipo de roca segun GSI (mismos rangos y colores del formato)
+    RMR_CLASSES.forEach(rc=>{
+      // franja (min-1, max] de GSI, igual que las diagonales del plano  ->  sLo <= u+v <= sHi
+      const sLo=(80-Math.min(rc.max,80))/10, sHi=Number.isFinite(rc.min)?(80-(rc.min-1))/10:8;
+      let poly=[[0,0],[4,0],[4,4],[0,4]];
+      poly=clip(poly,1,1,sHi); poly=clip(poly,-1,-1,-sLo);
+      if(poly.length<3) return;
+      g.appendChild(el("polygon",{points:poly.map(p=>(X0+p[0]*CW)+","+(Y0+p[1]*CH)).join(" "),fill:rc.color}));
+    });
+    svg.appendChild(g);
+    // diagonales GSI cada 10
+    for(let s=1;s<8;s++){const pts=clip(clip([[0,0],[4,0],[4,4],[0,4]],1,1,s+0.0001),-1,-1,-(s-0.0001));
+      if(pts.length>=2){const a=pts.reduce((m,p)=>p[0]<m[0]?p:m),b=pts.reduce((m,p)=>p[0]>m[0]?p:m);
+        svg.appendChild(el("line",{x1:X0+a[0]*CW,y1:Y0+a[1]*CH,x2:X0+b[0]*CW,y2:Y0+b[1]*CH,class:"gsi-diag","clip-path":"url(#gsiValid)"}));}}
+    // celdas, codigos y N/A
+    EST.forEach((r,i)=>SUP.forEach((c,j)=>{
+      const code=r.k+"/"+c.k, x=X0+j*CW, y=Y0+i*CH;
+      if(NA.has(code)){svg.appendChild(el("rect",{x,y,width:CW,height:CH,class:"gsi-na"}));svg.appendChild(el("text",{x:x+CW/2,y:y+CH/2+4,class:"gsi-na-t","text-anchor":"middle"},"N/A"));}
+      svg.appendChild(el("rect",{x,y,width:CW,height:CH,class:"gsi-cellline"}));
+      if(!NA.has(code)) svg.appendChild(el("text",{x:x+CW/2,y:y+CH/2+4,class:"gsi-code","text-anchor":"middle"},code));
+    }));
+    // encabezados
+    svg.appendChild(el("text",{x:X0+2*CW,y:14,class:"gsi-axis","text-anchor":"middle"},"CONDICIONES SUPERFICIALES →"));
+    SUP.forEach((c,j)=>{svg.appendChild(el("text",{x:X0+j*CW+CW/2,y:34,class:"gsi-colh","text-anchor":"middle"},c.n));svg.appendChild(el("text",{x:X0+j*CW+CW/2,y:49,class:"gsi-colk","text-anchor":"middle"},"("+c.k+")"));});
+    svg.appendChild(el("text",{x:4,y:49,class:"gsi-axis"},"ESTRUCTURA ↓"));
+    EST.forEach((r,i)=>{const yy=Y0+i*CH+CH/2;
+      const words=(r.k==="IF"?"Intensam. fracturada":r.n).split(" ");
+      if(words.length>1){svg.appendChild(el("text",{x:4,y:yy-6,class:"gsi-rowh"},words[0]));svg.appendChild(el("text",{x:4,y:yy+8,class:"gsi-rowh"},words.slice(1).join(" ")));}
+      else svg.appendChild(el("text",{x:4,y:yy+1,class:"gsi-rowh"},r.n));
+      svg.appendChild(el("text",{x:4,y:yy+(words.length>1?22:16),class:"gsi-colk"},"("+r.k+")"));});
+    if(sel){ svg.appendChild(el("circle",{cx:X0+sel.u*CW,cy:Y0+sel.v*CH,r:7,class:"gsi-mark"})); }
+    // capa de interaccion
+    const hit=el("rect",{x:X0,y:Y0,width:4*CW,height:4*CH,fill:"transparent",style:"cursor:crosshair"});
+    hit.addEventListener("click",ev=>{
+      const pt=svg.createSVGPoint(); pt.x=ev.clientX; pt.y=ev.clientY;
+      const q=pt.matrixTransform(svg.getScreenCTM().inverse());
+      const u=Math.min(3.999,Math.max(0,(q.x-X0)/CW)), v=Math.min(3.999,Math.max(0,(q.y-Y0)/CH));
+      select(Math.floor(v),Math.floor(u),u,v);
+    });
+    svg.appendChild(hit);
   }
-  body.addEventListener("click",e=>{
-    const b=e.target.closest(".gsi-cell"); if(!b) return;
-    body.querySelectorAll(".gsi-cell").forEach(x=>x.setAttribute("aria-pressed",String(x===b)));
-    const r=rows[+b.dataset.r], g=r[3][+b.dataset.c], rmr=Math.min(100,g+5), c=classOf(rmr);
-    $g("gsiValue").textContent=g; $g("gsiRock").textContent=`${c[1]} · ${c[2]}`;
-    card.style.background=c[3]; card.style.borderColor=c[3];
-    card.querySelectorAll("span,b").forEach(e=>e.style.color=c[4]);
-    $g("gsiResultCard").scrollIntoView({behavior:"smooth",block:"nearest"});
-  });
-  $g("gsiClearBtn").addEventListener("click",clear);
+  function select(i,j,u,v){
+    const r=EST[i],c=SUP[j],code=r.k+"/"+c.k;
+    $g("gsiEstr").value=r.k; $g("gsiSup").value=c.k;
+    if(NA.has(code)){ sel=null; draw(); showNA(r,c,code); return; }
+    sel={i,j,u,v}; draw(); update();
+  }
+  function showNA(r,c,code){
+    $g("gsiPick").classList.remove("hidden");
+    $g("gsiPick").innerHTML=`<strong>${code}</strong> · ${esc(r.n)} con condición ${esc(c.n.toLowerCase())}: la cartilla no considera esta combinación (N/A).`;
+    resetResult();
+  }
+  function resetResult(){
+    $g("gsiValue").textContent="—"; $g("gsiRock").textContent="Selecciona en la cartilla";
+    const card=$g("gsiRockCard"); card.style.background="";card.style.borderColor="";card.querySelectorAll("span,b").forEach(e=>e.style.color="");
+    $g("gsiSost").innerHTML="";
+  }
+  function update(){
+    if(!sel){resetResult();return;}
+    const r=EST[sel.i],c=SUP[sel.j],code=r.k+"/"+c.k;
+    const g=Math.round(gsiAt(sel.u,sel.v)), rc=rockClass(g);
+    $g("gsiValue").textContent=g;
+    $g("gsiRock").textContent=rc?rc.label:"—";
+    const card=$g("gsiRockCard"); card.style.background=rc?rc.color:""; card.style.borderColor=rc?rc.color:"";
+    card.querySelectorAll("span,b").forEach(e=>e.style.color=rc?rc.text:"");
+    $g("gsiPick").classList.remove("hidden");
+    const TL=80-10*(sel.i+sel.j), BR=TL-20, ul=rockClass(TL-5), lr=rockClass(BR+5);
+    const split=ul&&lr&&ul.label!==lr.label;
+    $g("gsiPick").innerHTML=`<strong>${code}</strong> · GSI de la celda: ${Math.max(BR,0)}–${TL}`+
+      (split?`<br><span class="gsi-split">Esta celda abarca dos tipos: <strong>${esc(ul.label)}</strong> arriba a la izquierda y <strong>${esc(lr.label)}</strong> abajo a la derecha. Toca la cartilla en el punto que mejor represente la roca para precisar.</span>`:"")+
+      `<br><strong>${esc(r.n)}:</strong> ${esc(r.d)}<br><strong>${esc(c.n)}:</strong> ${esc(c.d)}`;
+    const s=cartillaFor(g,labor,null);
+    $g("gsiSost").innerHTML=sostHtml(s,rc?rc.label:"");
+  }
+  // listas
+  EST.forEach(r=>$g("gsiEstr").insertAdjacentHTML("beforeend",`<option value="${r.k}">${r.n} (${r.k})</option>`));
+  SUP.forEach(c=>$g("gsiSup").insertAdjacentHTML("beforeend",`<option value="${c.k}">${c.n} (${c.k})</option>`));
+  function fromSelects(){
+    const i=EST.findIndex(r=>r.k===$g("gsiEstr").value), j=SUP.findIndex(c=>c.k===$g("gsiSup").value);
+    if(i<0||j<0) return;
+    select(i,j,j+0.5,i+0.5);
+  }
+  $g("gsiEstr").addEventListener("change",fromSelects);
+  $g("gsiSup").addEventListener("change",fromSelects);
+  // selector permanente / temporal
+  document.querySelectorAll("#gsi .seg-btn").forEach(b=>b.addEventListener("click",()=>{
+    labor=b.dataset.labor;
+    document.querySelectorAll("#gsi .seg-btn").forEach(x=>{const on=x===b;x.classList.toggle("active",on);x.setAttribute("aria-checked",String(on));});
+    update();
+  }));
+  $g("gsiClearBtn").addEventListener("click",()=>{sel=null;$g("gsiEstr").value="";$g("gsiSup").value="";$g("gsiPick").classList.add("hidden");draw();resetResult();});
   const infoBtn=$g("gsiInfoBtn"), infoNote=$g("gsiInfoNote");
   infoBtn.addEventListener("click",()=>{const open=infoNote.classList.toggle("hidden")===false;infoBtn.setAttribute("aria-expanded",String(open));});
+  draw(); resetResult();
 })();
 </script>
 <script>
