@@ -1158,7 +1158,7 @@ function rmrTable(a){
     "Resistencia de la roca intacta","RQD","Espaciamiento","Apertura","Rugosidad","Relleno","Persistencia","Alteración","Agua subterránea","RMR básico",
     "Rango de buzamiento","Rumbo respecto al eje","Sentido de excavación","Categoría ajuste","Ajuste orientación","RMR total","Tipo de roca",
     "Sostenimiento","Sostenimiento de sacrificio","Restricción","Nota por agua",
-    "Observaciones","N° fotos","Archivos de fotos",...fotoHeaders,"Guardado","Actualizado","ID"];
+    "Observaciones","N° fotos",...fotoHeaders,"Guardado","Actualizado","ID"];
   const photos=[], files=[];
   const rows=a.map((x,ri)=>{
     const P=x.params||{}, L=k=>P[k]?.label||"";
@@ -1166,15 +1166,15 @@ function rmrTable(a){
       ?[x.sostPrincipal||"",x.sostSacrificio||"",x.sostRestriccion||"",x.sostNotaAgua||""]
       :(c=>[c.principal,c.sacrificio,c.restriccion,c.notaAgua?(c.aguaAplica?"Aplica: ":"")+c.notaAgua:""])(cartillaFor(x.rmrTotal,x.condicionLabor,P.agua?.score));
     const fotos=x.photos||[], id8=String(x.id||"").replace(/[^A-Za-z0-9]/g,"").slice(0,8)||("reg"+(ri+1));
-    const firstFotoCol=31, nombres=[];
-    fotos.forEach((src,i)=>{ const ext=/^data:image\/png/i.test(src)?"png":"jpg", name=`${id8}_${i+1}.${ext}`; nombres.push(name); files.push({name,src}); photos.push({row:ri,col:firstFotoCol+i,src}); });
+    const nombres=[];
+    fotos.forEach((src,i)=>{ const ext=/^data:image\/png/i.test(src)?"png":"jpg", name=`${id8}_${i+1}.${ext}`; nombres.push(name); files.push({name,src}); });
     return [x.fecha,x.turno,x.nivel,x.block,x.labor,TIPOS_LABOR[x.condicionLabor]||x.condicionLabor||"",x.supervisor,
       L("resistencia"),L("rqd"),L("espaciamiento"),L("apertura"),L("rugosidad"),L("relleno"),L("persistencia"),L("alteracion"),L("agua"),x.rmrBasico,
       x.buzamiento,x.rumbo,x.sentido,x.ajusteCategoria,x.ajuste,x.rmrTotal,x.tipoRoca,
       ...sost,
-      x.observaciones,fotos.length,nombres.join("; "),...Array.from({length:maxFotos},()=>""),x.createdAt,x.updatedAt,x.id];
+      x.observaciones,fotos.length,...Array.from({length:maxFotos},(_,i)=>nombres[i]||""),x.createdAt,x.updatedAt,x.id];
   });
-  return {headers,rows,photos,files,photoCols:maxFotos?Array.from({length:maxFotos},(_,i)=>31+i):[]};
+  return {headers,rows,photos,files,photoCols:[]};
 }
 $("deleteAllBtn").onclick=async()=>{if(confirm("¿Borrar todo el historial local de este dispositivo?")){await dbDeleteAll();renderHistory();}};
 function clearForm(){
