@@ -1158,7 +1158,7 @@ function rmrTable(a){
     "Resistencia de la roca intacta","RQD","Espaciamiento","Apertura","Rugosidad","Relleno","Persistencia","Alteración","Agua subterránea","RMR básico",
     "Rango de buzamiento","Rumbo respecto al eje","Sentido de excavación","Categoría ajuste","Ajuste orientación","RMR total","Tipo de roca",
     "Sostenimiento","Sostenimiento de sacrificio","Restricción","Nota por agua",
-    "Observaciones","N° fotos",...fotoHeaders,"Guardado","Actualizado","ID"];
+    "Observaciones","N° fotos","Fotos","Guardado","Actualizado","ID"];
   const photos=[], files=[];
   const rows=a.map((x,ri)=>{
     const P=x.params||{}, L=k=>P[k]?.label||"";
@@ -1172,7 +1172,7 @@ function rmrTable(a){
       L("resistencia"),L("rqd"),L("espaciamiento"),L("apertura"),L("rugosidad"),L("relleno"),L("persistencia"),L("alteracion"),L("agua"),x.rmrBasico,
       x.buzamiento,x.rumbo,x.sentido,x.ajusteCategoria,x.ajuste,x.rmrTotal,x.tipoRoca,
       ...sost,
-      x.observaciones,fotos.length,...Array.from({length:maxFotos},(_,i)=>nombres[i]||""),x.createdAt,x.updatedAt,x.id];
+      x.observaciones,fotos.length,nombres.join(", "),x.createdAt,x.updatedAt,x.id];
   });
   return {headers,rows,photos,files,photoCols:[]};
 }
@@ -1475,7 +1475,7 @@ recalc();renderHistory();
     $("historyList").innerHTML=items.map(({k,x})=>{
       if(k==="rmr") return `<div class="history-item" role="button" tabindex="0" data-id="${esc(x.id)}" style="cursor:pointer">
         <span class="kind rmr">Evaluación RMR</span>
-        <div class="history-top"><div><b>${esc(x.labor||"Sin labor")}</b><div class="small">${esc(x.fecha)} · ${esc(x.nivel||"Sin nivel")} · ${esc(x.supervisor||"Sin supervisor")}</div><div class="saved-at">Guardado: ${esc(formatSavedAt(x.createdAt))}${x.updatedAt?` · Actualizado: ${esc(formatSavedAt(x.updatedAt))}`:""}</div></div>
+        <div class="history-top"><div><b>${esc(x.labor||"Sin labor")}</b><div class="small">${esc(x.fecha)} · ${esc(x.nivel||"Sin nivel")} · ${esc(x.supervisor||"Sin supervisor")}</div><div class="saved-at">Guardado: ${esc(formatSavedAt(x.createdAt))}${x.updatedAt?` · Actualizado: ${esc(formatSavedAt(x.updatedAt))}`:""}</div>${x.imported?`<span class="import-badge">📥 Importado</span>`:""}${x.photos&&x.photos.length?`<span class="photo-badge">📷 ${x.photos.length} foto${x.photos.length===1?"":"s"}</span>`:""}</div>
         <span class="pill"><span class="rock-dot" style="background:${rockColor(x.rmrTotal)||"#fff"}"></span>RMR ${x.rmrTotal??"—"} · ${esc(x.tipoRoca||"")}</span></div>
         <div class="small" style="margin-top:7px">Toca para ver el detalle</div></div>`;
       return `<div class="history-item">
