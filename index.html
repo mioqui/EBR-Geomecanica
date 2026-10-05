@@ -1292,10 +1292,14 @@ recalc();renderHistory();
     const card=$g("gsiRockCard"); card.style.background=rc?rc.color:""; card.style.borderColor=rc?rc.color:"";
     card.querySelectorAll("span,b").forEach(e=>e.style.color=rc?rc.text:"");
     $g("gsiPick").classList.remove("hidden");
-    const TL=80-10*(sel.i+sel.j), BR=TL-20, ul=rockClass(TL-5), lr=rockClass(BR+5);
-    const split=ul&&lr&&ul.label!==lr.label;
+    const TL=80-10*(sel.i+sel.j), BR=TL-20;
+    // tipos cuya franja de GSI (min-1, max] cruza la celda (BR, TL), de arriba a la izquierda hacia abajo a la derecha
+    const tipos=RMR_CLASSES.filter(c=>c.max>BR&&(Number.isFinite(c.min)?c.min-1:-Infinity)<TL&&!(c.min>80));
+    const lista=tipos.map(c=>`<strong>${esc(c.label)}</strong>`);
+    const listaTxt=lista.length>1?lista.slice(0,-1).join(", ")+" y "+lista[lista.length-1]:lista.join("");
+    const nTxt=["","","dos","tres","cuatro"][tipos.length]||String(tipos.length);
     $g("gsiPick").innerHTML=`<strong>${code}</strong> · GSI de la celda: ${Math.max(BR,0)}–${TL}`+
-      (split?`<br><span class="gsi-split">Esta celda abarca dos tipos: <strong>${esc(ul.label)}</strong> arriba a la izquierda y <strong>${esc(lr.label)}</strong> abajo a la derecha. Toca la cartilla en el punto que mejor represente la roca para precisar.</span>`:"")+
+      (tipos.length>1?`<br><span class="gsi-split">Esta celda abarca ${nTxt} tipos, de arriba a la izquierda hacia abajo a la derecha: ${listaTxt}. Toca la cartilla en el punto que mejor represente la roca para precisar.</span>`:"")+
       `<br><strong>${esc(r.n)}:</strong> ${esc(r.d)}<br><strong>${esc(c.n)}:</strong> ${esc(c.d)}`;
     const s=cartillaFor(g,labor,null);
     $g("gsiSost").innerHTML=sostHtml(s,rc?rc.label:"");
