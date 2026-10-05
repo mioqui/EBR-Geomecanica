@@ -490,6 +490,7 @@ html[data-theme="dark"] .kind.map{background:#3a2e12;color:#f0d9a4}
   <div class="card">
     <h2>Mapeo estructural</h2>
     <div class="section-note">Registro de estructuras independiente de la evaluación RMR, con su propio historial y archivo de exportación.</div>
+    <div class="actions" style="margin-top:0"><button class="btn" id="mPreloadBtn" type="button">Precargar datos de prueba</button></div>
     <h3>Datos de la labor</h3>
     <div class="grid">
       <div class="field date-field"><label for="mFecha">Fecha</label><input id="mFecha" type="date"></div>
@@ -529,7 +530,7 @@ html[data-theme="dark"] .kind.map{background:#3a2e12;color:#f0d9a4}
         <div class="help" id="mDictStatus"></div></div>
     </div>
     <div class="help" id="mError" style="color:var(--danger);font-weight:700"></div>
-    <div class="actions"><button class="btn primary" id="mSaveBtn" type="button">Guardar estructura</button><button class="btn" id="mClearBtn" type="button">Limpiar estructura</button></div>
+    <div class="actions"><button class="btn primary" id="mSaveBtn" type="button">Guardar mapeo</button><button class="btn" id="mClearBtn" type="button">Limpiar</button></div>
     <div class="save-confirm hidden" id="mSaved"></div>
   </div>
 
@@ -1394,9 +1395,17 @@ recalc();renderHistory();
       persistencia:$m("mPers").value,rugosidad:$m("mRug").value,relleno:$m("mRell").value,
       observaciones:$m("mObs").value.trim()};
     try{ await put(x); }catch(e){ $m("mError").textContent="No se pudo guardar: "+(e.message||e); return; }
-    $m("mSaved").classList.remove("hidden");
-    $m("mSaved").innerHTML=`<strong>Estructura guardada</strong><span>${esc(x.tipo)} · ${x.dip}° / ${pad3(x.dipDir)}° · ${esc(x.labor)} · Puedes verla en Historial.</span>`;
-    clearStructure(true); render();
+    clearStructure(false);
+    openTab("historial");
+    const act=document.querySelector('#historial .seg-btn.active');
+    if(act&&act.dataset.hf==="rmr"){ document.querySelector('#historial .seg-btn[data-hf="todos"]').click(); }
+    await renderHistory();
+    document.querySelectorAll(".save-confirm").forEach(el=>{ if(el.id!=="mSaved") el.remove(); });
+    const msg=document.createElement("div"); msg.className="save-confirm";
+    msg.innerHTML=`<b>Mapeo estructural guardado correctamente</b><span>${esc(x.labor)} · ${esc(x.tipo)} ${esc(x.tipo==="O"&&x.otro?x.otro:x.tipoNombre)} · Dip ${x.dip}° / Dir ${pad3(x.dipDir)}° · ${formatSavedAt(x.createdAt)}</span>`;
+    $("historyMain").prepend(msg);
+    setTimeout(()=>{ if(msg.isConnected) msg.remove(); },5000);
+    window.scrollTo({top:0,behavior:"smooth"});
   });
   function clearStructure(keepMsg){
     ["mTipo","mOtro","mDip","mDipDir","mDesde","mHasta","mPers","mRug","mRell","mObs"].forEach(id=>$m(id).value="");
@@ -1404,6 +1413,21 @@ recalc();renderHistory();
     if(!keepMsg) $m("mSaved").classList.add("hidden");
   }
   $m("mClearBtn").addEventListener("click",()=>clearStructure(false));
+  const MUESTRAS=[
+    {t:"F",dip:65,dd:245,d:12,h:15,p:3,r:4,f:5,o:"Falla con potencia de 30 cm y panizo blanco."},
+    {t:"SJ",dip:72,dd:130,d:15,h:20,p:2,r:3,f:2,o:"Sistema de juntas con relleno de óxidos."},
+    {t:"J",dip:58,dd:310,d:20,h:24,p:4,r:2,f:1,o:"Junta cerrada y persistente."},
+    {t:"C",dip:40,dd:80,d:24,h:30,p:1,r:3,f:3,o:"Contacto litológico entre dacita y conglomerado."}
+  ];
+  let muestra=0;
+  $m("mPreloadBtn").addEventListener("click",()=>{
+    const m=MUESTRAS[muestra++%MUESTRAS.length];
+    $m("mFecha").value=today(); $m("mTurno").value="Día"; $m("mNivel").value="3960"; $m("mBlock").value="7998"; $m("mLabor").value="GL665S"; $m("mGeo").value="GEOMECÁNICA";
+    $m("mTipo").value=m.t; $m("mOtroWrap").classList.add("hidden"); $m("mOtro").value="";
+    $m("mDip").value=m.dip; $m("mDipDir").value=m.dd; $m("mDesde").value=m.d; $m("mHasta").value=m.h;
+    $m("mPers").selectedIndex=m.p; $m("mRug").selectedIndex=m.r; $m("mRell").selectedIndex=m.f; $m("mObs").value=m.o;
+    $m("mError").textContent="";
+  });
   const tramo=x=>(x.desde===null&&x.hasta===null)?"Sin tramo":`Tramo ${x.desde??"—"} – ${x.hasta??"—"} m`;
   function table(a){
     const headers=["Fecha","Turno","Nivel","Block","Labor","Geomecánico","Tipo de estructura","Tipo de estructura (nombre)","Otros (detalle)","Buzamiento (Dip)","Dirección de buzamiento (Dip Direction)","Tramo desde (m)","Tramo hasta (m)","Persistencia","Rugosidad","Relleno","Observaciones","Guardado","ID"];

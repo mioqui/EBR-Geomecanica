@@ -1,4 +1,4 @@
-const CACHE='ebr-rmr-v1-4-excel2';
+const CACHE='ebr-rmr-v1-5-mapeo2';
 const ASSETS=['./','./index.html','./manifest.webmanifest','./icons/icon-180.png','./icons/icon-192.png'];
 
 self.addEventListener('install',event=>{
