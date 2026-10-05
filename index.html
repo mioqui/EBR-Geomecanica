@@ -417,8 +417,7 @@ html[data-theme="dark"] .kind.map{background:#3a2e12;color:#f0d9a4}
       <span id="countPill" class="pill">0 registros</span>
     </div>
     <div class="actions">
-      <button class="btn ok" id="exportBtn" type="button">Compartir / Exportar Excel</button>
-      <button class="btn" id="importBtn" type="button">Importar CSV</button>
+      <button class="btn ok" id="exportBtn" type="button">Compartir / Exportar Excel y fotos</button>
       <input id="importInput" type="file" accept=".csv,text/csv" multiple class="hidden">
       <button class="btn danger" id="deleteAllBtn" type="button">Borrar historial local</button>
     </div>
@@ -559,11 +558,11 @@ function fileToCompressedDataURL(file){
       const img=new Image();
       img.onerror=()=>reject(new Error("No se pudo leer la imagen."));
       img.onload=()=>{
-        const max=1280, scale=Math.min(1,max/Math.max(img.width,img.height));
+        const max=2560, scale=Math.min(1,max/Math.max(img.width,img.height));
         const canvas=document.createElement("canvas");
         canvas.width=Math.round(img.width*scale); canvas.height=Math.round(img.height*scale);
         canvas.getContext("2d").drawImage(img,0,0,canvas.width,canvas.height);
-        resolve(canvas.toDataURL("image/jpeg",0.72));
+        resolve(canvas.toDataURL("image/jpeg",0.88));
       };
       img.src=reader.result;
     };
@@ -1123,7 +1122,7 @@ function importedRecord(headers,row){
     photos:[],imported:true,importedAt:new Date().toISOString()
   };
 }
-$("importBtn").onclick=()=>$("importInput").click();
+if($("importBtn")) $("importBtn").onclick=()=>$("importInput").click();
 $("importInput").addEventListener("change",async e=>{
   const files=[...e.target.files]; if(!files.length)return;
   try{
@@ -1159,23 +1158,23 @@ function rmrTable(a){
     "Resistencia de la roca intacta","RQD","Espaciamiento","Apertura","Rugosidad","Relleno","Persistencia","Alteración","Agua subterránea","RMR básico",
     "Rango de buzamiento","Rumbo respecto al eje","Sentido de excavación","Categoría ajuste","Ajuste orientación","RMR total","Tipo de roca",
     "Sostenimiento","Sostenimiento de sacrificio","Restricción","Nota por agua",
-    "Observaciones","N° fotos",...fotoHeaders,"Guardado","Actualizado","ID"];
-  const photos=[];
+    "Observaciones","N° fotos","Archivos de fotos",...fotoHeaders,"Guardado","Actualizado","ID"];
+  const photos=[], files=[];
   const rows=a.map((x,ri)=>{
     const P=x.params||{}, L=k=>P[k]?.label||"";
     const sost=(x.sostPrincipal!==undefined||x.sostRestriccion!==undefined)
       ?[x.sostPrincipal||"",x.sostSacrificio||"",x.sostRestriccion||"",x.sostNotaAgua||""]
       :(c=>[c.principal,c.sacrificio,c.restriccion,c.notaAgua?(c.aguaAplica?"Aplica: ":"")+c.notaAgua:""])(cartillaFor(x.rmrTotal,x.condicionLabor,P.agua?.score));
-    const fotos=x.photos||[];
-    const firstFotoCol=30;
-    fotos.forEach((src,i)=>photos.push({row:ri,col:firstFotoCol+i,src}));
+    const fotos=x.photos||[], id8=String(x.id||"").replace(/[^A-Za-z0-9]/g,"").slice(0,8)||("reg"+(ri+1));
+    const firstFotoCol=31, nombres=[];
+    fotos.forEach((src,i)=>{ const ext=/^data:image\/png/i.test(src)?"png":"jpg", name=`${id8}_${i+1}.${ext}`; nombres.push(name); files.push({name,src}); photos.push({row:ri,col:firstFotoCol+i,src}); });
     return [x.fecha,x.turno,x.nivel,x.block,x.labor,TIPOS_LABOR[x.condicionLabor]||x.condicionLabor||"",x.supervisor,
       L("resistencia"),L("rqd"),L("espaciamiento"),L("apertura"),L("rugosidad"),L("relleno"),L("persistencia"),L("alteracion"),L("agua"),x.rmrBasico,
       x.buzamiento,x.rumbo,x.sentido,x.ajusteCategoria,x.ajuste,x.rmrTotal,x.tipoRoca,
       ...sost,
-      x.observaciones,fotos.length,...Array.from({length:maxFotos},()=>""),x.createdAt,x.updatedAt,x.id];
+      x.observaciones,fotos.length,nombres.join("; "),...Array.from({length:maxFotos},()=>""),x.createdAt,x.updatedAt,x.id];
   });
-  return {headers,rows,photos,photoCols:maxFotos?Array.from({length:maxFotos},(_,i)=>30+i):[]};
+  return {headers,rows,photos,files,photoCols:maxFotos?Array.from({length:maxFotos},(_,i)=>31+i):[]};
 }
 $("deleteAllBtn").onclick=async()=>{if(confirm("¿Borrar todo el historial local de este dispositivo?")){await dbDeleteAll();renderHistory();}};
 function clearForm(){
@@ -1499,19 +1498,20 @@ recalc();renderHistory();
   const enc=new TextEncoder();
   const CRC=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0;}return t;})();
   const crc32=b=>{let c=0xFFFFFFFF;for(let i=0;i<b.length;i++)c=CRC[(c^b[i])&255]^(c>>>8);return (c^0xFFFFFFFF)>>>0;};
-  function zip(files){
+  function zip(files,type){
     const parts=[],central=[];let off=0;
     const u16=v=>[v&255,(v>>>8)&255], u32=v=>[v&255,(v>>>8)&255,(v>>>16)&255,(v>>>24)&255];
+    const now=new Date(), dt=((now.getHours()<<11)|(now.getMinutes()<<5)|(now.getSeconds()>>1))&0xFFFF, dd=(((now.getFullYear()-1980)<<9)|((now.getMonth()+1)<<5)|now.getDate())&0xFFFF;
     files.forEach(f=>{
       const name=enc.encode(f.name), data=(f.data instanceof Uint8Array)?f.data:enc.encode(f.data), crc=crc32(data);
-      const local=new Uint8Array([0x50,0x4b,0x03,0x04,...u16(20),...u16(0),...u16(0),...u16(0),...u16(0x21),...u32(crc),...u32(data.length),...u32(data.length),...u16(name.length),...u16(0)]);
+      const local=new Uint8Array([0x50,0x4b,0x03,0x04,...u16(20),...u16(0),...u16(0),...u16(dt),...u16(dd),...u32(crc),...u32(data.length),...u32(data.length),...u16(name.length),...u16(0)]);
       parts.push(local,name,data);
-      central.push(new Uint8Array([0x50,0x4b,0x01,0x02,...u16(20),...u16(20),...u16(0),...u16(0),...u16(0),...u16(0x21),...u32(crc),...u32(data.length),...u32(data.length),...u16(name.length),...u16(0),...u16(0),...u16(0),...u16(0),...u32(0),...u32(off)]),name);
+      central.push(new Uint8Array([0x50,0x4b,0x01,0x02,...u16(20),...u16(20),...u16(0),...u16(0),...u16(dt),...u16(dd),...u32(crc),...u32(data.length),...u32(data.length),...u16(name.length),...u16(0),...u16(0),...u16(0),...u16(0),...u32(0),...u32(off)]),name);
       off+=local.length+name.length+data.length;
     });
     const cdSize=central.reduce((s,a)=>s+a.length,0);
     const end=new Uint8Array([0x50,0x4b,0x05,0x06,...u16(0),...u16(0),...u16(files.length),...u16(files.length),...u32(cdSize),...u32(off),...u16(0)]);
-    return new Blob([...parts,...central,end],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
+    return new Blob([...parts,...central,end],{type:type||"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
   }
   const xesc=v=>String(v).replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g,"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
   const colName=i=>{let s="";i++;while(i>0){const m=(i-1)%26;s=String.fromCharCode(65+m)+s;i=Math.floor((i-1)/26);}return s;};
@@ -1528,14 +1528,21 @@ recalc();renderHistory();
     const last=colName(headers.length-1)+(rows.length+1);
     return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><cols>${cols}</cols><sheetData>${head}${body}</sheetData>${rows.length?`<autoFilter ref="A1:${last}"/>`:""}${hasDrawing?'<drawing r:id="rId1"/>':""}</worksheet>`;
   }
+  const b64bytes=b64=>{const bin=atob(b64),u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return u;};
   function loadImg(src){
+    // miniatura liviana para el Excel; la foto en calidad completa va aparte en el ZIP
     return new Promise(res=>{
-      const m=/^data:image\/(jpeg|jpg|png);base64,(.*)$/i.exec(src||""); if(!m){res(null);return;}
-      const bin=atob(m[2]), bytes=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) bytes[i]=bin.charCodeAt(i);
-      const ext=m[1].toLowerCase()==="png"?"png":"jpeg";
+      if(!/^data:image\//i.test(src||"")){res(null);return;}
       const img=new Image();
-      img.onload=()=>{const k=Math.min(IMG_W/img.naturalWidth,IMG_H/img.naturalHeight,1);res({bytes,ext,w:Math.max(1,Math.round(img.naturalWidth*k)),h:Math.max(1,Math.round(img.naturalHeight*k))});};
-      img.onerror=()=>res({bytes,ext,w:IMG_W,h:IMG_H});
+      img.onload=()=>{
+        const k=Math.min(IMG_W/img.naturalWidth,IMG_H/img.naturalHeight,1);
+        const w=Math.max(1,Math.round(img.naturalWidth*k)), h=Math.max(1,Math.round(img.naturalHeight*k));
+        const t=Math.min(1,480/Math.max(img.naturalWidth,img.naturalHeight)), cv=document.createElement("canvas");
+        cv.width=Math.max(1,Math.round(img.naturalWidth*t)); cv.height=Math.max(1,Math.round(img.naturalHeight*t));
+        cv.getContext("2d").drawImage(img,0,0,cv.width,cv.height);
+        res({bytes:b64bytes(cv.toDataURL("image/jpeg",0.8).split(",")[1]),ext:"jpeg",w,h});
+      };
+      img.onerror=()=>res(null);
       img.src=src;
     });
   }
@@ -1569,11 +1576,18 @@ recalc();renderHistory();
     if(!r.length&&!m.length){alert("No hay registros para compartir o exportar.");return;}
     // filas en orden de registro: del más antiguo al más reciente
     const t1=rmrTable([...r].reverse()), t2=M().table([...m].reverse());
-    const blob=await workbook([
+    const xlsx=await workbook([
       {name:"RMR",headers:t1.headers,rows:t1.rows,photos:t1.photos,photoCols:t1.photoCols,wide:["Observaciones","Sostenimiento","Sostenimiento de sacrificio","Restricción","Nota por agua"]},
       {name:"Mapeo estructural",headers:t2.headers,rows:t2.rows,wide:["Observaciones"]}
     ]);
-    const filename=`Geomecanica_${today()}.xlsx`, file=new File([blob],filename,{type:blob.type});
+    const base=`Geomecanica_${today()}`;
+    let blob=xlsx, filename=`${base}.xlsx`;
+    if(t1.files.length){
+      const files=[{name:`${base}.xlsx`,data:new Uint8Array(await xlsx.arrayBuffer())}];
+      t1.files.forEach(f=>{const m=/^data:image\/(jpeg|jpg|png);base64,(.*)$/i.exec(f.src||""); if(m) files.push({name:`fotos/${f.name}`,data:b64bytes(m[2])});});
+      blob=zip(files,"application/zip"); filename=`${base}.zip`;
+    }
+    const file=new File([blob],filename,{type:blob.type});
     try{ if(navigator.share&&(!navigator.canShare||navigator.canShare({files:[file]}))){ await navigator.share({title:"EBR Geomecánica",text:"Evaluaciones RMR y mapeo estructural exportados desde EBR Geomecánica.",files:[file]}); return; } }
     catch(err){ if(err&&err.name==="AbortError") return; }
     const url=URL.createObjectURL(blob), a=document.createElement("a"); a.href=url; a.download=filename; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),1000);
