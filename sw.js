@@ -1,4 +1,4 @@
-const CACHE='ebr-rmr-v1-6-gsi5';
+const CACHE='ebr-rmr-v1-7-indpdf2';
 const ASSETS=['./','./index.html','./manifest.webmanifest','./icons/icon-180.png','./icons/icon-192.png'];
 
 self.addEventListener('install',event=>{
