@@ -6,7 +6,7 @@ Aplicación web (PWA) para el trabajo geomecánico en campo. Funciona sin intern
 
 ## Módulos
 - **RMR:** evaluación RMR 89 con ajuste por orientación, tipo de roca y sostenimiento según la cartilla.
-- **GSI:** tabla GSI de El Brocal para labores permanentes y temporales.
+- **GSI:** tabla GSI para labores permanentes y temporales.
 - **Mapeo:** registro de estructuras (tipo, Dip / Dip Direction, tramo, persistencia, rugosidad, relleno).
 - **Historial:** registros guardados, exportación a Excel con fotos e **Indicación Geomecánica F-EBR-GM-01.02 en PDF A4** para imprimir y firmar.
 
