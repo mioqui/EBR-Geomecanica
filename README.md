@@ -1,6 +1,6 @@
 # EBR Geomecánica
 
-Aplicación web (PWA) para el trabajo geomecánico en campo de El Brocal. Funciona sin internet una vez instalada.
+Aplicación web (PWA) para el trabajo geomecánico en campo. Funciona sin internet una vez instalada.
 
 **Acceso:** https://mioqui.github.io/EBR-Geomecanica/
 
