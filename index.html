@@ -61,7 +61,15 @@ textarea{min-height:82px;resize:vertical}
 .score-detail-item .name{font-size:.78rem;font-weight:800;color:#405765;margin-bottom:5px}
 .score-detail-item .condition{font-size:.9rem;color:var(--ink);line-height:1.35}
 .score-detail-item .points{font-size:1.05rem;font-weight:900;color:var(--brand);margin-top:6px}
-@media(max-width:680px){.score-detail-grid{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:680px){
+  /* Celular: dos parámetros por fila para que el detalle no sea una lista larga */
+  .score-detail-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+  .score-detail-item{padding:8px 9px;border-radius:10px}
+  .score-detail-item .name{font-size:.72rem;margin-bottom:3px}
+  .score-detail-item .condition{font-size:.84rem;line-height:1.25}
+  .score-detail-item .points{font-size:.95rem;margin-top:3px}
+  .score-detail-item:last-child:nth-child(odd){grid-column:1/-1}
+}
 .actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
 .btn{border:0;border-radius:11px;padding:11px 14px;font-weight:800;cursor:pointer;background:#e8eef1;color:#203b4b}
 .btn.primary{background:var(--brand);color:white}.btn.ok{background:var(--ok);color:white}.btn.danger{background:#f8eaea;color:var(--danger)}
