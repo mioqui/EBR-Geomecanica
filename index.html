@@ -98,6 +98,29 @@ textarea{min-height:82px;resize:vertical}
 .estr-item .t{font-weight:800}.estr-item .m{font-size:.85rem;margin-top:3px}.estr-item .o{font-size:.82rem;color:#5b6b75;margin-top:3px}
 .estr-item .actions{margin-top:8px;display:flex;flex-direction:row;gap:8px}.estr-item .actions .btn{width:auto;flex:0 0 auto;padding:7px 14px;font-size:.85rem}
 .estr-item.editing{outline:2px dashed var(--brand)}
+.sk-tiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:6px}
+.sk-tile{display:flex;flex-direction:column;gap:4px;align-items:stretch;text-align:left;border:1.5px dashed #9fb5c2;border-radius:12px;padding:8px;background:#f8fafb;cursor:pointer;font:inherit;color:inherit}
+.sk-tile.done{border-style:solid;border-color:var(--ok)}
+.sk-tile.ro{cursor:default;border-style:solid}
+.sk-tile canvas{width:100%;display:block;border-radius:6px;border:1px solid #e3e3e3;background:#fff}
+.sk-name{font-weight:800;font-size:.85rem}.sk-state{font-size:.75rem;color:#5b6b75}
+@media(max-width:420px){.sk-tiles{grid-template-columns:minmax(0,1fr)}}
+body.sk-lock{overflow:hidden}
+.sk-modal{position:fixed;inset:0;z-index:1000;background:#1d2b33;display:flex;flex-direction:column;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+.sk-modal.hidden{display:none}
+.sk-top{display:flex;gap:10px;align-items:baseline;color:#fff;padding:8px 12px 2px;flex-wrap:wrap}.sk-top b{font-size:1rem}.sk-hint{color:#ffd479;font-size:.8rem;font-weight:700}
+.sk-tools{display:flex;flex-wrap:wrap;gap:6px 12px;padding:6px 10px;align-items:center}
+.sk-group{display:flex;gap:4px;flex-wrap:wrap}
+.sk-group button{border:0;border-radius:9px;padding:7px 9px;background:#2f4552;color:#e6eef2;font-weight:700;font-size:.82rem;cursor:pointer}
+.sk-group button.on{background:#fff;color:#123d5a}
+.sk-group .sk-color{width:30px;height:30px;padding:0;border-radius:50%;border:2px solid #2f4552}
+.sk-group .sk-color.on{outline:3px solid #fff;outline-offset:1px}
+.sk-stage{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;padding:4px}
+.sk-stage canvas{touch-action:none;background:#fff;border-radius:4px;box-shadow:0 2px 12px rgba(0,0,0,.4);cursor:crosshair}
+.sk-bottom{display:flex;gap:8px;padding:8px 10px;align-items:center;flex-wrap:wrap}
+.sk-bottom .btn{width:auto;padding:9px 12px}
+html[data-theme="dark"] .sk-tile{background:#13212a;border-color:#3a4e59}
+html[data-theme="dark"] .sk-state{color:#9fb2bd}
 .lect-list{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 8px}
 .lect-chip{display:inline-flex;align-items:center;gap:6px;padding:5px 6px 5px 10px;border-radius:999px;background:#e8eef1;color:#203b4b;font-weight:700;font-size:.85rem}
 .lect-chip button{border:0;background:#cfdbe2;color:#203b4b;border-radius:999px;width:24px;height:24px;font-weight:800;cursor:pointer;line-height:1}
@@ -466,6 +489,14 @@ html[data-theme="dark"] .kind.map{background:#3a2e12;color:#f0d9a4}
       <div class="help">En el celular puedes tomar una foto o seleccionar imágenes existentes. Se guardan junto con esta evaluación en el dispositivo.</div>
       <div id="photoPreview" class="photo-grid"></div>
     </div>
+    <div class="field" style="margin-top:12px">
+      <label>Croquis y representación estructural <span class="small">(se imprimen en la indicación PDF)</span></label>
+      <div class="sk-tiles">
+        <button type="button" class="sk-tile" data-sk="croquis"><canvas></canvas><span class="sk-name">✏️ Croquis</span><span class="sk-state"></span></button>
+        <button type="button" class="sk-tile" data-sk="rep"><canvas></canvas><span class="sk-name">✏️ Representación estructural</span><span class="sk-state"></span></button>
+      </div>
+      <div class="help">Dibuja con el dedo, con lápiz digital (tablet) o con el mouse. En el celular, gira la pantalla para dibujar más grande.</div>
+    </div>
     <div class="actions">
       <button class="btn danger" id="clearBtn" type="button">Limpiar formulario</button>
     </div>
@@ -519,6 +550,8 @@ html[data-theme="dark"] .kind.map{background:#3a2e12;color:#f0d9a4}
     <div id="detailScores" class="score-detail-grid"></div>
     <h3>Mapeo estructural</h3>
     <div id="detailStructs" class="estr-list"></div>
+    <h3>Croquis y representación estructural</h3>
+    <div id="detailSketches"></div>
     <h3>Fotografías de campo</h3>
     <div id="detailPhotos" class="photo-grid"></div>
     <h3>Observaciones</h3>
@@ -1027,7 +1060,9 @@ function collect(){
     rqdMedido:$("rqdMedido").value.trim()===""?null:Number($("rqdMedido").value),gsi:calc.gsi.value,jcond89:calc.gsi.jcond,gsiRqd:calc.gsi.rqd,
     sostTipoLabor:calc.sost.tipoLaborLabel,sostPrincipal:calc.sost.principal,sostSacrificio:calc.sost.sacrificio,sostRestriccion:calc.sost.restriccion,sostNotaAgua:calc.sost.notaAgua?(calc.sost.aguaAplica?"Aplica: ":"")+calc.sost.notaAgua:"",
     observaciones:$("observaciones").value.trim(),photos:[...currentPhotos],
-    estructuras:window.rmrStructs?window.rmrStructs.get():[]
+    estructuras:window.rmrStructs?window.rmrStructs.get():[],
+    croquis:window.sketches?window.sketches.get("croquis"):null,
+    representacion:window.sketches?window.sketches.get("rep"):null
   };
 }
 
@@ -1132,6 +1167,7 @@ async function showHistoryDetail(id){
       $("detailSost").innerHTML=sostHtml(c,x.tipoRoca); }
     $("detailScores").innerHTML=scoreCards(x.params||{});
     $("detailStructs").innerHTML=window.rmrStructs?window.rmrStructs.html(x.estructuras||[],false):"";
+    if(window.sketches) setTimeout(()=>window.sketches.detalle($("detailSketches"),x),0);
     $("detailPhotos").innerHTML=(x.photos&&x.photos.length)?x.photos.map((src,i)=>`<div class="photo-item"><img class="detail-photo" src="${src}" alt="Foto de campo ${i+1}" title="Toca para ampliar"></div>`).join(""):`<div class="small">Sin fotografías adjuntas.</div>`;
     document.querySelectorAll(".detail-photo").forEach(img=>img.onclick=()=>openPhotoModal(img.src));
     $("detailObs").textContent=x.observaciones||"Sin observaciones.";
@@ -1154,6 +1190,7 @@ $("editHistoryBtn").onclick=async()=>{
   $("rqdMedido").value=(x.rqdMedido===null||x.rqdMedido===undefined)?"":String(x.rqdMedido);
   currentPhotos=[...(x.photos||[])]; renderPhotoPreview();
   window.rmrStructs?.set(x.estructuras||[]);
+  window.sketches?.set(x.croquis,x.representacion); setTimeout(()=>window.sketches?.refrescar(),80);
   $("saveEvalBtn").textContent="Actualizar evaluación"; $("cancelEditBtn").classList.remove("hidden");
   recalc(); openTab("evaluacion");
 };
@@ -1235,7 +1272,7 @@ function rmrTable(a){
     "Resistencia de la roca intacta","RQD","Espaciamiento","Apertura","Rugosidad","Relleno","Persistencia","Alteración","Agua subterránea","RMR básico",
     "Rango de buzamiento","Rumbo respecto al eje","Sentido de excavación","Categoría ajuste","Ajuste orientación","RMR total","Tipo de roca",
     "Sostenimiento","Sostenimiento de sacrificio","Restricción","Nota por agua",
-    "Observaciones","N° estructuras","N° fotos","Fotos","Guardado","Actualizado","ID"];
+    "Observaciones","N° estructuras","Croquis","Representación estructural","N° fotos","Fotos","Guardado","Actualizado","ID"];
   const photos=[], files=[];
   const rows=a.map((x,ri)=>{
     const P=x.params||{}, L=k=>P[k]?.label||"";
@@ -1249,14 +1286,14 @@ function rmrTable(a){
       L("resistencia"),L("rqd"),L("espaciamiento"),L("apertura"),L("rugosidad"),L("relleno"),L("persistencia"),L("alteracion"),L("agua"),x.rmrBasico,
       x.buzamiento,x.rumbo,x.sentido,x.ajusteCategoria,x.ajuste,x.rmrTotal,x.tipoRoca,
       ...sost,
-      x.observaciones,(x.estructuras||[]).length,fotos.length,nombres.join(", "),x.createdAt,x.updatedAt,x.id];
+      x.observaciones,(x.estructuras||[]).length,x.croquis&&x.croquis.items&&x.croquis.items.length?"Sí":"",x.representacion&&x.representacion.items&&x.representacion.items.length?"Sí":"",fotos.length,nombres.join(", "),x.createdAt,x.updatedAt,x.id];
   });
   return {headers,rows,photos,files,photoCols:[]};
 }
 $("deleteAllBtn").onclick=async()=>{if(confirm("¿Borrar todo el historial local de este dispositivo?")){await dbDeleteAll();renderHistory();}};
 function clearForm(){
  ["turno","nivel","block","labor","condicionLabor","supervisor","resistencia","rqd","espaciamiento","apertura","rugosidad","relleno","persistencia","alteracion","agua","buzamiento","rumbo","sentido","observaciones","rqdMedido"].forEach(id=>$(id).value="");
- $("fecha").value=today(); currentPhotos=[]; renderPhotoPreview(); window.rmrStructs?.clear(); recalc();
+ $("fecha").value=today(); currentPhotos=[]; renderPhotoPreview(); window.rmrStructs?.clear(); window.sketches?.clear(); recalc();
 }
 $("clearBtn").onclick=clearForm;
 
@@ -2045,6 +2082,9 @@ function drawDataOver(cv,x){
   const lw0=tw(lab,10*SC,true)+4;
   drawInBox(cv,{x:nb.x+lw0,y:nb.y,w:nb.w-lw0,h:nb.h},x.supervisor||"",{size:10*SC,bold:true,color:MARK,h:"l",scale:90});
   drawInBox(cv,box(ref("C64:E64")),`${fmtFecha(x.fecha)} ${fmtHora(x.createdAt)}`,{size:9*SC,bold:true,color:MARK,h:"l",scale:90});
+  // Dibujos hechos en la app (croquis y representación estructural)
+  drawSketch(cv,x.croquis,"croquis");
+  drawSketch(cv,x.representacion,"rep");
   // pie: identificación del registro
   const id8=String(x.id||"").slice(0,8);
   cv.text(OX,4.5,toAnsi(`Generado con EBR-Geomecánica · Registro ${id8} · ${fmtFecha(x.fecha)} ${x.labor||""}`),5.5,false,"666666",100);
@@ -2116,6 +2156,48 @@ function buildPDF(pages,images){
   return new Blob(chunks,{type:"application/pdf"});
 }
 
+/* ---------- dibujos: croquis y representación estructural ---------- */
+const AREAS={croquis:"B34:M47",rep:"N34:X47"};
+const hexRgb=h=>{h=String(h||"#000000").replace("#","");if(h.length===3)h=h.split("").map(c=>c+c).join("");return /^[0-9a-f]{6}$/i.test(h)?h:"000000";};
+// Grosor según la presión del lápiz (dedo o mouse = presión 0.5 → factor 1)
+const presion=pr=>0.5+(pr===undefined||pr===null?0.5:pr);
+function drawSketch(cv,d,area){
+  if(!d||!d.items||!d.items.length)return;
+  const b=box(ref(AREAS[area])), k=b.w/(d.w||1000);
+  const X=v=>b.x+v*k, Y=v=>b.y+b.h-v*k;
+  cv.push(`q ${f2(b.x)} ${f2(b.y)} ${f2(b.w)} ${f2(b.h)} re W n 1 J 1 j`);
+  d.items.forEach(it=>{
+    const col=rgb(hexRgb(it.c));
+    if(it.k==="t"){ if(it.t) cv.text(X(it.x),Y(it.y),toAnsi(it.t),(it.s||28)*k,!!it.b,hexRgb(it.c),100); return; }
+    const p=it.p||[]; if(p.length<3)return;
+    if(it.k==="l"){ cv.push(`${col} RG ${f2((it.w||4)*k)} w ${f2(X(p[0]))} ${f2(Y(p[1]))} m ${f2(X(p[3]))} ${f2(Y(p[4]))} l S`); return; }
+    // trazo libre: puntos [x,y,presión,...]
+    if(p.length===3){ const r=(it.w||4)*k*presion(p[2])/2; cv.push(`${col} rg ${f2(X(p[0])-r)} ${f2(Y(p[1])-r)} ${f2(2*r)} ${f2(2*r)} re f`); return; }
+    const varia=p.some((v,i)=>i%3===2&&Math.abs(v-p[2])>0.05);
+    if(!varia){
+      let o=`${col} RG ${f2((it.w||4)*k*presion(p[2]))} w ${f2(X(p[0]))} ${f2(Y(p[1]))} m`;
+      for(let i=3;i<p.length;i+=3)o+=` ${f2(X(p[i]))} ${f2(Y(p[i+1]))} l`;
+      cv.push(o+" S");
+    }else{
+      for(let i=3;i<p.length;i+=3) cv.push(`${col} RG ${f2((it.w||4)*k*presion((p[i-1]+p[i+2])/2))} w ${f2(X(p[i-3]))} ${f2(Y(p[i-2]))} m ${f2(X(p[i]))} ${f2(Y(p[i+1]))} l S`);
+    }
+  });
+  cv.push("Q 0 J 0 j");
+}
+// Geometría de los recuadros para el lienzo de dibujo de la app (proporción, grilla y rosa de los vientos)
+function areas(){
+  const out={};
+  Object.entries(AREAS).forEach(([n,a])=>{
+    const r=ref(a), b=box(r), top=OY+RY[r.r]*SCY;
+    out[n]={aspect:b.w/b.h,
+      xs:CX.slice(r.c,r.c2+2).map(v=>(OX+v*SC-b.x)/b.w),
+      ys:RY.slice(r.r,r.r2+2).map(v=>(OY+v*SCY-top)/b.h)};
+  });
+  const cb=box(ref(AREAS.croquis)), ctop=OY+RY[ref(AREAS.croquis).r]*SCY, ns=975164/12700*SC;
+  const nx=OX+(CX[ci("L")]+202427/12700)*SC, ny=OY+(RY[33]+168489/12700)*SCY;
+  out.croquis.norte={x:(nx-cb.x)/cb.w,y:(ny-ctop)/cb.h,w:ns/cb.w,h:ns/cb.h};
+  return out;
+}
 function generar(x,opts){
   opts=opts||{};
   const images={};
@@ -2151,7 +2233,7 @@ function generar(x,opts){
   }
   return buildPDF(pages,images);
 }
-window.indicacionPDF={generar};
+window.indicacionPDF={generar,areas:areas(),norteSrc:"data:image/jpeg;base64,"+NORTE_B64};
 })();
 
 (function(){
@@ -2174,6 +2256,193 @@ window.indicacionPDF={generar};
   };
   const b=document.getElementById("indPdfBtn");
   if(b) b.addEventListener("click",()=>{ if(detailId) window.generarIndicacion(detailId); });
+})();
+</script>
+<script>
+/* ===== Croquis y representación estructural: lienzo de dibujo (dedo, lápiz digital o mouse) =====
+   Se guarda como trazos vectoriales (no como imagen) para que el PDF los imprima nítidos.
+   Formato: {w:1000, h, items:[{k:"s",c,w,p:[x,y,presión,...]}, {k:"l",c,w,p:[x1,y1,_,x2,y2,_]}, {k:"t",c,s,x,y,t}]} */
+(function(){
+  const NOMBRES={croquis:"Croquis",rep:"Representación estructural (corte transversal / longitudinal)"};
+  const COLORES=[["#111111","Negro"],["#d32f2f","Rojo"],["#1f5fbf","Azul"]];
+  const GROSOR={fino:2.2,medio:4,grueso:7}, TEXTO={fino:22,medio:28,grueso:38};
+  const datos={croquis:null,rep:null};
+  const A=n=>(window.indicacionPDF&&window.indicacionPDF.areas&&window.indicacionPDF.areas[n])||{aspect:n==="croquis"?1.736:1.358,xs:[],ys:[]};
+  const vacio=d=>!d||!d.items||!d.items.length;
+  const copia=d=>d?JSON.parse(JSON.stringify(d)):null;
+  let norteImg=null;
+  function norte(){ if(!norteImg&&window.indicacionPDF&&window.indicacionPDF.norteSrc){ norteImg=new Image(); norteImg.onload=()=>{ if(pad.abierto) dibujar(); pintarMiniaturas(); }; norteImg.src=window.indicacionPDF.norteSrc; } return norteImg&&norteImg.complete?norteImg:null; }
+  const factor=pr=>0.5+(pr===undefined||pr===null?0.5:pr);
+
+  /* --- render común (lienzo de dibujo y miniaturas) --- */
+  function render(ctx,W,H,area,d,extra){
+    const a=A(area), k=W/1000;
+    ctx.save(); ctx.fillStyle="#fff"; ctx.fillRect(0,0,W,H);
+    ctx.strokeStyle="#e3e3e3"; ctx.lineWidth=Math.max(1,W/1000);
+    (a.xs||[]).forEach(v=>{ctx.beginPath();ctx.moveTo(v*W,0);ctx.lineTo(v*W,H);ctx.stroke();});
+    (a.ys||[]).forEach(v=>{ctx.beginPath();ctx.moveTo(0,v*H);ctx.lineTo(W,v*H);ctx.stroke();});
+    if(area==="croquis"&&a.norte){const im=norte(); if(im) ctx.drawImage(im,a.norte.x*W,a.norte.y*H,a.norte.w*W,a.norte.h*H);}
+    ctx.lineCap="round"; ctx.lineJoin="round";
+    const items=(d&&d.items||[]).concat(extra?[extra]:[]);
+    items.forEach(it=>{
+      ctx.strokeStyle=ctx.fillStyle=it.c||"#111";
+      if(it.k==="t"){ ctx.font=`${it.b?"700 ":""}${(it.s||28)*k}px Helvetica, Arial, sans-serif`; ctx.textBaseline="alphabetic"; ctx.fillText(it.t||"",it.x*k,it.y*k); return; }
+      const p=it.p||[];
+      if(it.k==="l"){ if(p.length<6)return; ctx.lineWidth=(it.w||4)*k; ctx.beginPath(); ctx.moveTo(p[0]*k,p[1]*k); ctx.lineTo(p[3]*k,p[4]*k); ctx.stroke(); return; }
+      if(p.length===3){ ctx.beginPath(); ctx.arc(p[0]*k,p[1]*k,(it.w||4)*k*factor(p[2])/2,0,7); ctx.fill(); return; }
+      for(let i=3;i<p.length;i+=3){ ctx.lineWidth=(it.w||4)*k*factor((p[i-1]+p[i+2])/2); ctx.beginPath(); ctx.moveTo(p[i-3]*k,p[i-2]*k); ctx.lineTo(p[i]*k,p[i+1]*k); ctx.stroke(); }
+    });
+    ctx.restore();
+  }
+
+  /* --- miniaturas en el formulario --- */
+  function pintarMiniaturas(){
+    document.querySelectorAll(".sk-tile[data-sk]").forEach(t=>{
+      const area=t.dataset.sk, c=t.querySelector("canvas"), d=datos[area];
+      const W=c.clientWidth||160, H=Math.round(W/A(area).aspect), r=window.devicePixelRatio||1;
+      c.style.height=H+"px"; c.width=Math.round(W*r); c.height=Math.round(H*r);
+      const ctx=c.getContext("2d"); ctx.setTransform(r,0,0,r,0,0); render(ctx,W,H,area,d);
+      t.querySelector(".sk-state").textContent=vacio(d)?"Toca para dibujar":`✓ ${d.items.length} trazo${d.items.length===1?"":"s"} · toca para editar`;
+      t.classList.toggle("done",!vacio(d));
+    });
+  }
+
+  /* --- lienzo a pantalla completa --- */
+  const pad={abierto:false,area:null,d:null,herr:"lapiz",color:"#111111",grosor:"medio",actual:null,lapizVisto:false,pid:null};
+  const modal=document.createElement("div");
+  modal.className="sk-modal hidden"; modal.setAttribute("role","dialog"); modal.setAttribute("aria-modal","true");
+  modal.innerHTML=`
+    <div class="sk-top"><b id="skTitle">Croquis</b><span class="sk-hint" id="skHint"></span></div>
+    <div class="sk-tools">
+      <div class="sk-group" id="skTools">
+        <button type="button" data-h="lapiz" title="Dibujo libre">✏️ Lápiz</button>
+        <button type="button" data-h="linea" title="Línea recta">📏 Línea</button>
+        <button type="button" data-h="texto" title="Escribir texto">🔤 Texto</button>
+        <button type="button" data-h="borrador" title="Borra el trazo que toques">🧽 Borrar trazo</button>
+      </div>
+      <div class="sk-group" id="skColors">${COLORES.map(([c,n])=>`<button type="button" class="sk-color" data-c="${c}" title="${n}" aria-label="${n}" style="background:${c}"></button>`).join("")}</div>
+      <div class="sk-group" id="skSizes"><button type="button" data-g="fino">Fino</button><button type="button" data-g="medio">Medio</button><button type="button" data-g="grueso">Grueso</button></div>
+    </div>
+    <div class="sk-stage" id="skStage"><canvas id="skCanvas"></canvas></div>
+    <div class="sk-bottom">
+      <button type="button" class="btn" id="skUndo">↶ Deshacer</button>
+      <button type="button" class="btn danger" id="skClear">Borrar todo</button>
+      <span style="flex:1"></span>
+      <button type="button" class="btn" id="skCancel">Cancelar</button>
+      <button type="button" class="btn primary" id="skSave">Guardar dibujo</button>
+    </div>`;
+  document.body.appendChild(modal);
+  const cv=modal.querySelector("#skCanvas"), stage=modal.querySelector("#skStage");
+  let escala=1, CW=0, CH=0;
+
+  function ajustar(){
+    if(!pad.abierto)return;
+    const a=A(pad.area), sw=stage.clientWidth-8, sh=stage.clientHeight-8;
+    let w=sw, h=w/a.aspect; if(h>sh){h=sh;w=h*a.aspect;}
+    CW=Math.max(100,Math.floor(w)); CH=Math.max(60,Math.floor(h));
+    const r=window.devicePixelRatio||1;
+    cv.style.width=CW+"px"; cv.style.height=CH+"px"; cv.width=Math.round(CW*r); cv.height=Math.round(CH*r);
+    escala=CW/1000;
+    const vertical=window.innerHeight>window.innerWidth&&window.innerWidth<700;
+    modal.querySelector("#skHint").textContent=vertical?"Gira el celular para dibujar más grande":"";
+    dibujar();
+  }
+  function dibujar(){ const r=window.devicePixelRatio||1, ctx=cv.getContext("2d"); ctx.setTransform(r,0,0,r,0,0); render(ctx,CW,CH,pad.area,pad.d,pad.actual); }
+  function marcar(){
+    modal.querySelectorAll("#skTools button").forEach(b=>b.classList.toggle("on",b.dataset.h===pad.herr));
+    modal.querySelectorAll("#skColors button").forEach(b=>b.classList.toggle("on",b.dataset.c===pad.color));
+    modal.querySelectorAll("#skSizes button").forEach(b=>b.classList.toggle("on",b.dataset.g===pad.grosor));
+  }
+  modal.querySelectorAll("#skTools button").forEach(b=>b.onclick=()=>{pad.herr=b.dataset.h;marcar();});
+  modal.querySelectorAll("#skColors button").forEach(b=>b.onclick=()=>{pad.color=b.dataset.c;if(pad.herr==="borrador")pad.herr="lapiz";marcar();});
+  modal.querySelectorAll("#skSizes button").forEach(b=>b.onclick=()=>{pad.grosor=b.dataset.g;marcar();});
+
+  function abrir(area){
+    pad.abierto=true; pad.area=area; pad.d=copia(datos[area])||{w:1000,h:Math.round(1000/A(area).aspect),items:[]}; pad.actual=null; pad.pid=null; if(pad.herr==="borrador"||pad.herr==="texto") pad.herr="lapiz";
+    modal.querySelector("#skTitle").textContent=NOMBRES[area];
+    modal.classList.remove("hidden"); document.body.classList.add("sk-lock"); marcar();
+    requestAnimationFrame(ajustar);
+  }
+  function cerrar(){ pad.abierto=false; pad.actual=null; modal.classList.add("hidden"); document.body.classList.remove("sk-lock"); }
+  window.addEventListener("resize",()=>{ if(pad.abierto) ajustar(); else pintarMiniaturas(); });
+  window.addEventListener("orientationchange",()=>setTimeout(()=>{ if(pad.abierto) ajustar(); },300));
+
+  const pos=e=>{const r=cv.getBoundingClientRect();return [Math.round((e.clientX-r.left)/escala*10)/10,Math.round((e.clientY-r.top)/escala*10)/10];};
+  function borrarEn(x,y){
+    const R=14, antes=pad.d.items.length;
+    pad.d.items=pad.d.items.filter(it=>{
+      if(it.k==="t"){ const w=(it.t||"").length*(it.s||28)*0.55, h=(it.s||28); return !(x>=it.x-R&&x<=it.x+w+R&&y>=it.y-h-R&&y<=it.y+R); }
+      const p=it.p||[];
+      if(it.k==="l"){ const [x1,y1,x2,y2]=[p[0],p[1],p[3],p[4]]; const L2=(x2-x1)**2+(y2-y1)**2||1; const t=Math.max(0,Math.min(1,((x-x1)*(x2-x1)+(y-y1)*(y2-y1))/L2)); return Math.hypot(x-(x1+t*(x2-x1)),y-(y1+t*(y2-y1)))>R; }
+      for(let i=0;i<p.length;i+=3) if(Math.hypot(p[i]-x,p[i+1]-y)<=R) return false;
+      return true;
+    });
+    if(pad.d.items.length!==antes) dibujar();
+  }
+  cv.addEventListener("pointerdown",e=>{
+    if(e.pointerType==="pen") pad.lapizVisto=true;
+    if(pad.lapizVisto&&e.pointerType==="touch") return; // con lápiz digital se ignora la palma
+    if(pad.pid!==null) return;
+    e.preventDefault(); const [x,y]=pos(e);
+    if(pad.herr==="texto"){
+      const t=prompt("Texto a colocar en el dibujo (ej. L20°, 5 m, Falla 1):","");
+      if(t&&t.trim()){ pad.d.items.push({k:"t",c:pad.color,s:TEXTO[pad.grosor],b:1,x,y,t:t.trim()}); dibujar(); }
+      return;
+    }
+    pad.pid=e.pointerId; try{cv.setPointerCapture(e.pointerId);}catch(_){}
+    if(pad.herr==="borrador"){ borrarEn(x,y); return; }
+    const pr=e.pointerType==="pen"?(e.pressure||0.5):0.5;
+    pad.actual=pad.herr==="linea"?{k:"l",c:pad.color,w:GROSOR[pad.grosor],p:[x,y,0.5,x,y,0.5]}:{k:"s",c:pad.color,w:GROSOR[pad.grosor],p:[x,y,Math.round(pr*100)/100]};
+    dibujar();
+  });
+  cv.addEventListener("pointermove",e=>{
+    if(e.pointerId!==pad.pid) return; e.preventDefault();
+    const ce=e.getCoalescedEvents?e.getCoalescedEvents():[], evs=ce&&ce.length?ce:[e];
+    if(pad.herr==="borrador"){ evs.forEach(ev=>{const [x,y]=pos(ev);borrarEn(x,y);}); return; }
+    if(!pad.actual) return;
+    if(pad.actual.k==="l"){ const [x,y]=pos(e); pad.actual.p[3]=x; pad.actual.p[4]=y; dibujar(); return; }
+    const p=pad.actual.p;
+    evs.forEach(ev=>{ const [x,y]=pos(ev); if(Math.hypot(x-p[p.length-3],y-p[p.length-2])<1.5) return; p.push(x,y,Math.round((ev.pointerType==="pen"?(ev.pressure||0.5):0.5)*100)/100); });
+    dibujar();
+  });
+  const fin=e=>{
+    if(e.pointerId!==pad.pid) return; pad.pid=null;
+    if(pad.actual){ const it=pad.actual; pad.actual=null;
+      if(!(it.k==="l"&&Math.hypot(it.p[3]-it.p[0],it.p[4]-it.p[1])<3)) pad.d.items.push(it);
+      dibujar(); }
+  };
+  cv.addEventListener("pointerup",fin); cv.addEventListener("pointercancel",fin);
+  cv.addEventListener("touchmove",e=>e.preventDefault(),{passive:false});
+  modal.querySelector("#skUndo").onclick=()=>{pad.d.items.pop();dibujar();};
+  modal.querySelector("#skClear").onclick=()=>{ if(pad.d.items.length&&confirm("¿Borrar todo el dibujo?")){pad.d.items=[];dibujar();} };
+  modal.querySelector("#skCancel").onclick=()=>{ if(JSON.stringify(pad.d.items)!==JSON.stringify((datos[pad.area]&&datos[pad.area].items)||[])&&!confirm("¿Salir sin guardar los cambios del dibujo?")) return; cerrar(); };
+  modal.querySelector("#skSave").onclick=()=>{ datos[pad.area]=vacio(pad.d)?null:copia(pad.d); cerrar(); pintarMiniaturas(); };
+
+  document.querySelectorAll(".sk-tile[data-sk]").forEach(t=>t.addEventListener("click",()=>abrir(t.dataset.sk)));
+
+  // Detalle del historial: miniaturas de solo lectura
+  function htmlDetalle(x){
+    const hay=["croquis","rep"].filter(a=>!vacio(a==="croquis"?x.croquis:x.representacion));
+    if(!hay.length) return `<div class="small">Sin dibujos.</div>`;
+    return `<div class="sk-tiles">${hay.map(a=>`<div class="sk-tile ro"><canvas data-skro="${a}"></canvas><span class="sk-name">${a==="croquis"?"Croquis":"Representación estructural"}</span></div>`).join("")}</div>`;
+  }
+  function pintarDetalle(cont,x){
+    cont.querySelectorAll("canvas[data-skro]").forEach(c=>{
+      const a=c.dataset.skro, d=a==="croquis"?x.croquis:x.representacion;
+      const W=c.clientWidth||160, H=Math.round(W/A(a).aspect), r=window.devicePixelRatio||1;
+      c.style.height=H+"px"; c.width=Math.round(W*r); c.height=Math.round(H*r);
+      const ctx=c.getContext("2d"); ctx.setTransform(r,0,0,r,0,0); render(ctx,W,H,a,d);
+    });
+  }
+  window.sketches={
+    get:a=>copia(datos[a]),
+    set:(croq,rep)=>{datos.croquis=copia(croq)||null;datos.rep=copia(rep)||null;pintarMiniaturas();},
+    clear:()=>{datos.croquis=null;datos.rep=null;pintarMiniaturas();},
+    detalle:(cont,x)=>{cont.innerHTML=htmlDetalle(x);pintarDetalle(cont,x);},
+    refrescar:pintarMiniaturas
+  };
+  pintarMiniaturas();
+  document.querySelectorAll('.tab[data-tab="evaluacion"]').forEach(b=>b.addEventListener("click",()=>setTimeout(pintarMiniaturas,50)));
 })();
 </script>
 <script>if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));}</script></body>
