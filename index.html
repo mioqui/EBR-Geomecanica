@@ -123,6 +123,7 @@ html[data-theme="dark"] .sk-tile{background:#13212a;border-color:#3a4e59}
 html[data-theme="dark"] .sk-state{color:#9fb2bd}
 .photo-pick{display:flex;gap:8px;flex-wrap:wrap;margin:4px 0 2px}.photo-pick .btn{width:auto;flex:1 1 140px;text-align:center}
 .vh{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;pointer-events:none}
+.preload-sel{width:auto;max-width:60%;padding:9px 10px;border-radius:11px;font-weight:700;font-size:.85rem}
 .lect-list{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 8px}
 .lect-chip{display:inline-flex;align-items:center;gap:6px;padding:5px 6px 5px 10px;border-radius:999px;background:#e8eef1;color:#203b4b;font-weight:700;font-size:.85rem}
 .lect-chip button{border:0;background:#cfdbe2;color:#203b4b;border-radius:999px;width:24px;height:24px;font-weight:800;cursor:pointer;line-height:1}
@@ -319,7 +320,13 @@ html[data-theme="dark"] .kind.map{background:#3a2e12;color:#f0d9a4}
   <div class="card">
     <div class="history-top">
       <h2 style="margin-bottom:0">1. Identificación</h2>
-      <button class="btn" id="preloadBtn" type="button">Precargar datos de prueba</button>
+      <select id="preloadSel" class="preload-sel" aria-label="Datos de prueba">
+        <option value="" selected>Datos de prueba…</option>
+        <option value="1">Ejemplo 1 · Regular B (III-B) · RMR 45</option>
+        <option value="2">Ejemplo 2 · Mala (IV-A1) · RMR 34</option>
+        <option value="3">Ejemplo 3 · Mala B1 (IV-B) · RMR 29</option>
+        <option value="0">Sin datos · ingresar desde cero</option>
+      </select>
     </div>
     <div class="grid">
       <div class="field date-field"><label>Fecha</label><input id="fecha" type="date"></div>
@@ -982,22 +989,24 @@ const obsField=$("observaciones");
 obsField.addEventListener("change",applyGeoCorrection);
 obsField.addEventListener("blur",applyGeoCorrection);
 
-// Datos de prueba: cada toque alterna entre dos ejemplos (fecha del día).
-let ejemploPrueba=0;
-function preloadRealTestData(){
-  const EJ=[
-    { // Ejemplo 1 · Regular B (III-B): RMR básico 50, ajuste Regular (−5) => RMR 45
-      turno:"Día",nivel:"3960",block:"7998",labor:"GL665S",tipo:"Temporal",
-      p:{resistencia:"7",rqd:"13",espaciamiento:"10",apertura:"4",rugosidad:"3",relleno:"4",persistencia:"4",alteracion:"5",agua:"0"},
-      buz:"0-20",rumbo:"",sentido:"",
-      obs:"Caso de prueba 1: roca Regular B (III-B)."},
-    { // Ejemplo 2 · Mala (IV-A1): RMR básico 39, ajuste Regular (−5) => RMR 34
-      turno:"Noche",nivel:"3912",block:"8760",labor:"GL8760",tipo:"Permanente",
-      p:{resistencia:"4",rqd:"8",espaciamiento:"8",apertura:"1",rugosidad:"1",relleno:"2",persistencia:"2",alteracion:"3",agua:"10"},
-      buz:"45-90",rumbo:"perpendicular",sentido:"contra",
-      obs:"Caso de prueba 2: roca Mala (IV-A1)."}
-  ];
-  const e=EJ[ejemploPrueba%EJ.length]; ejemploPrueba++;
+// Datos de prueba (fecha del día): se elige el ejemplo en la lista; «Sin datos» deja el formulario en blanco.
+const EJEMPLOS_PRUEBA={
+  "1":{ // Regular B (III-B): RMR básico 50, ajuste Regular (−5) => RMR 45
+    turno:"Día",nivel:"3960",block:"7998",labor:"GL665S",tipo:"Temporal",
+    p:{resistencia:"7",rqd:"13",espaciamiento:"10",apertura:"4",rugosidad:"3",relleno:"4",persistencia:"4",alteracion:"5",agua:"0"},
+    buz:"0-20",rumbo:"",sentido:"",obs:"Caso de prueba 1: roca Regular B (III-B)."},
+  "2":{ // Mala (IV-A1): RMR básico 39, ajuste Regular (−5) => RMR 34
+    turno:"Noche",nivel:"3912",block:"8760",labor:"GL8760",tipo:"Permanente",
+    p:{resistencia:"4",rqd:"8",espaciamiento:"8",apertura:"1",rugosidad:"1",relleno:"2",persistencia:"2",alteracion:"3",agua:"10"},
+    buz:"45-90",rumbo:"perpendicular",sentido:"contra",obs:"Caso de prueba 2: roca Mala (IV-A1)."},
+  "3":{ // Mala B1 (IV-B): RMR básico 34, ajuste Regular (−5) => RMR 29
+    turno:"Día",nivel:"3840",block:"8100",labor:"RP3840",tipo:"Temporal",
+    p:{resistencia:"2",rqd:"8",espaciamiento:"8",apertura:"1",rugosidad:"1",relleno:"2",persistencia:"2",alteracion:"3",agua:"7"},
+    buz:"20-45",rumbo:"paralelo",sentido:"",obs:"Caso de prueba 3: roca Mala B1 (IV-B)."}
+};
+function preloadRealTestData(n){
+  if(n==="0"){ clearForm(); window.scrollTo({top:0,behavior:"smooth"}); return; }
+  const e=EJEMPLOS_PRUEBA[n]; if(!e) return;
   $("fecha").value=today();
   $("turno").value=e.turno; $("nivel").value=e.nivel; $("block").value=e.block; $("labor").value=e.labor;
   $("condicionLabor").value=e.tipo; $("supervisor").value="MILTON O.";
@@ -1005,10 +1014,10 @@ function preloadRealTestData(){
   $("buzamiento").value=e.buz; orientation(); $("rumbo").value=e.rumbo; orientation(); $("sentido").value=e.sentido; orientation();
   $("observaciones").value=e.obs;
   currentPhotos=[]; renderPhotoPreview(); recalc();
-  $("preloadBtn").textContent=`Precargar datos de prueba (siguiente: ejemplo ${ejemploPrueba%EJ.length+1})`;
+  window.rmrStructs?.precargar();
   window.scrollTo({top:0,behavior:"smooth"});
 }
-$("preloadBtn").onclick=preloadRealTestData;
+$("preloadSel").addEventListener("change",e=>{ const v=e.target.value; e.target.value=""; if(v!=="") preloadRealTestData(v); });
 
 function collect(){
   const calc=recalc();
@@ -1762,7 +1771,7 @@ function crearEditorEstructuras(px,seccion){
 </script>
 <script>
 window.rmrStructs=crearEditorEstructuras("e","«4. Mapeo estructural»");
-(function(){const pre=document.getElementById("preloadBtn"); if(pre) pre.addEventListener("click",()=>window.rmrStructs.precargar());})();
+
 </script>
 <script>
 /* ===== Indicación Geomecánica F-EBR-GM-01.02 · generador PDF A4 (offline, sin librerías) ===== */
