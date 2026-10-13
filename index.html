@@ -132,6 +132,7 @@ html[data-theme="dark"] .sk-state{color:#9fb2bd}
 .pv-pages{flex:1;min-height:0;overflow:auto;padding:6px 10px;display:flex;flex-direction:column;gap:10px;align-items:center;-webkit-overflow-scrolling:touch}
 .pv-page{width:100%;max-width:820px;height:auto;background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.4);cursor:zoom-in}
 .pv-pages.zoom{align-items:flex-start}.pv-pages.zoom .pv-page{width:220%;max-width:none;cursor:zoom-out}
+.pv-aviso{margin:4px 10px;padding:9px 11px;border-radius:10px;background:#fff4d6;color:#5a4300;font-size:.85rem}
 .pv-msg{color:#fff;padding:30px;text-align:center}
 .pv-hint{color:#9fb2bd;font-size:.75rem;text-align:center;padding:2px}
 .pv-bottom{display:flex;gap:8px;padding:8px 10px calc(10px + env(safe-area-inset-bottom))}.pv-bottom .btn{flex:1;width:auto}
@@ -2306,6 +2307,7 @@ window.indicacionPDF={generar,vistaPrevia,areas:areas(),norteSrc:"data:image/jpe
     <label class="pv-fotos hidden" id="pvFotosWrap"><input type="checkbox" id="pvFotos"> Incluir anexo fotográfico <span id="pvFotosN"></span></label>
     <div class="pv-pages" id="pvPages"><div class="pv-msg">Generando…</div></div>
     <div class="pv-hint">Toca la hoja para acercar o alejar.</div>
+    <div class="pv-aviso hidden" id="pvAviso">Este equipo no abrió la impresión desde la app. Toca <b>📤 Compartir / guardar PDF</b> y elige <b>Imprimir</b> o la app de tu impresora.</div>
     <div class="pv-bottom"><button type="button" class="btn primary" id="pvPrint">🖨️ Imprimir</button><button type="button" class="btn" id="pvShare">📤 Compartir / guardar PDF</button></div>`;
   document.body.appendChild(modal);
   const area=document.createElement("div"); area.id="printArea"; document.body.appendChild(area);
@@ -2319,32 +2321,45 @@ window.indicacionPDF={generar,vistaPrevia,areas:areas(),norteSrc:"data:image/jpe
     hojas.forEach((c,i)=>{ c.className="pv-page"; c.setAttribute("aria-label",`Hoja ${i+1}`); c.onclick=()=>cont.classList.toggle("zoom"); cont.appendChild(c); });
     $("pvSub").textContent=`${actual.labor||""} · ${hojas.length} hoja${hojas.length===1?"":"s"}`;
   }
+  let prep=null, listo=false;
+  function prepararImpresion(){
+    listo=false; const btn=$("pvPrint"); btn.disabled=true; btn.textContent="Preparando impresión…";
+    const x=actual, o=opciones();
+    prep=(async()=>{
+      const hojas=await window.indicacionPDF.vistaPrevia(x,o,180);
+      if(actual!==x) return;
+      area.innerHTML=""; hojas.forEach(c=>{ const im=new Image(); im.src=c.toDataURL("image/jpeg",0.92); area.appendChild(im); });
+      await Promise.all([...area.querySelectorAll("img")].map(im=>im.decode?im.decode().catch(()=>{}):null));
+      if(actual!==x) return;
+      listo=true; btn.disabled=false; btn.textContent="🖨️ Imprimir";
+    })().catch(err=>{ console.error(err); btn.disabled=false; btn.textContent="🖨️ Imprimir"; });
+  }
   async function abrir(x){
     actual=x;
     const nf=(x.photos||[]).length;
     $("pvFotosWrap").classList.toggle("hidden",!nf); $("pvFotos").checked=false; $("pvFotosN").textContent=nf?`(${nf} foto${nf===1?"":"s"})`:"";
     $("pvPages").classList.remove("zoom");
     modal.classList.remove("hidden"); document.body.classList.add("sk-lock");
-    try{ await pintar(); }catch(err){ console.error(err); $("pvPages").innerHTML=`<div class="pv-msg">No se pudo generar la vista previa: ${esc(err.message||err)}</div>`; }
+    $("pvAviso").classList.add("hidden");
+    try{ await pintar(); prepararImpresion(); }catch(err){ console.error(err); $("pvPages").innerHTML=`<div class="pv-msg">No se pudo generar la vista previa: ${esc(err.message||err)}</div>`; }
   }
-  function cerrar(){ modal.classList.add("hidden"); document.body.classList.remove("sk-lock"); $("pvPages").innerHTML=""; actual=null; }
+  function cerrar(){ modal.classList.add("hidden"); document.body.classList.remove("sk-lock"); $("pvPages").innerHTML=""; area.innerHTML=""; actual=null; listo=false; }
   $("pvClose").onclick=cerrar;
-  $("pvFotos").onchange=()=>pintar();
+  $("pvFotos").onchange=async()=>{ await pintar(); prepararImpresion(); };
   $("pvShare").onclick=async()=>{ if(!actual) return; try{ const blob=window.indicacionPDF.generar(actual,opciones()); await entregar(blob,`Indicacion_${safe(actual.labor)||"labor"}_${actual.fecha||""}.pdf`);}catch(err){ alert("No se pudo generar el PDF. Detalle: "+(err?.message||String(err))); } };
-  // Imprimir desde la app: hojas a 200 ppp en tamaño A4 exacto, con el diálogo de impresión del sistema
-  $("pvPrint").onclick=async()=>{
-    if(!actual) return;
-    const btn=$("pvPrint"); btn.disabled=true; btn.textContent="Preparando…";
-    try{
-      const hojas=await window.indicacionPDF.vistaPrevia(actual,opciones(),200);
-      area.innerHTML=""; hojas.forEach(c=>{ const im=new Image(); im.src=c.toDataURL("image/png"); area.appendChild(im); });
-      await Promise.all([...area.querySelectorAll("img")].map(im=>im.decode?im.decode().catch(()=>{}):null));
-      document.body.classList.add("imprimiendo");
-      window.print();
-    }catch(err){ alert("No se pudo preparar la impresión. Usa «Compartir / guardar PDF». Detalle: "+(err?.message||String(err))); }
-    finally{ btn.disabled=false; btn.textContent="🖨️ Imprimir"; }
+  // Imprimir desde la app: las hojas (A4, 180 ppp) ya están preparadas al abrir el visor,
+  // así window.print() se llama en el mismo toque (si se demora, el sistema lo bloquea sin avisar).
+  let abrioImpresion=false;
+  window.addEventListener("beforeprint",()=>{ abrioImpresion=true; });
+  window.addEventListener("afterprint",()=>{ document.body.classList.remove("imprimiendo"); });
+  $("pvPrint").onclick=()=>{
+    if(!actual||!listo) return;
+    $("pvAviso").classList.add("hidden");
+    abrioImpresion=false;
+    document.body.classList.add("imprimiendo");
+    try{ window.print(); }catch(_){}
+    setTimeout(()=>{ if(!abrioImpresion){ document.body.classList.remove("imprimiendo"); $("pvAviso").classList.remove("hidden"); } },1500);
   };
-  window.addEventListener("afterprint",()=>{ document.body.classList.remove("imprimiendo"); area.innerHTML=""; });
   window.generarIndicacion=async function(id){
     try{
       const x=(await dbAll()).find(r=>String(r.id)===String(id));
