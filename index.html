@@ -2248,8 +2248,16 @@ function drawSketch(cv,d,area){
 function dibujarItem(cv,it,col,k,X,Y){
   {
     if(it.k==="t"){ if(it.t) cv.text(X(it.x),Y(it.y),toAnsi(it.t),(it.s||28)*k,!!it.b,hexRgb(it.c),100); return; }
-    const p=it.p||[]; if(p.length<3)return;
+    const p=it.p||[]; if(p.length<(it.k==="sec"?4:3))return;
     if(it.k==="l"){ cv.push(`${col} RG ${f2((it.w||4)*k)} w ${f2(X(p[0]))} ${f2(Y(p[1]))} m ${f2(X(p[3]))} ${f2(Y(p[4]))} l S`); return; }
+    if(it.k==="sec"){ // sección típica (bóveda) inscrita en el rectángulo p=[x1,y1,x2,y2]
+      if(p.length<4)return;
+      const x0=Math.min(p[0],p[2]), x1=Math.max(p[0],p[2]), y0=Math.min(p[1],p[3]), y1=Math.max(p[1],p[3]);
+      const r=(x1-x0)/2, ry=Math.min(r,y1-y0), cx=(x0+x1)/2;
+      let o=`${col} RG ${f2((it.w||4)*k)} w ${f2(X(x0))} ${f2(Y(y1))} m ${f2(X(x0))} ${f2(Y(y0+ry))} l`;
+      for(let i=1;i<=32;i++){ const t=Math.PI-i*Math.PI/32; o+=` ${f2(X(cx+r*Math.cos(t)))} ${f2(Y(y0+ry-ry*Math.sin(t)))} l`; }
+      cv.push(o+` ${f2(X(x1))} ${f2(Y(y1))} l h S`); return;
+    }
     if(it.k==="e"){ // círculo / elipse inscrita en el rectángulo arrastrado
       if(p.length<6)return;
       const x0=X(Math.min(p[0],p[3])), x1=X(Math.max(p[0],p[3])), y0=Y(Math.max(p[1],p[4])), y1=Y(Math.min(p[1],p[4]));
@@ -2375,6 +2383,7 @@ function pintarPagina(ctx,page,imgs,k){
       case "re": if(!path){ctx.beginPath();path=true;} ctx.rect(a[0],a[1],a[2],a[3]); break;
       case "m": if(!path){ctx.beginPath();path=true;} ctx.moveTo(a[0],a[1]); break;
       case "l": ctx.lineTo(a[0],a[1]); break;
+      case "h": ctx.closePath(); break;
       case "c": ctx.bezierCurveTo(a[0],a[1],a[2],a[3],a[4],a[5]); break;
       case "f": ctx.fillStyle=fill; ctx.fill(); path=false; break;
       case "S": ctx.strokeStyle=stroke; ctx.lineWidth=lw; ctx.stroke(); path=false; break;
@@ -2514,8 +2523,15 @@ window.indicacionPDF={generar,vistaPrevia,areas:areas(),norteSrc:"data:image/jpe
   // Colores: negro + los colores de tipo de roca de la cartilla (los mismos del formato)
   const COLORES=[["#111111","Negro"],...RMR_CLASSES.map(c=>[c.color,c.label])];
   // Grosor y opacidad propios de cada herramienta (el pincel es grueso y semitransparente para pintar zonas)
-  const CFG={lapiz:{g:4,o:100},pincel:{g:30,o:40},linea:{g:4,o:100},circulo:{g:4,o:100},texto:{g:28,o:100}};
-  const RANGO={lapiz:[1,20],pincel:[8,80],linea:[1,20],circulo:[1,20],texto:[14,80]};
+  const CFG={lapiz:{g:4,o:100},pincel:{g:30,o:40},linea:{g:4,o:100},circulo:{g:4,o:100},texto:{g:28,o:100},seccion:{g:5,o:100}};
+  const RANGO={lapiz:[1,20],pincel:[8,80],linea:[1,20],circulo:[1,20],texto:[14,80],seccion:[1,20]};
+  // Sección típica (bóveda) inscrita en el rectángulo p=[x1,y1,x2,y2]: paredes verticales, arco y piso; se estira libremente
+  function secPts(p){
+    const x0=Math.min(p[0],p[2]), x1=Math.max(p[0],p[2]), y0=Math.min(p[1],p[3]), y1=Math.max(p[1],p[3]);
+    const r=(x1-x0)/2, ry=Math.min(r,y1-y0), cx=(x0+x1)/2, out=[x0,y1,x0,y0+ry];
+    for(let i=1;i<=32;i++){ const t=Math.PI-i*Math.PI/32; out.push(cx+r*Math.cos(t),y0+ry-ry*Math.sin(t)); }
+    out.push(x1,y1,x0,y1); return out;
+  }
   const datos={croquis:null,rep:null};
   const A=n=>(window.indicacionPDF&&window.indicacionPDF.areas&&window.indicacionPDF.areas[n])||{aspect:n==="croquis"?1.736:1.358,xs:[],ys:[]};
   const vacio=d=>!d||!d.items||!d.items.length;
@@ -2540,6 +2556,7 @@ window.indicacionPDF={generar,vistaPrevia,areas:areas(),norteSrc:"data:image/jpe
       if(it.k==="t"){ ctx.font=`${it.b?"700 ":""}${(it.s||28)*k}px Helvetica, Arial, sans-serif`; ctx.textBaseline="alphabetic"; ctx.fillText(it.t||"",it.x*k,it.y*k); return; }
       const p=it.p||[];
       if(it.k==="l"){ if(p.length<6)return; ctx.lineWidth=(it.w||4)*k; ctx.beginPath(); ctx.moveTo(p[0]*k,p[1]*k); ctx.lineTo(p[3]*k,p[4]*k); ctx.stroke(); return; }
+      if(it.k==="sec"){ if(p.length<4)return; const q=secPts(p); ctx.lineWidth=(it.w||4)*k; ctx.beginPath(); ctx.moveTo(q[0]*k,q[1]*k); for(let i=2;i<q.length;i+=2) ctx.lineTo(q[i]*k,q[i+1]*k); ctx.stroke(); return; }
       if(it.k==="e"){ if(p.length<6)return; const rx=Math.abs(p[3]-p[0])/2*k, ry=Math.abs(p[4]-p[1])/2*k; ctx.lineWidth=(it.w||4)*k; ctx.beginPath(); ctx.ellipse((p[0]+p[3])/2*k,(p[1]+p[4])/2*k,Math.max(rx,0.5),Math.max(ry,0.5),0,0,Math.PI*2); ctx.stroke(); return; }
       if(p.length===3){ ctx.beginPath(); ctx.arc(p[0]*k,p[1]*k,(it.w||4)*k*factor(p[2])/2,0,7); ctx.fill(); return; }
       if(it.o!==undefined&&it.o<0.99){ // pincel semitransparente: un solo trazo para que no se oscurezcan las uniones
@@ -2563,7 +2580,7 @@ window.indicacionPDF={generar,vistaPrevia,areas:areas(),norteSrc:"data:image/jpe
   }
 
   /* --- lienzo a pantalla completa --- */
-  const pad={abierto:false,area:null,d:null,herr:"lapiz",color:"#111111",actual:null,lapizVisto:false,pid:null,mover:null};
+  const pad={abierto:false,area:null,d:null,herr:"lapiz",color:"#111111",actual:null,lapizVisto:false,pid:null,mover:null,sel:null,ajuste:null};
   const modal=document.createElement("div");
   modal.className="sk-modal hidden"; modal.setAttribute("role","dialog"); modal.setAttribute("aria-modal","true");
   modal.innerHTML=`
@@ -2576,7 +2593,7 @@ window.indicacionPDF={generar,vistaPrevia,areas:areas(),norteSrc:"data:image/jpe
         <button type="button" data-h="circulo" title="Círculo: arrastra de una esquina a la otra">⭕ Círculo</button>
         <button type="button" data-h="texto" title="Toca para escribir; toca un texto para corregirlo o arrástralo para moverlo">🔤 Texto</button>
         <button type="button" data-h="borrador" title="Borra el trazo que toques">🧽 Borrar trazo</button>
-        <button type="button" id="skSeccion" title="Agrega el contorno de una sección típica (bóveda) para dibujar encima">⌂ Sección típica</button>
+        <button type="button" id="skSeccion" data-h="seccion" title="Sección típica (bóveda): arrastra los cuadritos para estirarla y el centro para moverla">⌂ Sección típica</button>
       </div>
       <div class="sk-group" id="skColors">${COLORES.map(([c,n])=>`<button type="button" class="sk-color" data-c="${c}" title="${n}" aria-label="${n}" style="background:${c}"></button>`).join("")}</div>
       <div class="sk-group">
@@ -2608,12 +2625,26 @@ window.indicacionPDF={generar,vistaPrevia,areas:areas(),norteSrc:"data:image/jpe
     const r=window.devicePixelRatio||1;
     cv.style.width=CW+"px"; cv.style.height=CH+"px"; cv.width=Math.round(CW*r); cv.height=Math.round(CH*r);
     escala=CW/1000; resetVista();
-    const vertical=window.innerHeight>window.innerWidth&&window.innerWidth<700;
-    modal.querySelector("#skHint").textContent=(vertical?"Gira el celular para dibujar más grande · ":"")+"Dos dedos: acercar y mover";
-    dibujar();
+    marcar(); dibujar();
   }
   function dibujar(){ const r=window.devicePixelRatio||1, ctx=cv.getContext("2d"); ctx.setTransform(1,0,0,1,0,0); ctx.clearRect(0,0,cv.width,cv.height);
-    ctx.setTransform(r*vista.z,0,0,r*vista.z,r*vista.ox,r*vista.oy); render(ctx,CW,CH,pad.area,pad.d,pad.actual); }
+    ctx.setTransform(r*vista.z,0,0,r*vista.z,r*vista.ox,r*vista.oy); render(ctx,CW,CH,pad.area,pad.d,pad.actual);
+    const it=secSel(); if(pad.herr==="seccion"&&it){ // marco y cuadritos para estirar
+      const [a,b,c,d]=norm(it.p).map(v=>v*escala), h=7/vista.z;
+      ctx.save(); ctx.strokeStyle="#1f6fd1"; ctx.lineWidth=1.5/vista.z; ctx.setLineDash([6/vista.z,4/vista.z]); ctx.strokeRect(a,b,c-a,d-b); ctx.setLineDash([]);
+      ctx.fillStyle="#fff"; asas(it.p).forEach(([,hx,hy])=>{ ctx.fillRect(hx*escala-h,hy*escala-h,2*h,2*h); ctx.strokeRect(hx*escala-h,hy*escala-h,2*h,2*h); });
+      ctx.restore(); }
+  }
+  const norm=p=>[Math.min(p[0],p[2]),Math.min(p[1],p[3]),Math.max(p[0],p[2]),Math.max(p[1],p[3])];
+  const secSel=()=>{ const it=pad.sel!==null&&pad.d?pad.d.items[pad.sel]:null; return it&&it.k==="sec"?it:null; };
+  function asas(p){ const [a,b,c,d]=norm(p), mx=(a+c)/2, my=(b+d)/2;
+    return [["nw",a,b],["n",mx,b],["ne",c,b],["e",c,my],["se",c,d],["s",mx,d],["sw",a,d],["w",a,my]]; }
+  function nuevaSeccion(cx,cy){
+    const H=pad.d.h||Math.round(1000/A(pad.area).aspect), W=Math.min(420,H*0.62), alto=W*0.92, c=cfg();
+    cx=cx??500; cy=cy??H/2;
+    pad.d.items.push({k:"sec",c:pad.color,w:c.g,...(c.o<100?{o:c.o/100}:{}),p:[cx-W/2,cy-alto/2,cx+W/2,cy+alto/2].map(v=>Math.round(v*10)/10)});
+    pad.sel=pad.d.items.length-1;
+  }
   const cfg=()=>CFG[pad.herr]||CFG.lapiz;
   function marcar(){
     modal.querySelectorAll("#skTools button[data-h]").forEach(b=>b.classList.toggle("on",b.dataset.h===pad.herr));
@@ -2624,25 +2655,28 @@ window.indicacionPDF={generar,vistaPrevia,areas:areas(),norteSrc:"data:image/jpe
     modal.querySelector("#skGOut").textContent=c.g; modal.querySelector("#skOOut").textContent=c.o+" %";
     g.disabled=o.disabled=pad.herr==="borrador";
     modal.querySelector("#skSeccion").classList.toggle("hidden",pad.area!=="rep");
+    const vertical=window.innerHeight>window.innerWidth&&window.innerWidth<700;
+    modal.querySelector("#skHint").textContent=pad.herr==="seccion"?"Sección típica: arrastra los cuadritos para estirarla y el centro para moverla"
+      :(vertical?"Gira el celular para dibujar más grande · ":"")+"Dos dedos: acercar y mover";
   }
-  modal.querySelectorAll("#skTools button[data-h]").forEach(b=>b.onclick=()=>{pad.herr=b.dataset.h;marcar();});
-  modal.querySelectorAll("#skColors button").forEach(b=>b.onclick=()=>{pad.color=b.dataset.c;if(pad.herr==="borrador")pad.herr="lapiz";marcar();});
-  modal.querySelector("#skGrosor").oninput=e=>{ if(CFG[pad.herr]) CFG[pad.herr].g=+e.target.value; marcar(); };
-  modal.querySelector("#skOpac").oninput=e=>{ if(CFG[pad.herr]) CFG[pad.herr].o=+e.target.value; marcar(); };
-  // Sección típica (bóveda): paredes verticales, arco de medio punto y piso, centrada; se dibuja encima
-  modal.querySelector("#skSeccion").onclick=()=>{
-    const H=pad.d.h||Math.round(1000/A(pad.area).aspect), cx=500, ancho=Math.min(420,H*0.62), r=ancho/2, pared=ancho*0.42, piso=H*0.5+(pared+r)/2;
-    const p=[cx-r,piso,0.5,cx-r,piso-pared,0.5];
-    for(let i=1;i<=24;i++){ const t=Math.PI-i*Math.PI/24; p.push(Math.round((cx+r*Math.cos(t))*10)/10,Math.round((piso-pared-r*Math.sin(t))*10)/10,0.5); }
-    p.push(cx+r,piso,0.5,cx-r,piso,0.5);
-    pad.d.items.push({k:"s",c:"#111111",w:5,p}); dibujar();
-  };
+  modal.querySelectorAll("#skTools button[data-h]").forEach(b=>b.onclick=()=>{
+    pad.herr=b.dataset.h;
+    if(pad.herr==="seccion"&&!secSel()){ // elegir la última sección del dibujo o agregar una nueva
+      let i=-1; pad.d.items.forEach((it,k)=>{ if(it.k==="sec") i=k; });
+      if(i>=0) pad.sel=i; else nuevaSeccion();
+    }
+    marcar(); dibujar();
+  });
+  modal.querySelectorAll("#skColors button").forEach(b=>b.onclick=()=>{pad.color=b.dataset.c;if(pad.herr==="borrador")pad.herr="lapiz"; const it=pad.herr==="seccion"&&secSel(); if(it){ it.c=pad.color; dibujar(); } marcar();});
+  modal.querySelector("#skGrosor").oninput=e=>{ if(CFG[pad.herr]) CFG[pad.herr].g=+e.target.value; const it=pad.herr==="seccion"&&secSel(); if(it){ it.w=+e.target.value; dibujar(); } marcar(); };
+  modal.querySelector("#skOpac").oninput=e=>{ if(CFG[pad.herr]) CFG[pad.herr].o=+e.target.value; const it=pad.herr==="seccion"&&secSel(); if(it){ const o=+e.target.value; if(o<100) it.o=o/100; else delete it.o; dibujar(); } marcar(); };
+
   const textoEn=(x,y)=>{ for(let i=pad.d.items.length-1;i>=0;i--){ const it=pad.d.items[i]; if(it.k!=="t") continue;
     const w=(it.t||"").length*(it.s||28)*0.58, h=(it.s||28), m=10/vista.z; if(x>=it.x-m&&x<=it.x+w+m&&y>=it.y-h-m&&y<=it.y+m*0.6) return i; } return -1; };
 
   function abrir(area){
     dedos.clear(); gesto=null; esperarSoltar=false;
-    pad.abierto=true; pad.area=area; pad.d=copia(datos[area])||{w:1000,h:Math.round(1000/A(area).aspect),items:[]}; pad.actual=null; pad.pid=null; pad.mover=null; if(pad.herr==="borrador"||pad.herr==="texto") pad.herr="lapiz";
+    pad.abierto=true; pad.area=area; pad.d=copia(datos[area])||{w:1000,h:Math.round(1000/A(area).aspect),items:[]}; pad.actual=null; pad.pid=null; pad.mover=null; pad.sel=null; pad.ajuste=null; if(pad.herr==="borrador"||pad.herr==="texto"||pad.herr==="seccion") pad.herr="lapiz";
     modal.querySelector("#skTitle").textContent=NOMBRES[area];
     modal.classList.remove("hidden"); document.body.classList.add("sk-lock"); marcar();
     requestAnimationFrame(ajustar);
@@ -2659,13 +2693,14 @@ window.indicacionPDF={generar,vistaPrevia,areas:areas(),norteSrc:"data:image/jpe
     pad.d.items=pad.d.items.filter(it=>{
       if(it.k==="t"){ const w=(it.t||"").length*(it.s||28)*0.55, h=(it.s||28); return !(x>=it.x-R&&x<=it.x+w+R&&y>=it.y-h-R&&y<=it.y+R); }
       const p=it.p||[], Rw=R+(it.w||4)/2;
+      if(it.k==="sec"){ const q=secPts(p); for(let i=2;i<q.length;i+=2){ const x1=q[i-2],y1=q[i-1],x2=q[i],y2=q[i+1], L2=(x2-x1)**2+(y2-y1)**2||1, t=Math.max(0,Math.min(1,((x-x1)*(x2-x1)+(y-y1)*(y2-y1))/L2)); if(Math.hypot(x-(x1+t*(x2-x1)),y-(y1+t*(y2-y1)))<=Rw) return false; } return true; }
       if(it.k==="e"){ const cx=(p[0]+p[3])/2, cy=(p[1]+p[4])/2, rx=Math.abs(p[3]-p[0])/2||1, ry=Math.abs(p[4]-p[1])/2||1;
         const d=Math.hypot((x-cx)/rx,(y-cy)/ry); return Math.abs(d-1)*Math.min(rx,ry)>Rw; }
       if(it.k==="l"){ const [x1,y1,x2,y2]=[p[0],p[1],p[3],p[4]]; const L2=(x2-x1)**2+(y2-y1)**2||1; const t=Math.max(0,Math.min(1,((x-x1)*(x2-x1)+(y-y1)*(y2-y1))/L2)); return Math.hypot(x-(x1+t*(x2-x1)),y-(y1+t*(y2-y1)))>Rw; }
       for(let i=0;i<p.length;i+=3) if(Math.hypot(p[i]-x,p[i+1]-y)<=Rw) return false;
       return true;
     });
-    if(pad.d.items.length!==antes) dibujar();
+    if(pad.d.items.length!==antes){ pad.sel=null; dibujar(); }
   }
   /* Gestos: un dedo (o el lápiz) dibuja; dos dedos acercan/alejan (pellizco) y mueven la hoja.
      Con lápiz digital, un dedo mueve la hoja en vez de dibujar. */
@@ -2700,6 +2735,15 @@ window.indicacionPDF={generar,vistaPrevia,areas:areas(),norteSrc:"data:image/jpe
       if(t&&t.trim()){ pad.d.items.push({k:"t",c:pad.color,s:c.g,b:1,x,y,t:t.trim(),...(c.o<100?{o:c.o/100}:{})}); dibujar(); }
       dedos.delete(e.pointerId); return;
     }
+    if(pad.herr==="seccion"){
+      const tol=16/(escala*vista.z), sel=secSel();
+      let hit=null;
+      if(sel){ const a=asas(sel.p).find(([,hx,hy])=>Math.abs(x-hx)<=tol&&Math.abs(y-hy)<=tol); if(a) hit={i:pad.sel,modo:a[0]}; }
+      if(!hit) for(let i=pad.d.items.length-1;i>=0;i--){ const it=pad.d.items[i]; if(it.k!=="sec") continue; const [a,b,c,d]=norm(it.p); if(x>=a&&x<=c&&y>=b&&y<=d){ hit={i,modo:"m"}; break; } }
+      if(hit){ pad.sel=hit.i; pad.pid=e.pointerId; try{cv.setPointerCapture(e.pointerId);}catch(_){} pad.ajuste={...hit,x0:x,y0:y,p0:norm(pad.d.items[hit.i].p)}; dibujar(); return; }
+      if(sel){ pad.sel=null; } else { nuevaSeccion(x,y); } // toque afuera: suelta la selección; si no había, agrega otra sección
+      dedos.delete(e.pointerId); dibujar(); return;
+    }
     pad.pid=e.pointerId; try{cv.setPointerCapture(e.pointerId);}catch(_){}
     if(pad.herr==="borrador"){ borrarEn(x,y); return; }
     const c=cfg(), op=c.o<100?{o:c.o/100}:{};
@@ -2722,6 +2766,16 @@ window.indicacionPDF={generar,vistaPrevia,areas:areas(),norteSrc:"data:image/jpe
       if(gesto&&gesto.tipo==="mover"){ e.preventDefault(); const [cx,cy]=local(e); vista.ox=gesto.ox0+cx-gesto.p0[0]; vista.oy=gesto.oy0+cy-gesto.p0[1]; fijarVista(); dibujar(); return; }
     }
     if(e.pointerId!==pad.pid) return; e.preventDefault();
+    if(pad.ajuste){ const [x,y]=pos(e), A0=pad.ajuste, it=pad.d.items[A0.i]; if(!it) return;
+      const dx=x-A0.x0, dy=y-A0.y0, q=[...A0.p0], MIN=30;
+      if(A0.modo==="m"){ q[0]+=dx; q[2]+=dx; q[1]+=dy; q[3]+=dy; }
+      else{
+        if(A0.modo.includes("w")) q[0]=Math.min(A0.p0[0]+dx,q[2]-MIN);
+        if(A0.modo.includes("e")) q[2]=Math.max(A0.p0[2]+dx,q[0]+MIN);
+        if(A0.modo.includes("n")) q[1]=Math.min(A0.p0[1]+dy,q[3]-MIN);
+        if(A0.modo.includes("s")) q[3]=Math.max(A0.p0[3]+dy,q[1]+MIN);
+      }
+      it.p=q.map(v=>Math.round(v*10)/10); dibujar(); return; }
     if(pad.mover){ const [x,y]=pos(e), m=pad.mover, it=pad.d.items[m.i]; if(!it) return;
       if(!m.movido&&Math.hypot(x-m.x0,y-m.y0)<6/vista.z) return;
       m.movido=true; it.x=Math.round((m.ix+x-m.x0)*10)/10; it.y=Math.round((m.iy+y-m.y0)*10)/10; dibujar(); return; }
@@ -2741,6 +2795,7 @@ window.indicacionPDF={generar,vistaPrevia,areas:areas(),norteSrc:"data:image/jpe
       if(dedos.size===0) esperarSoltar=false;
     }
     if(e.pointerId!==pad.pid) return; pad.pid=null;
+    if(pad.ajuste){ pad.ajuste=null; dibujar(); return; }
     if(pad.mover){ const m=pad.mover; pad.mover=null; const it=pad.d.items[m.i];
       if(it&&!m.movido&&e.type==="pointerup"){
         const t=prompt("Corregir el texto (déjalo vacío para quitarlo):",it.t||"");
@@ -2757,8 +2812,8 @@ window.indicacionPDF={generar,vistaPrevia,areas:areas(),norteSrc:"data:image/jpe
     const [cx,cy]=local(e), lx=(cx-vista.ox)/vista.z, ly=(cy-vista.oy)/vista.z;
     vista.z=Math.max(1,Math.min(6,vista.z*Math.exp(-e.deltaY*0.01))); vista.ox=cx-lx*vista.z; vista.oy=cy-ly*vista.z; fijarVista(); dibujar(); },{passive:false});
   cv.addEventListener("touchmove",e=>e.preventDefault(),{passive:false});
-  modal.querySelector("#skUndo").onclick=()=>{pad.d.items.pop();dibujar();};
-  modal.querySelector("#skClear").onclick=()=>{ if(pad.d.items.length&&confirm("¿Borrar todo el dibujo?")){pad.d.items=[];dibujar();} };
+  modal.querySelector("#skUndo").onclick=()=>{pad.d.items.pop(); if(pad.sel!==null&&pad.sel>=pad.d.items.length) pad.sel=null; dibujar();};
+  modal.querySelector("#skClear").onclick=()=>{ if(pad.d.items.length&&confirm("¿Borrar todo el dibujo?")){pad.d.items=[];pad.sel=null;dibujar();} };
   modal.querySelector("#skCancel").onclick=()=>{ if(JSON.stringify(pad.d.items)!==JSON.stringify((datos[pad.area]&&datos[pad.area].items)||[])&&!confirm("¿Salir sin guardar los cambios del dibujo?")) return; cerrar(); };
   modal.querySelector("#skSave").onclick=()=>{ datos[pad.area]=vacio(pad.d)?null:copia(pad.d); cerrar(); pintarMiniaturas(); };
 
