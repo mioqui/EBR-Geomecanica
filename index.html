@@ -121,6 +121,8 @@ body.sk-lock{overflow:hidden}
 .sk-bottom .btn{width:auto;padding:9px 12px}
 html[data-theme="dark"] .sk-tile{background:#13212a;border-color:#3a4e59}
 html[data-theme="dark"] .sk-state{color:#9fb2bd}
+.photo-pick{display:flex;gap:8px;flex-wrap:wrap;margin:4px 0 2px}.photo-pick .btn{width:auto;flex:1 1 140px;text-align:center}
+.vh{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;pointer-events:none}
 .lect-list{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 8px}
 .lect-chip{display:inline-flex;align-items:center;gap:6px;padding:5px 6px 5px 10px;border-radius:999px;background:#e8eef1;color:#203b4b;font-weight:700;font-size:.85rem}
 .lect-chip button{border:0;background:#cfdbe2;color:#203b4b;border-radius:999px;width:24px;height:24px;font-weight:800;cursor:pointer;line-height:1}
@@ -480,12 +482,16 @@ html[data-theme="dark"] .kind.map{background:#3a2e12;color:#f0d9a4}
   <div class="card">
     <h2>5. Observaciones geomecánicas</h2>
     <div class="field"><label>Observaciones geomecánicas</label><textarea id="observaciones" placeholder="Fallas, fracturas, condición local, comentarios…"></textarea>
-      <div class="actions" style="margin-top:8px"><button class="btn" id="dictateBtn" type="button">🎙️ Dictar observación</button></div>
-      <div id="dictateStatus" class="help">Dictado directo de la app. También puedes usar el micrófono del teclado.</div>
+      <div class="help">🎙️ Para dictar, toca el campo y usa el micrófono del teclado del celular.</div>
     </div>
     <div class="field" style="margin-top:12px">
       <label>Fotografías de campo <span class="small">(máximo 2)</span></label>
-      <input id="photoInput" type="file" accept="image/*" capture="environment" multiple>
+      <div class="photo-pick">
+        <label class="btn" for="photoInput">📷 Tomar foto</label>
+        <label class="btn" for="photoInputGal">🖼️ Elegir de galería</label>
+      </div>
+      <input id="photoInput" class="vh" type="file" accept="image/*" capture="environment">
+      <input id="photoInputGal" class="vh" type="file" accept="image/*" multiple>
       <div class="help">En el celular puedes tomar una foto o seleccionar imágenes existentes. Se guardan junto con esta evaluación en el dispositivo.</div>
       <div id="photoPreview" class="photo-grid"></div>
     </div>
@@ -607,34 +613,44 @@ html[data-theme="dark"] .kind.map{background:#3a2e12;color:#f0d9a4}
     <div class="actions"><button class="btn" id="mCopyBtn" type="button">Copiar datos de la evaluación</button></div>
   </div>
 
-  <div class="card">
-    <h2>Estructura</h2>
-    <div class="grid">
-      <div class="field full"><label for="mTipo">Tipo de estructura</label><select id="mTipo"><option value="">Seleccionar…</option>
-        <option value="J">(J) Junta</option><option value="F">(F) Falla</option><option value="SJ">(SJ) Sistema de juntas</option><option value="SF">(SF) Sistema de fallas</option><option value="C">(C) Contacto</option><option value="D">(D) Diaclasa</option><option value="O">(O) Otros</option></select></div>
-      <div class="field full hidden" id="mOtroWrap"><label for="mOtro">Especificar otro tipo</label><input id="mOtro" autocomplete="off"></div>
+  <div class="card" id="mMapCard">
+    <h2>Estructuras</h2>
+    <div class="section-note">Registra una o varias estructuras de esta labor, cada una con una o varias lecturas de Dip / Dip Direction.</div>
+    <div id="mList" class="estr-list"></div>
+    <div class="estr-form">
+      <h3 id="mFormTitle">Estructura N° 1</h3>
+      <div class="grid">
+        <div class="field full"><label for="mTipo">Tipo de estructura</label><select id="mTipo"><option value="">Seleccionar…</option>
+          <option value="J">(J) Junta</option><option value="F">(F) Falla</option><option value="SJ">(SJ) Sistema de juntas</option><option value="SF">(SF) Sistema de fallas</option><option value="C">(C) Contacto</option><option value="D">(D) Diaclasa</option><option value="O">(O) Otros</option></select></div>
+        <div class="field full hidden" id="mOtroWrap"><label for="mOtro">Especificar otro tipo</label><input id="mOtro" autocomplete="off"></div>
+      </div>
+      <h3>Tramo</h3>
+      <div class="grid">
+        <div class="field"><label for="mDesde">Desde</label><input id="mDesde" type="text" autocomplete="off" placeholder="Ej. 12.5 o C-58"></div>
+        <div class="field"><label for="mHasta">Hasta</label><input id="mHasta" type="text" autocomplete="off" placeholder="Ej. 15 o C-60"></div>
+      </div>
+      <h3>Orientación · lecturas Dip / Dip Direction</h3>
+      <div class="help" style="margin-top:-4px">Registra una o varias mediciones de esta estructura (p. ej. varios planos de un sistema de juntas o de una zona de falla).</div>
+      <div id="mLecturas" class="lect-list"></div>
+      <div class="grid">
+        <div class="field"><label for="mDip">Buzamiento · Dip (0–90°)</label><input id="mDip" type="number" inputmode="numeric" min="0" max="90" step="1" placeholder="Ej. 65"></div>
+        <div class="field"><label for="mDipDir">Dirección de buzamiento · Dip Direction (0–360°)</label><input id="mDipDir" type="number" inputmode="numeric" min="0" max="360" step="1" placeholder="Ej. 245"></div>
+      </div>
+      <div class="actions" style="margin-top:6px"><button class="btn" id="mAddLectBtn" type="button">＋ Agregar lectura</button></div>
+      <h3>Condición de la estructura</h3>
+      <div class="grid">
+        <div class="field"><label for="mPers">Persistencia</label><select id="mPers"></select></div>
+        <div class="field"><label for="mRug">Rugosidad</label><select id="mRug"></select></div>
+        <div class="field full"><label for="mRell">Relleno</label><select id="mRell"></select></div>
+        <div class="field full"><label for="mObs">Observaciones</label><textarea id="mObs" placeholder="Ej. Falla con potencia de 30 cm y panizo."></textarea></div>
+      </div>
+      <div class="help" id="mError" style="color:var(--danger);font-weight:700"></div>
+      <div class="actions"><button class="btn ok" id="mAddBtn" type="button">＋ Agregar estructura</button><button class="btn" id="mClearBtn" type="button">Limpiar</button></div>
+      <div class="help">Después de agregar, puedes registrar otra estructura. Todas se guardan al tocar «Guardar mapeo».</div>
     </div>
-    <h3>Orientación</h3>
-    <div class="grid">
-      <div class="field"><label for="mDip">Buzamiento · Dip (0–90°)</label><input id="mDip" type="number" inputmode="numeric" min="0" max="90" step="1" placeholder="Ej. 65"></div>
-      <div class="field"><label for="mDipDir">Dirección de buzamiento · Dip Direction (0–360°)</label><input id="mDipDir" type="number" inputmode="numeric" min="0" max="360" step="1" placeholder="Ej. 245"></div>
-    </div>
-    <h3>Tramo</h3>
-    <div class="grid">
-      <div class="field"><label for="mDesde">Desde</label><input id="mDesde" type="text" autocomplete="off" placeholder="Ej. 12.5 o C-58"></div>
-      <div class="field"><label for="mHasta">Hasta</label><input id="mHasta" type="text" autocomplete="off" placeholder="Ej. 15 o C-60"></div>
-    </div>
-    <h3>Condición de la estructura</h3>
-    <div class="grid">
-      <div class="field"><label for="mPers">Persistencia</label><select id="mPers"></select></div>
-      <div class="field"><label for="mRug">Rugosidad</label><select id="mRug"></select></div>
-      <div class="field full"><label for="mRell">Relleno</label><select id="mRell"></select></div>
-      <div class="field full"><label for="mObs">Observaciones</label><textarea id="mObs" placeholder="Ej. Falla con potencia de 30 cm y panizo blanco."></textarea>
-        <div class="actions" style="margin-top:8px"><button class="btn" id="mDictBtn" type="button">🎙️ Dictar observación</button></div>
-        <div class="help" id="mDictStatus"></div></div>
-    </div>
-    <div class="help" id="mError" style="color:var(--danger);font-weight:700"></div>
-    <div class="actions"><button class="btn primary" id="mSaveBtn" type="button">Guardar mapeo</button><button class="btn" id="mClearBtn" type="button">Limpiar</button></div>
+  </div>
+    <div class="actions" style="margin-top:14px"><button class="btn primary" id="mSaveBtn" type="button">Guardar mapeo</button></div>
+    <div class="help" id="mSaveError" style="color:var(--danger);font-weight:700"></div>
     <div class="save-confirm hidden" id="mSaved"></div>
   </div>
 
@@ -887,14 +903,16 @@ $("fecha").value=today();
   });
 });
 
-$("photoInput").addEventListener("change",async e=>{
+async function onPhotosPicked(e){
   const files=[...e.target.files];
   if(currentPhotos.length+files.length>2){alert("Puedes guardar como máximo 2 fotografías por evaluación.");}
   const allowed=files.slice(0,Math.max(0,2-currentPhotos.length));
   try{ for(const file of allowed) currentPhotos.push(await fileToCompressedDataURL(file)); }
   catch(err){ alert("No se pudo procesar una de las fotografías."); }
   e.target.value=""; renderPhotoPreview();
-});
+}
+$("photoInput").addEventListener("change",onPhotosPicked);
+$("photoInputGal").addEventListener("change",onPhotosPicked);
 renderPhotoPreview();
 
 function openPhotoModal(src){$("photoModalImg").src=src;$("photoModal").classList.remove("hidden");}
@@ -902,58 +920,6 @@ function closePhotoModal(){$("photoModal").classList.add("hidden");$("photoModal
 $("closePhotoModal").onclick=closePhotoModal;
 $("photoModal").onclick=e=>{if(e.target===$("photoModal"))closePhotoModal();};
 
-
-const SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition;
-let recognition=null,dictating=false,dictateStarting=false;
-function resetDictateUI(msg="Listo para dictar."){
-  dictating=false;dictateStarting=false;
-  $("dictateBtn").disabled=false;
-  $("dictateBtn").textContent="🎙️ Dictar observación";
-  $("dictateStatus").textContent=msg;
-}
-function createRecognition(){
-  const r=new SpeechRecognition();
-  r.lang="es-PE";r.continuous=true;r.interimResults=true;r.maxAlternatives=1;
-  let committed="",interim="";
-  const base=$("observaciones").value.trim();
-  const paint=()=>{
-    const spoken=(committed+" "+interim).replace(/\s+/g," ").trim();
-    $("observaciones").value=base+(base&&spoken?" ":"")+spoken;
-  };
-  r.onstart=()=>{dictateStarting=false;dictating=true;$("dictateBtn").disabled=false;$("dictateBtn").textContent="⏹️ Detener dictado";$("dictateStatus").textContent="Escuchando…";};
-  r.onresult=e=>{
-    let newInterim="";
-    for(let n=e.resultIndex;n<e.results.length;n++){
-      const t=(e.results[n][0]?.transcript||"").trim();
-      if(!t)continue;
-      if(e.results[n].isFinal) committed+=(committed?" ":"")+t;
-      else newInterim+=(newInterim?" ":"")+t;
-    }
-    interim=newInterim;paint();
-    $("dictateStatus").textContent="Escuchando… transcribiendo.";
-  };
-  r.onerror=e=>{resetDictateUI("Error de dictado: "+(e.error||"desconocido")+". Puedes intentarlo nuevamente.");};
-  r.onend=()=>{
-    paint();
-    // La corrección técnica se hace al cerrar la sesión, nunca durante el reconocimiento.
-    $("observaciones").value=correctGeoText($("observaciones").value);
-    recognition=null;
-    resetDictateUI((committed||interim)?"Dictado finalizado. Puedes volver a dictar.":"No se recibió texto. Inténtalo nuevamente.");
-  };
-  return r;
-}
-if(SpeechRecognition){
-  $("dictateBtn").onclick=()=>{
-    if(dictating&&recognition){try{recognition.stop();}catch(e){}return;}
-    if(dictateStarting)return;
-    dictateStarting=true;$("dictateBtn").disabled=true;$("dictateStatus").textContent="Iniciando micrófono…";
-    try{recognition=createRecognition();recognition.start();}
-    catch(e){recognition=null;resetDictateUI("No se pudo iniciar el dictado. Inténtalo nuevamente.");}
-  };
-}else{
-  $("dictateBtn").onclick=()=>alert("El dictado directo no está disponible en este navegador. Usa el micrófono del teclado.");
-  $("dictateStatus").textContent="Dictado directo no disponible aquí; usa el micrófono del teclado.";
-}
 
 const geoCorrections=[
   [/\brocha\b/gi,"roca"],
@@ -1463,6 +1429,128 @@ recalc();renderHistory();
 })();
 </script>
 <script>
+/* ===== Editor de estructuras (mapeo estructural): usado en RMR → 4 y en el menú Mapeo ===== */
+function crearEditorEstructuras(px,seccion){
+  const $e=id=>document.getElementById(px+id);
+  const TIPOS={J:"Junta",F:"Falla",SJ:"Sistema de juntas",SF:"Sistema de fallas",C:"Contacto",D:"Diaclasa",O:"Otros"};
+  const pad3=n=>String(Math.round(n)).padStart(3,"0");
+  const vacio=v=>v===null||v===undefined||String(v).trim()==="";
+  let lista=[], editIdx=-1, lects=[];
+  const lecturasDe=x=>(x.lecturas&&x.lecturas.length)?x.lecturas:((x.dip!==undefined&&x.dip!==null)?[{dip:x.dip,dipDir:x.dipDir}]:[]);
+  const fmtL=l=>`${l.dip}° / ${pad3(l.dipDir)}°`;
+  function pintarLects(){
+    $e("Lecturas").innerHTML=lects.length?lects.map((l,i)=>`<span class="lect-chip">${i+1}) ${fmtL(l)}<button type="button" aria-label="Quitar lectura ${i+1}" data-ldel="${i}">✕</button></span>`).join(""):`<span class="small">Sin lecturas aún.</span>`;
+    $e("Lecturas").querySelectorAll("[data-ldel]").forEach(b=>b.onclick=()=>{lects.splice(+b.dataset.ldel,1);pintarLects();});
+  }
+  function validarLectura(){
+    const dip=num("eDip"), dd=num("eDipDir");
+    if(dip===null||!Number.isFinite(dip)||dip<0||dip>90) return "El buzamiento (Dip) debe estar entre 0 y 90°.";
+    if(dd===null||!Number.isFinite(dd)||dd<0||dd>360) return "La dirección de buzamiento (Dip Direction) debe estar entre 0 y 360°.";
+    return "";
+  }
+  const hayLecturaEscrita=()=>$e("Dip").value.trim()!==""||$e("DipDir").value.trim()!=="";
+  function agregarLectura(){
+    const err=validarLectura(); $e("Error").textContent=err; if(err) return false;
+    lects.push({dip:Math.round(num("eDip")),dipDir:Math.round(num("eDipDir"))});
+    $e("Dip").value=""; $e("DipDir").value=""; pintarLects(); return true;
+  }
+  [["Pers","persistencia"],["Rug","rugosidad"],["Rell","relleno"]].forEach(([to,from])=>{
+    const src=document.getElementById(from);
+    $e(to).innerHTML='<option value="">Seleccionar…</option>'+[...src.options].filter(o=>o.value!=="").map(o=>{const t=o.text.replace(/\s*[—-]\s*\d+\s*pts?\.?\s*$/i,"").trim();return `<option value="${esc(t)}">${esc(t)}</option>`;}).join("");
+  });
+  $e("Tipo").addEventListener("change",()=>$e("OtroWrap").classList.toggle("hidden",$e("Tipo").value!=="O"));
+  const num=id=>{const v=$e(id.replace(/^e/,"")).value.trim();return v===""?null:Number(v);};
+  const campos=["Tipo","Otro","Desde","Hasta","Dip","DipDir","Pers","Rug","Rell","Obs"];
+  const tieneDatos=()=>campos.some(id=>$e(id).value.trim()!=="")||lects.length>0;
+  function validar(){
+    const t=$e("Tipo").value; if(!t) return "Selecciona el tipo de estructura.";
+    if(t==="O"&&!$e("Otro").value.trim()) return "Especifica el tipo de estructura en «Otros».";
+    if(hayLecturaEscrita()){ const e=validarLectura(); if(e) return e; }
+    else if(!lects.length) return "Registra al menos una lectura de Dip / Dip Direction.";
+    return "";
+  }
+  function leer(prev){
+    const t=$e("Tipo").value;
+    return {id:prev?.id||(crypto.randomUUID?crypto.randomUUID():String(Date.now()+Math.random())),createdAt:prev?.createdAt||new Date().toISOString(),
+      tipo:t,tipoNombre:TIPOS[t],otro:t==="O"?$e("Otro").value.trim():"",
+      desde:$e("Desde").value.trim(),hasta:$e("Hasta").value.trim(),
+      lecturas:lects.map(l=>({...l})),dip:lects[0].dip,dipDir:lects[0].dipDir,
+      persistencia:$e("Pers").value,rugosidad:$e("Rug").value,relleno:$e("Rell").value,observaciones:$e("Obs").value.trim()};
+  }
+  function limpiarForm(){
+    campos.forEach(id=>$e(id).value=""); $e("OtroWrap").classList.add("hidden"); $e("Error").textContent="";
+    lects=[]; pintarLects();
+    editIdx=-1; $e("AddBtn").textContent="＋ Agregar estructura";
+    $e("FormTitle").textContent=`Estructura N° ${lista.length+1}`;
+  }
+  function itemHtml(x,i,editable){
+    const nombre=x.tipo==="O"&&x.otro?x.otro:x.tipoNombre, L=lecturasDe(x);
+    const tramo=(vacio(x.desde)&&vacio(x.hasta))?"Sin tramo":`Tramo ${vacio(x.desde)?"—":esc(x.desde)} – ${vacio(x.hasta)?"—":esc(x.hasta)}`;
+    const cond=[x.persistencia&&("Persistencia: "+x.persistencia),x.rugosidad&&("Rugosidad: "+x.rugosidad),x.relleno&&("Relleno: "+x.relleno)].filter(Boolean).map(esc).join(" · ");
+    return `<div class="estr-item ${esc(x.tipo)}${editable&&i===editIdx?" editing":""}">
+      <div class="t">${i+1}. (${esc(x.tipo)}) ${esc(nombre)} · ${L.length} lectura${L.length===1?"":"s"}</div>
+      <div class="m"><b>Dip / Dip Dir:</b> ${L.map(fmtL).join(" · ")}</div>
+      <div class="m">${tramo}${cond?" · "+cond:""}</div>
+      ${x.observaciones?`<div class="o">${esc(x.observaciones)}</div>`:""}
+      ${editable?`<div class="actions"><button class="btn" type="button" data-eedit="${i}">Editar</button><button class="btn danger" type="button" data-edel="${i}">Quitar</button></div>`:""}
+    </div>`;
+  }
+  function html(arr,editable){
+    if(!arr||!arr.length) return editable?"":`<div class="small">Sin estructuras registradas en esta evaluación.</div>`;
+    return arr.map((x,i)=>itemHtml(x,i,editable)).join("");
+  }
+  function pintar(){
+    $e("List").innerHTML=html(lista,true);
+    $e("List").querySelectorAll("[data-eedit]").forEach(b=>b.onclick=()=>editar(+b.dataset.eedit));
+    $e("List").querySelectorAll("[data-edel]").forEach(b=>b.onclick=()=>{
+      const i=+b.dataset.edel; if(!confirm(`¿Quitar la estructura N° ${i+1}?`)) return;
+      lista.splice(i,1); if(editIdx===i) limpiarForm(); else if(editIdx>i) editIdx--; pintar();
+      if(editIdx<0) $e("FormTitle").textContent=`Estructura N° ${lista.length+1}`;
+    });
+  }
+  function editar(i){
+    const x=lista[i]; editIdx=i;
+    $e("Tipo").value=x.tipo; $e("OtroWrap").classList.toggle("hidden",x.tipo!=="O"); $e("Otro").value=x.otro||"";
+    $e("Desde").value=x.desde??""; $e("Hasta").value=x.hasta??""; $e("Dip").value=""; $e("DipDir").value="";
+    lects=lecturasDe(x).map(l=>({...l})); pintarLects();
+    $e("Pers").value=x.persistencia||""; $e("Rug").value=x.rugosidad||""; $e("Rell").value=x.relleno||""; $e("Obs").value=x.observaciones||"";
+    $e("AddBtn").textContent="✓ Actualizar estructura"; $e("FormTitle").textContent=`Editando estructura N° ${i+1}`; $e("Error").textContent="";
+    pintar(); $e("Tipo").scrollIntoView({behavior:"smooth",block:"center"});
+  }
+  function agregar(){
+    const err=validar(); $e("Error").textContent=err; if(err) return false;
+    if(hayLecturaEscrita()&&!agregarLectura()) return false; // lectura escrita sin «Agregar lectura»: se incluye
+    if(editIdx>=0) lista[editIdx]=leer(lista[editIdx]); else lista.push(leer());
+    limpiarForm(); pintar(); return true;
+  }
+  $e("AddBtn").addEventListener("click",agregar);
+  $e("AddLectBtn").addEventListener("click",agregarLectura);
+  $e("ClearBtn").addEventListener("click",limpiarForm);
+  const api={
+    get:()=>lista.map(x=>({...x})),
+    set:arr=>{lista=(arr||[]).map(x=>({...x})); limpiarForm(); pintar();},
+    clear:()=>{lista=[]; limpiarForm(); pintar();},
+    html,
+    // Al guardar la evaluación: si hay una estructura escrita sin agregar, se agrega (o se avisa si está incompleta)
+    flushPending:()=>{
+      if(!tieneDatos()) return true;
+      const err=validar();
+      if(err){ $e("Error").textContent=err; alert("Hay una estructura escrita sin agregar en "+seccion+".\n\n"+err+"\n\nCompleta los datos o toca «Limpiar» para descartarla."); $e("Tipo").scrollIntoView({behavior:"smooth",block:"center"}); return false; }
+      return agregar();
+    },
+    precargar:()=>{
+      lista=[
+        {tipo:"F",desde:"12.5",hasta:"15",L:[[65,245],[62,250]],p:3,r:4,f:5,o:"Falla de prueba."},
+        {tipo:"SJ",desde:"C-58",hasta:"C-60",L:[[72,130],[70,128],[75,134],[68,126]],p:2,r:3,f:2,o:"Sistema de juntas de prueba."}
+      ].map(m=>{const pick=(id,k)=>$e(id).options[k]?.value||"";return {id:crypto.randomUUID?crypto.randomUUID():String(Math.random()),createdAt:new Date().toISOString(),tipo:m.tipo,tipoNombre:TIPOS[m.tipo],otro:"",desde:m.desde,hasta:m.hasta,lecturas:m.L.map(([a,b])=>({dip:a,dipDir:b})),dip:m.L[0][0],dipDir:m.L[0][1],persistencia:pick("Pers",m.p),rugosidad:pick("Rug",m.r),relleno:pick("Rell",m.f),observaciones:m.o};});
+      limpiarForm(); pintar();
+    }
+  };
+  limpiarForm();
+  return api;
+}
+</script>
+<script>
 (function(){
   const $m=id=>document.getElementById(id);
   const TIPOS={J:"Junta",F:"Falla",SJ:"Sistema de juntas",SF:"Sistema de fallas",C:"Contacto",D:"Diaclasa",O:"Otros"};
@@ -1472,109 +1560,60 @@ recalc();renderHistory();
   const all=async()=>{const db=await open();return new Promise((res,rej)=>{const q=db.transaction(MST).objectStore(MST).getAll();q.onsuccess=()=>res(q.result.sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt))));q.onerror=()=>rej(q.error);});};
   const del=async id=>{const db=await open();return new Promise((res,rej)=>{const tx=db.transaction(MST,"readwrite");tx.objectStore(MST).delete(id);tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error);});};
   const clearAll=async()=>{const db=await open();return new Promise((res,rej)=>{const tx=db.transaction(MST,"readwrite");tx.objectStore(MST).clear();tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error);});};
-  // condiciones: mismas opciones del RMR, sin puntaje
-  [["mPers","persistencia"],["mRug","rugosidad"],["mRell","relleno"]].forEach(([to,from])=>{
-    const src=document.getElementById(from), dst=$m(to);
-    dst.innerHTML='<option value="">Seleccionar…</option>'+[...src.options].filter(o=>o.value!=="").map(o=>{const t=o.text.replace(/\s*[—-]\s*\d+\s*pts?\.?\s*$/i,"").trim();return `<option value="${esc(t)}">${esc(t)}</option>`;}).join("");
-  });
+  // Editor de estructuras: el mismo de RMR → 4 (varias estructuras, varias lecturas por estructura)
+  const editor=crearEditorEstructuras("m","«Estructuras»");
+  window.mapEditor=editor;
   $m("mFecha").value=today();
   ["mNivel","mBlock","mLabor","mGeo"].forEach(id=>$m(id).addEventListener("input",e=>{const el=e.target,p=el.selectionStart;el.value=el.value.toUpperCase();try{el.setSelectionRange(p,p);}catch(_){}}));
-  $m("mTipo").addEventListener("change",()=>$m("mOtroWrap").classList.toggle("hidden",$m("mTipo").value!=="O"));
   function copyFromEval(force){
     const map=[["mFecha","fecha"],["mTurno","turno"],["mNivel","nivel"],["mBlock","block"],["mLabor","labor"],["mGeo","supervisor"]];
     map.forEach(([to,from])=>{const v=document.getElementById(from).value; if(v&&(force||!$m(to).value)) $m(to).value=v;});
   }
   $m("mCopyBtn").addEventListener("click",()=>copyFromEval(true));
-  document.querySelectorAll('.tab[data-tab="mapeo"]').forEach(b=>b.addEventListener("click",()=>{copyFromEval(false);render();}));
-  const num=id=>{const v=$m(id).value.trim();return v===""?null:Number(v);};
-  function validate(){
-    if(!$m("mLabor").value.trim()) return "Indica la labor.";
-    const t=$m("mTipo").value; if(!t) return "Selecciona el tipo de estructura.";
-    if(t==="O"&&!$m("mOtro").value.trim()) return "Especifica el tipo de estructura en «Otros».";
-    const dip=num("mDip"), dd=num("mDipDir");
-    if(dip===null||!Number.isFinite(dip)||dip<0||dip>90) return "El buzamiento (Dip) debe estar entre 0 y 90°.";
-    if(dd===null||!Number.isFinite(dd)||dd<0||dd>360) return "La dirección de buzamiento (Dip Direction) debe estar entre 0 y 360°.";
-    return "";
-  }
+  document.querySelectorAll('.tab[data-tab="mapeo"]').forEach(b=>b.addEventListener("click",()=>copyFromEval(false)));
   const pad3=n=>String(Math.round(n)).padStart(3,"0");
   $m("mSaveBtn").addEventListener("click",async()=>{
-    const err=validate(); $m("mError").textContent=err; if(err) return;
-    const t=$m("mTipo").value, now=new Date().toISOString();
-    const x={id:crypto.randomUUID?crypto.randomUUID():String(Date.now()),createdAt:now,
-      fecha:$m("mFecha").value,turno:$m("mTurno").value,nivel:$m("mNivel").value.trim(),block:$m("mBlock").value.trim(),labor:$m("mLabor").value.trim(),geomecanico:$m("mGeo").value.trim(),
-      tipo:t,tipoNombre:TIPOS[t],otro:t==="O"?$m("mOtro").value.trim():"",
-      dip:Math.round(num("mDip")),dipDir:Math.round(num("mDipDir")),
-      desde:$m("mDesde").value.trim(),hasta:$m("mHasta").value.trim(),
-      persistencia:$m("mPers").value,rugosidad:$m("mRug").value,relleno:$m("mRell").value,
-      observaciones:$m("mObs").value.trim()};
-    try{ await put(x); }catch(e){ $m("mError").textContent="No se pudo guardar: "+(e.message||e); return; }
-    clearStructure(false);
+    $m("mSaveError").textContent="";
+    if(!$m("mLabor").value.trim()){ $m("mSaveError").textContent="Indica la labor."; $m("mLabor").focus(); return; }
+    if(!editor.flushPending()) return;
+    const estr=editor.get();
+    if(!estr.length){ $m("mSaveError").textContent="Agrega al menos una estructura."; return; }
+    const lab={fecha:$m("mFecha").value,turno:$m("mTurno").value,nivel:$m("mNivel").value.trim(),block:$m("mBlock").value.trim(),labor:$m("mLabor").value.trim(),geomecanico:$m("mGeo").value.trim()};
+    const now=new Date().toISOString();
+    try{ for(const x of estr) await put({...x,...lab,createdAt:x.createdAt||now}); }
+    catch(e){ $m("mSaveError").textContent="No se pudo guardar: "+(e.message||e); return; }
+    editor.clear();
     openTab("historial");
     const act=document.querySelector('#historial .seg-btn.active');
     if(act&&act.dataset.hf==="rmr"){ document.querySelector('#historial .seg-btn[data-hf="todos"]').click(); }
     await renderHistory();
     document.querySelectorAll(".save-confirm").forEach(el=>{ if(el.id!=="mSaved") el.remove(); });
+    const nl=estr.reduce((n,x)=>n+((x.lecturas&&x.lecturas.length)||1),0);
     const msg=document.createElement("div"); msg.className="save-confirm";
-    msg.innerHTML=`<b>Mapeo estructural guardado correctamente</b><span>${esc(x.labor)} · ${esc(x.tipo)} ${esc(x.tipo==="O"&&x.otro?x.otro:x.tipoNombre)} · Dip ${x.dip}° / Dir ${pad3(x.dipDir)}° · ${formatSavedAt(x.createdAt)}</span>`;
+    msg.innerHTML=`<b>Mapeo estructural guardado correctamente</b><span>${esc(lab.labor)} · ${estr.length} estructura${estr.length===1?"":"s"} · ${nl} lectura${nl===1?"":"s"} · ${formatSavedAt(now)}</span>`;
     $("historyMain").prepend(msg);
     setTimeout(()=>{ if(msg.isConnected) msg.remove(); },5000);
     window.scrollTo({top:0,behavior:"smooth"});
   });
-  function clearStructure(keepMsg){
-    ["mTipo","mOtro","mDip","mDipDir","mDesde","mHasta","mPers","mRug","mRell","mObs"].forEach(id=>$m(id).value="");
-    $m("mOtroWrap").classList.add("hidden"); $m("mError").textContent="";
-    if(!keepMsg) $m("mSaved").classList.add("hidden");
-  }
-  $m("mClearBtn").addEventListener("click",()=>clearStructure(false));
-  const MUESTRAS=[
-    {t:"F",dip:65,dd:245,d:12,h:15,p:3,r:4,f:5,o:"Falla con potencia de 30 cm y panizo blanco."},
-    {t:"SJ",dip:72,dd:130,d:15,h:20,p:2,r:3,f:2,o:"Sistema de juntas con relleno de óxidos."},
-    {t:"J",dip:58,dd:310,d:20,h:24,p:4,r:2,f:1,o:"Junta cerrada y persistente."},
-    {t:"C",dip:40,dd:80,d:24,h:30,p:1,r:3,f:3,o:"Contacto litológico entre dacita y conglomerado."}
-  ];
-  let muestra=0;
   $m("mPreloadBtn").addEventListener("click",()=>{
-    const m=MUESTRAS[muestra++%MUESTRAS.length];
     $m("mFecha").value=today(); $m("mTurno").value="Día"; $m("mNivel").value="3960"; $m("mBlock").value="7998"; $m("mLabor").value="GL665S"; $m("mGeo").value="MILTON O.";
-    $m("mTipo").value=m.t; $m("mOtroWrap").classList.add("hidden"); $m("mOtro").value="";
-    $m("mDip").value=m.dip; $m("mDipDir").value=m.dd; $m("mDesde").value=m.d; $m("mHasta").value=m.h;
-    $m("mPers").selectedIndex=m.p; $m("mRug").selectedIndex=m.r; $m("mRell").selectedIndex=m.f; $m("mObs").value=m.o;
-    $m("mError").textContent="";
+    editor.precargar(); $m("mSaveError").textContent="";
   });
   const vacio=v=>v===null||v===undefined||String(v).trim()==="";
   const tramo=x=>(vacio(x.desde)&&vacio(x.hasta))?"Sin tramo":`Tramo ${vacio(x.desde)?"—":x.desde} – ${vacio(x.hasta)?"—":x.hasta}`;
+  const lecturasDe=x=>(x.lecturas&&x.lecturas.length)?x.lecturas:[{dip:x.dip,dipDir:x.dipDir}];
   // Hoja «Mapeo estructural»: estructuras registradas dentro de evaluaciones RMR + mapeos independientes, en orden de registro
   function table(a,rmrs){
     // Una fila por lectura Dip / Dip Direction (lista para AutoCAD y DIPS)
     const headers=["Origen","Fecha","Turno","Nivel","Block","Labor","Geomecánico","N° estructura","Tipo de estructura","Tipo de estructura (nombre)","Otros (detalle)","Tramo desde","Tramo hasta","N° lectura","Lecturas de la estructura","Buzamiento (Dip)","Dirección de buzamiento (Dip Direction)","Persistencia","Rugosidad","Relleno","Observaciones","RMR total de la evaluación","Tipo de roca de la evaluación","Guardado","ID evaluación RMR","ID estructura"];
-    const lecturasDe=x=>(x.lecturas&&x.lecturas.length)?x.lecturas:[{dip:x.dip,dipDir:x.dipDir}];
     const items=[], tv=v=>{const t=String(v??"").trim().replace(",",".");return /^-?\d+(\.\d+)?$/.test(t)?Number(t):String(v??"").trim();}; // tramo numérico → número en Excel; si es texto (C-58) queda como texto
     let k=0;
     (rmrs||[]).forEach(r=>(r.estructuras||[]).forEach((x,i)=>{const L=lecturasDe(x);L.forEach((l,j)=>items.push({t:x.createdAt||r.createdAt,k:k++,row:["Evaluación RMR",r.fecha,r.turno,r.nivel,r.block,r.labor,r.supervisor,i+1,x.tipo,x.tipoNombre,x.otro,tv(x.desde),tv(x.hasta),j+1,L.length,l.dip,l.dipDir,x.persistencia,x.rugosidad,x.relleno,x.observaciones,r.rmrTotal,r.tipoRoca,x.createdAt||r.createdAt,r.id,x.id]}));}));
-    a.forEach(x=>items.push({t:x.createdAt,k:k++,row:["Mapeo independiente",x.fecha,x.turno,x.nivel,x.block,x.labor,x.geomecanico,"",x.tipo,x.tipoNombre,x.otro,tv(x.desde),tv(x.hasta),1,1,x.dip,x.dipDir,x.persistencia,x.rugosidad,x.relleno,x.observaciones,"","",x.createdAt,"",x.id]}));
+    a.forEach(x=>{const L=lecturasDe(x);L.forEach((l,j)=>items.push({t:x.createdAt,k:k++,row:["Mapeo independiente",x.fecha,x.turno,x.nivel,x.block,x.labor,x.geomecanico,"",x.tipo,x.tipoNombre,x.otro,tv(x.desde),tv(x.hasta),j+1,L.length,l.dip,l.dipDir,x.persistencia,x.rugosidad,x.relleno,x.observaciones,"","",x.createdAt,"",x.id]}));});
     items.sort((p,q)=>String(p.t||"").localeCompare(String(q.t||""))||p.k-q.k);
     return {headers,rows:items.map(i=>i.row)};
   }
-  window.mapeoDB={all,del,clearAll,table,tramo,pad3,TIPOS};
-  function render(){}
-  // dictado de observaciones
-  const SR=window.SpeechRecognition||window.webkitSpeechRecognition; let rec=null;
-  if(SR){
-    $m("mDictBtn").onclick=()=>{
-      if(rec){try{rec.stop();}catch(_){}return;}
-      rec=new SR(); rec.lang="es-PE"; rec.continuous=true; rec.interimResults=true;
-      const base=$m("mObs").value.trim(); let done="",tmp="";
-      const paint=()=>{const sp=(done+" "+tmp).replace(/\s+/g," ").trim();$m("mObs").value=base+(base&&sp?" ":"")+sp;};
-      rec.onstart=()=>{$m("mDictBtn").textContent="⏹️ Detener dictado";$m("mDictStatus").textContent="Escuchando…";};
-      rec.onresult=e=>{tmp="";for(let n=e.resultIndex;n<e.results.length;n++){const t=(e.results[n][0]?.transcript||"").trim();if(!t)continue;if(e.results[n].isFinal)done+=(done?" ":"")+t;else tmp+=(tmp?" ":"")+t;}paint();};
-      rec.onerror=e=>{$m("mDictStatus").textContent="Error de dictado: "+(e.error||"desconocido");};
-      rec.onend=()=>{paint(); if(typeof correctGeoText==="function") $m("mObs").value=correctGeoText($m("mObs").value); rec=null; $m("mDictBtn").textContent="🎙️ Dictar observación"; $m("mDictStatus").textContent="";};
-      try{rec.start();}catch(_){rec=null;$m("mDictStatus").textContent="No se pudo iniciar el dictado.";}
-    };
-  } else {
-    $m("mDictBtn").onclick=()=>alert("El dictado directo no está disponible en este navegador. Usa el micrófono del teclado.");
-  }
-  render();
+  window.mapeoDB={all,del,clearAll,table,tramo,pad3,TIPOS,lecturasDe};
 })();
 </script>
 <script>
@@ -1606,7 +1645,8 @@ recalc();renderHistory();
         <div class="small">${esc(x.fecha||"")}${x.nivel?" · Nv "+esc(x.nivel):""}${x.geomecanico?" · "+esc(x.geomecanico):""} · ${M().tramo(x)}</div>
         ${x.observaciones?`<div class="small">${esc(x.observaciones)}</div>`:""}
         <div class="saved-at">Guardado: ${esc(formatSavedAt(x.createdAt))}</div></div>
-        <span class="pill">Dip ${x.dip}° / Dir ${M().pad3(x.dipDir)}°</span></div>
+        <span class="pill">${(L=>L.length>1?`${L.length} lecturas`:`Dip ${L[0].dip}° / Dir ${M().pad3(L[0].dipDir)}°`)(M().lecturasDe(x))}</span></div>
+        ${(L=>L.length>1?`<div class="small" style="margin-top:4px"><b>Dip / Dip Dir:</b> ${L.map(l=>`${l.dip}° / ${M().pad3(l.dipDir)}°`).join(" · ")}</div>`:"")(M().lecturasDe(x))}
         <div class="actions" style="margin-top:6px"><button class="btn danger" data-mdel="${esc(x.id)}" type="button">Eliminar</button></div></div>`;
     }).join("");
     document.querySelectorAll(".history-item[data-id]").forEach(el=>{
@@ -1721,126 +1761,8 @@ recalc();renderHistory();
 })();
 </script>
 <script>
-/* ===== Mapeo estructural dentro de la evaluación RMR ===== */
-(function(){
-  const $e=id=>document.getElementById(id);
-  const TIPOS={J:"Junta",F:"Falla",SJ:"Sistema de juntas",SF:"Sistema de fallas",C:"Contacto",D:"Diaclasa",O:"Otros"};
-  const pad3=n=>String(Math.round(n)).padStart(3,"0");
-  const vacio=v=>v===null||v===undefined||String(v).trim()==="";
-  let lista=[], editIdx=-1, lects=[];
-  const lecturasDe=x=>(x.lecturas&&x.lecturas.length)?x.lecturas:((x.dip!==undefined&&x.dip!==null)?[{dip:x.dip,dipDir:x.dipDir}]:[]);
-  const fmtL=l=>`${l.dip}° / ${pad3(l.dipDir)}°`;
-  function pintarLects(){
-    $e("eLecturas").innerHTML=lects.length?lects.map((l,i)=>`<span class="lect-chip">${i+1}) ${fmtL(l)}<button type="button" aria-label="Quitar lectura ${i+1}" data-ldel="${i}">✕</button></span>`).join(""):`<span class="small">Sin lecturas aún.</span>`;
-    $e("eLecturas").querySelectorAll("[data-ldel]").forEach(b=>b.onclick=()=>{lects.splice(+b.dataset.ldel,1);pintarLects();});
-  }
-  function validarLectura(){
-    const dip=num("eDip"), dd=num("eDipDir");
-    if(dip===null||!Number.isFinite(dip)||dip<0||dip>90) return "El buzamiento (Dip) debe estar entre 0 y 90°.";
-    if(dd===null||!Number.isFinite(dd)||dd<0||dd>360) return "La dirección de buzamiento (Dip Direction) debe estar entre 0 y 360°.";
-    return "";
-  }
-  const hayLecturaEscrita=()=>$e("eDip").value.trim()!==""||$e("eDipDir").value.trim()!=="";
-  function agregarLectura(){
-    const err=validarLectura(); $e("eError").textContent=err; if(err) return false;
-    lects.push({dip:Math.round(num("eDip")),dipDir:Math.round(num("eDipDir"))});
-    $e("eDip").value=""; $e("eDipDir").value=""; pintarLects(); return true;
-  }
-  [["ePers","persistencia"],["eRug","rugosidad"],["eRell","relleno"]].forEach(([to,from])=>{
-    const src=document.getElementById(from);
-    $e(to).innerHTML='<option value="">Seleccionar…</option>'+[...src.options].filter(o=>o.value!=="").map(o=>{const t=o.text.replace(/\s*[—-]\s*\d+\s*pts?\.?\s*$/i,"").trim();return `<option value="${esc(t)}">${esc(t)}</option>`;}).join("");
-  });
-  $e("eTipo").addEventListener("change",()=>$e("eOtroWrap").classList.toggle("hidden",$e("eTipo").value!=="O"));
-  const num=id=>{const v=$e(id).value.trim();return v===""?null:Number(v);};
-  const campos=["eTipo","eOtro","eDesde","eHasta","eDip","eDipDir","ePers","eRug","eRell","eObs"];
-  const tieneDatos=()=>campos.some(id=>$e(id).value.trim()!=="")||lects.length>0;
-  function validar(){
-    const t=$e("eTipo").value; if(!t) return "Selecciona el tipo de estructura.";
-    if(t==="O"&&!$e("eOtro").value.trim()) return "Especifica el tipo de estructura en «Otros».";
-    if(hayLecturaEscrita()){ const e=validarLectura(); if(e) return e; }
-    else if(!lects.length) return "Registra al menos una lectura de Dip / Dip Direction.";
-    return "";
-  }
-  function leer(prev){
-    const t=$e("eTipo").value;
-    return {id:prev?.id||(crypto.randomUUID?crypto.randomUUID():String(Date.now()+Math.random())),createdAt:prev?.createdAt||new Date().toISOString(),
-      tipo:t,tipoNombre:TIPOS[t],otro:t==="O"?$e("eOtro").value.trim():"",
-      desde:$e("eDesde").value.trim(),hasta:$e("eHasta").value.trim(),
-      lecturas:lects.map(l=>({...l})),dip:lects[0].dip,dipDir:lects[0].dipDir,
-      persistencia:$e("ePers").value,rugosidad:$e("eRug").value,relleno:$e("eRell").value,observaciones:$e("eObs").value.trim()};
-  }
-  function limpiarForm(){
-    campos.forEach(id=>$e(id).value=""); $e("eOtroWrap").classList.add("hidden"); $e("eError").textContent="";
-    lects=[]; pintarLects();
-    editIdx=-1; $e("eAddBtn").textContent="＋ Agregar estructura";
-    $e("eFormTitle").textContent=`Estructura N° ${lista.length+1}`;
-  }
-  function itemHtml(x,i,editable){
-    const nombre=x.tipo==="O"&&x.otro?x.otro:x.tipoNombre, L=lecturasDe(x);
-    const tramo=(vacio(x.desde)&&vacio(x.hasta))?"Sin tramo":`Tramo ${vacio(x.desde)?"—":esc(x.desde)} – ${vacio(x.hasta)?"—":esc(x.hasta)}`;
-    const cond=[x.persistencia&&("Persistencia: "+x.persistencia),x.rugosidad&&("Rugosidad: "+x.rugosidad),x.relleno&&("Relleno: "+x.relleno)].filter(Boolean).map(esc).join(" · ");
-    return `<div class="estr-item ${esc(x.tipo)}${editable&&i===editIdx?" editing":""}">
-      <div class="t">${i+1}. (${esc(x.tipo)}) ${esc(nombre)} · ${L.length} lectura${L.length===1?"":"s"}</div>
-      <div class="m"><b>Dip / Dip Dir:</b> ${L.map(fmtL).join(" · ")}</div>
-      <div class="m">${tramo}${cond?" · "+cond:""}</div>
-      ${x.observaciones?`<div class="o">${esc(x.observaciones)}</div>`:""}
-      ${editable?`<div class="actions"><button class="btn" type="button" data-eedit="${i}">Editar</button><button class="btn danger" type="button" data-edel="${i}">Quitar</button></div>`:""}
-    </div>`;
-  }
-  function html(arr,editable){
-    if(!arr||!arr.length) return editable?"":`<div class="small">Sin estructuras registradas en esta evaluación.</div>`;
-    return arr.map((x,i)=>itemHtml(x,i,editable)).join("");
-  }
-  function pintar(){
-    $e("eList").innerHTML=html(lista,true);
-    $e("eList").querySelectorAll("[data-eedit]").forEach(b=>b.onclick=()=>editar(+b.dataset.eedit));
-    $e("eList").querySelectorAll("[data-edel]").forEach(b=>b.onclick=()=>{
-      const i=+b.dataset.edel; if(!confirm(`¿Quitar la estructura N° ${i+1}?`)) return;
-      lista.splice(i,1); if(editIdx===i) limpiarForm(); else if(editIdx>i) editIdx--; pintar();
-      if(editIdx<0) $e("eFormTitle").textContent=`Estructura N° ${lista.length+1}`;
-    });
-  }
-  function editar(i){
-    const x=lista[i]; editIdx=i;
-    $e("eTipo").value=x.tipo; $e("eOtroWrap").classList.toggle("hidden",x.tipo!=="O"); $e("eOtro").value=x.otro||"";
-    $e("eDesde").value=x.desde??""; $e("eHasta").value=x.hasta??""; $e("eDip").value=""; $e("eDipDir").value="";
-    lects=lecturasDe(x).map(l=>({...l})); pintarLects();
-    $e("ePers").value=x.persistencia||""; $e("eRug").value=x.rugosidad||""; $e("eRell").value=x.relleno||""; $e("eObs").value=x.observaciones||"";
-    $e("eAddBtn").textContent="✓ Actualizar estructura"; $e("eFormTitle").textContent=`Editando estructura N° ${i+1}`; $e("eError").textContent="";
-    pintar(); $e("eTipo").scrollIntoView({behavior:"smooth",block:"center"});
-  }
-  function agregar(){
-    const err=validar(); $e("eError").textContent=err; if(err) return false;
-    if(hayLecturaEscrita()&&!agregarLectura()) return false; // lectura escrita sin «Agregar lectura»: se incluye
-    if(editIdx>=0) lista[editIdx]=leer(lista[editIdx]); else lista.push(leer());
-    limpiarForm(); pintar(); return true;
-  }
-  $e("eAddBtn").addEventListener("click",agregar);
-  $e("eAddLectBtn").addEventListener("click",agregarLectura);
-  $e("eClearBtn").addEventListener("click",limpiarForm);
-  window.rmrStructs={
-    get:()=>lista.map(x=>({...x})),
-    set:arr=>{lista=(arr||[]).map(x=>({...x})); limpiarForm(); pintar();},
-    clear:()=>{lista=[]; limpiarForm(); pintar();},
-    html,
-    // Al guardar la evaluación: si hay una estructura escrita sin agregar, se agrega (o se avisa si está incompleta)
-    flushPending:()=>{
-      if(!tieneDatos()) return true;
-      const err=validar();
-      if(err){ $e("eError").textContent=err; alert("Hay una estructura escrita sin agregar en «4. Mapeo estructural».\n\n"+err+"\n\nCompleta los datos o toca «Limpiar» para descartarla."); $e("eTipo").scrollIntoView({behavior:"smooth",block:"center"}); return false; }
-      return agregar();
-    },
-    precargar:()=>{
-      lista=[
-        {tipo:"F",desde:"12.5",hasta:"15",L:[[65,245],[62,250]],p:3,r:4,f:5,o:"Falla de prueba."},
-        {tipo:"SJ",desde:"C-58",hasta:"C-60",L:[[72,130],[70,128],[75,134],[68,126]],p:2,r:3,f:2,o:"Sistema de juntas de prueba."}
-      ].map(m=>{const pick=(id,k)=>$e(id).options[k]?.value||"";return {id:crypto.randomUUID?crypto.randomUUID():String(Math.random()),createdAt:new Date().toISOString(),tipo:m.tipo,tipoNombre:TIPOS[m.tipo],otro:"",desde:m.desde,hasta:m.hasta,lecturas:m.L.map(([a,b])=>({dip:a,dipDir:b})),dip:m.L[0][0],dipDir:m.L[0][1],persistencia:pick("ePers",m.p),rugosidad:pick("eRug",m.r),relleno:pick("eRell",m.f),observaciones:m.o};});
-      limpiarForm(); pintar();
-    }
-  };
-  limpiarForm();
-  const pre=document.getElementById("preloadBtn"); if(pre) pre.addEventListener("click",()=>window.rmrStructs.precargar());
-})();
+window.rmrStructs=crearEditorEstructuras("e","«4. Mapeo estructural»");
+(function(){const pre=document.getElementById("preloadBtn"); if(pre) pre.addEventListener("click",()=>window.rmrStructs.precargar());})();
 </script>
 <script>
 /* ===== Indicación Geomecánica F-EBR-GM-01.02 · generador PDF A4 (offline, sin librerías) ===== */
