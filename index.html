@@ -1924,16 +1924,16 @@ function tw(s,size,bold,scale){ // ancho en pt de una cadena WinAnsi
   return t/1000*size*(scale??NARROW)/100;
 }
 function pdfStr(s){return "("+s.replace(/\\/g,"\\\\").replace(/\(/g,"\\(").replace(/\)/g,"\\)")+")";}
-function wrap(s,size,bold,maxW,scale){
-  const out=[];
+function wrap(s,size,bold,maxW,scale,maxW0){ // maxW0: ancho de la primera línea (si es distinto)
+  const out=[], W=()=>out.length===0&&maxW0!==undefined?maxW0:maxW;
   s.split("\n").forEach(par=>{
     const words=par.split(/ +/);let line="";
     words.forEach(w=>{
       const t=line?line+" "+w:w;
-      if(!line||tw(t,size,bold,scale)<=maxW){line=t;return;}
+      if(!line||tw(t,size,bold,scale)<=W()){line=t;return;}
       out.push(line);line=w;
-      while(tw(line,size,bold,scale)>maxW&&line.length>1){ // palabra larguísima
-        let k=line.length;while(k>1&&tw(line.slice(0,k),size,bold,scale)>maxW)k--;
+      while(tw(line,size,bold,scale)>W()&&line.length>1){ // palabra larguísima
+        let k=line.length;while(k>1&&tw(line.slice(0,k),size,bold,scale)>W())k--;
         out.push(line.slice(0,k));line=line.slice(k);
       }
     });
@@ -2143,7 +2143,7 @@ function drawDataOver(cv,x){
   if(hay(x.coordZ)) val(cv,"Q31:R31",String(x.coordZ),{size:9.5*SC});
   // Observaciones geomecánicas (filas 52-55) e indicaciones de estabilidad (57-60): desde la primera línea, la letra se reduce si no entra
   writeLines(cv,x.observaciones||"",52,55);
-  writeLines(cv,textoIndicaciones(x),57,60);
+  writeAfterLabel(cv,textoIndicaciones(x),56,60,"INDICACIONES DE ESTABILIDAD:");
   // Firmas: quien realiza la indicación
   const nb=box(ref("A65:D65")), lab=toAnsi("Nombre y Apellidos:");
   const lw0=tw(lab,10*SC,true)+4;
@@ -2171,6 +2171,28 @@ function writeLines(cv,text,r1,r2){
     lines.forEach((ln,i)=>{const rb=box(ref(`A${r1+i}:N${r1+i}`));cv.text(rb.x+pad,rb.y+rb.h/2-size*0.35,ln,size,false,MARK,90);});
   }else{
     const lh=size*1.12;lines.forEach((ln,i)=>cv.text(b.x+pad,b.y+b.h-pad-size*0.85-i*lh,ln,size,false,MARK,90));
+  }
+}
+
+// Texto que empieza en la misma fila del título (a continuación de «INDICACIONES DE ESTABILIDAD:») y sigue en las filas de abajo
+function writeAfterLabel(cv,text,r1,r2,label){
+  if(!String(text).trim())return;
+  const rows=r2-r1+1, b=box(ref(`A${r1}:N${r2}`)), b1=box(ref(`A${r1}:N${r1}`)), pad=3, lpad=2.2;
+  const ls=10*SC, base0=b1.y+b1.h-lpad-ls*0.8;             // línea base del título (como lo dibuja la plantilla)
+  const x1=b.x+lpad+tw(toAnsi(label),ls,false)+4;          // el texto empieza después del título
+  let size=11*SC, lines;
+  for(;;){
+    lines=wrap(toAnsi(text),size,false,b.w-2*pad,90,b.x+b.w-pad-x1);
+    if(lines.length<=rows)break;
+    const lh=size*1.12; if((lines.length-1)*lh<=base0-b.y-pad-size*0.25||size<4)break; size*=0.92;
+  }
+  if(lines.length<=rows){
+    lines.forEach((ln,i)=>{
+      if(i===0){cv.text(x1,base0,ln,size,false,MARK,90);return;}
+      const rb=box(ref(`A${r1+i}:N${r1+i}`));cv.text(rb.x+pad,rb.y+rb.h/2-size*0.35,ln,size,false,MARK,90);
+    });
+  }else{
+    const lh=size*1.12;lines.forEach((ln,i)=>cv.text(i===0?x1:b.x+pad,base0-i*lh,ln,size,false,MARK,90));
   }
 }
 
