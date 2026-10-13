@@ -912,7 +912,8 @@ function recalc(){
   ["input","change"].forEach(ev=>$(id).addEventListener(ev,recalc));
 });
 
-function today(){ const d=new Date(); return d.toISOString().slice(0,10); }
+function today(){ const d=new Date(), z=n=>String(n).padStart(2,"0"); return `${d.getFullYear()}-${z(d.getMonth()+1)}-${z(d.getDate())}`; }
+function horaArchivo(){ const d=new Date(), z=n=>String(n).padStart(2,"0"); return `${z(d.getHours())}-${z(d.getMinutes())}-${z(d.getSeconds())}`; }
 function formatSavedAt(iso){
   if(!iso) return "Fecha/hora no disponible";
   const d=new Date(iso);
@@ -1789,7 +1790,7 @@ function crearEditorEstructuras(px,seccion){
       {name:"RMR",headers:t1.headers,rows:t1.rows,photos:t1.photos,photoCols:t1.photoCols,wide:["Observaciones geomecánicas","Sostenimiento","Sostenimiento de sacrificio","Restricción","Nota por agua"]},
       {name:"Mapeo estructural",headers:t2.headers,rows:t2.rows,wide:["Observaciones"]}
     ]);
-    const base=`Geomecanica_${today()}`;
+    const base=`Geomecanica_${today()}_${horaArchivo()}`; // fecha y hora local: distingue cada envío
     let blob=xlsx, filename=`${base}.xlsx`;
     if(t1.files.length){
       const files=[{name:`${base}.xlsx`,data:new Uint8Array(await xlsx.arrayBuffer())}];
