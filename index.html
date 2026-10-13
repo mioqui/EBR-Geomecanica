@@ -146,6 +146,22 @@ html[data-theme="dark"] .sk-state{color:#9fb2bd}
   #printArea img{display:block;width:210mm;height:297mm;page-break-after:always;break-after:page}
   #printArea img:last-child{page-break-after:auto;break-after:auto}
 }
+.sent-badge{display:inline-block;margin:6px 6px 0 0;padding:2px 8px;border-radius:999px;background:#e6f4ee;color:#1e604f;font-size:.75rem;font-weight:700}
+.sel-modal{position:fixed;inset:0;z-index:1000;background:rgba(10,20,26,.55);display:flex;align-items:flex-end;justify-content:center}
+.sel-modal.hidden{display:none}
+.sel-box{background:var(--card,#fff);color:var(--ink);width:min(640px,100%);max-height:92vh;display:flex;flex-direction:column;border-radius:16px 16px 0 0;padding:12px 12px calc(12px + env(safe-area-inset-bottom))}
+.sel-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:2px 2px 8px}.sel-head b{font-size:1.05rem}
+.sel-quick{display:flex;gap:6px}.sel-quick .btn{flex:1;width:auto;padding:8px}
+.sel-list{flex:1;min-height:0;overflow:auto;margin:8px 0;display:flex;flex-direction:column;gap:6px}
+.sel-row{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);border-radius:12px;padding:9px 10px;cursor:pointer}
+.sel-row input{width:22px;height:22px;margin-top:2px;flex:0 0 auto}
+.sel-txt{font-size:.9rem;line-height:1.35}
+.sel-st{display:inline-block;margin-top:3px;padding:1px 7px;border-radius:999px;font-size:.72rem;font-weight:800}
+.sel-st.ok{background:#e6f4ee;color:#1e604f}.sel-st.pend{background:#fff1d6;color:#7a5200}
+.sel-foot{display:flex;flex-direction:column;gap:6px}.sel-foot .btn{width:100%}
+html[data-theme="dark"] .sel-box{background:#16232c}
+html[data-theme="dark"] .sent-badge,html[data-theme="dark"] .sel-st.ok{background:#123227;color:#9ee0c3}
+html[data-theme="dark"] .sel-st.pend{background:#3a2e12;color:#ffd58a}
 .lect-list{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 8px}
 .lect-chip{display:inline-flex;align-items:center;gap:6px;padding:5px 6px 5px 10px;border-radius:999px;background:#e8eef1;color:#203b4b;font-weight:700;font-size:.85rem}
 .lect-chip button{border:0;background:#cfdbe2;color:#203b4b;border-radius:999px;width:24px;height:24px;font-weight:800;cursor:pointer;line-height:1}
@@ -549,7 +565,7 @@ html[data-theme="dark"] .kind.map{background:#3a2e12;color:#f0d9a4}
       <span id="countPill" class="pill">0 registros</span>
     </div>
     <div class="actions">
-      <button class="btn ok" id="exportBtn" type="button">Compartir / Exportar Excel y fotos</button>
+      <button class="btn ok" id="exportBtn" type="button">Compartir / Exportar Excel y fotos…</button>
       <input id="importInput" type="file" accept=".csv,text/csv" multiple class="hidden">
       <button class="btn danger" id="deleteAllBtn" type="button">Borrar historial local</button>
     </div>
@@ -1661,7 +1677,7 @@ function crearEditorEstructuras(px,seccion){
     items.sort((p,q)=>String(p.t||"").localeCompare(String(q.t||""))||p.k-q.k);
     return {headers,rows:items.map(i=>i.row)};
   }
-  window.mapeoDB={all,del,clearAll,table,tramo,pad3,TIPOS,lecturasDe};
+  window.mapeoDB={all,del,clearAll,put,table,tramo,pad3,TIPOS,lecturasDe};
 })();
 </script>
 <script>
@@ -1684,7 +1700,7 @@ function crearEditorEstructuras(px,seccion){
     $("historyList").innerHTML=items.map(({k,x})=>{
       if(k==="rmr") return `<div class="history-item" role="button" tabindex="0" data-id="${esc(x.id)}" style="cursor:pointer">
         <span class="kind rmr">Evaluación RMR</span>
-        <div class="history-top"><div><b>${esc(x.labor||"Sin labor")}</b><div class="small">${esc(x.fecha)} · ${esc(x.nivel||"Sin nivel")} · ${esc(x.supervisor||"Sin supervisor")}</div><div class="saved-at">Guardado: ${esc(formatSavedAt(x.createdAt))}${x.updatedAt?` · Actualizado: ${esc(formatSavedAt(x.updatedAt))}`:""}</div>${x.imported?`<span class="import-badge">📥 Importado</span>`:""}${x.photos&&x.photos.length?`<span class="photo-badge">📷 ${x.photos.length} foto${x.photos.length===1?"":"s"}</span>`:""}${x.estructuras&&x.estructuras.length?`<span class="estr-badge">🧭 ${x.estructuras.length} estructura${x.estructuras.length===1?"":"s"}</span>`:""}</div>
+        <div class="history-top"><div><b>${esc(x.labor||"Sin labor")}</b><div class="small">${esc(x.fecha)} · ${esc(x.nivel||"Sin nivel")} · ${esc(x.supervisor||"Sin supervisor")}</div><div class="saved-at">Guardado: ${esc(formatSavedAt(x.createdAt))}${x.updatedAt?` · Actualizado: ${esc(formatSavedAt(x.updatedAt))}`:""}</div>${x.imported?`<span class="import-badge">📥 Importado</span>`:""}${x.photos&&x.photos.length?`<span class="photo-badge">📷 ${x.photos.length} foto${x.photos.length===1?"":"s"}</span>`:""}${x.estructuras&&x.estructuras.length?`<span class="estr-badge">🧭 ${x.estructuras.length} estructura${x.estructuras.length===1?"":"s"}</span>`:""}${x.enviadoAt?`<span class="sent-badge">✓ Exportado</span>`:""}</div>
         <span class="pill"><span class="rock-dot" style="background:${rockColor(x.rmrTotal)||"#fff"}"></span>RMR ${x.rmrTotal??"—"} · ${esc(x.tipoRoca||"")}</span></div>
         <div class="small" style="margin-top:7px">Toca para ver el detalle</div></div>`;
       return `<div class="history-item">
@@ -1692,7 +1708,7 @@ function crearEditorEstructuras(px,seccion){
         <div class="history-top"><div><b>${esc(x.labor||"Sin labor")} · ${esc(x.tipo)} ${esc(x.tipo==="O"&&x.otro?x.otro:x.tipoNombre)}</b>
         <div class="small">${esc(x.fecha||"")}${x.nivel?" · Nv "+esc(x.nivel):""}${x.geomecanico?" · "+esc(x.geomecanico):""} · ${M().tramo(x)}</div>
         ${x.observaciones?`<div class="small">${esc(x.observaciones)}</div>`:""}
-        <div class="saved-at">Guardado: ${esc(formatSavedAt(x.createdAt))}</div></div>
+        <div class="saved-at">Guardado: ${esc(formatSavedAt(x.createdAt))}</div>${x.enviadoAt?`<span class="sent-badge">✓ Exportado</span>`:""}</div>
         <span class="pill">${(L=>L.length>1?`${L.length} lecturas`:`Dip ${L[0].dip}° / Dir ${M().pad3(L[0].dipDir)}°`)(M().lecturasDe(x))}</span></div>
         ${(L=>L.length>1?`<div class="small" style="margin-top:4px"><b>Dip / Dip Dir:</b> ${L.map(l=>`${l.dip}° / ${M().pad3(l.dipDir)}°`).join(" · ")}</div>`:"")(M().lecturasDe(x))}
         <div class="actions" style="margin-top:6px"><button class="btn danger" data-mdel="${esc(x.id)}" type="button">Eliminar</button></div></div>`;
@@ -1781,9 +1797,9 @@ function crearEditorEstructuras(px,seccion){
     return zip(files);
   }
   window.buildWorkbook=workbook;
-  $("exportBtn").onclick=async()=>{
-    const r=await dbAll(); let m=[]; try{ m=await M().all(); }catch(e){}
-    if(!r.length&&!m.length){alert("No hay registros para compartir o exportar.");return;}
+  /* ---------- Compartir / exportar con selección ----------
+     Cada registro guarda «enviadoAt» cuando se exporta; por defecto se seleccionan los pendientes. */
+  async function construirArchivo(r,m){
     // filas en orden de registro: del más antiguo al más reciente
     const t1=rmrTable([...r].reverse()), t2=M().table([...m].reverse(),[...r].reverse());
     const xlsx=await workbook([
@@ -1794,13 +1810,76 @@ function crearEditorEstructuras(px,seccion){
     let blob=xlsx, filename=`${base}.xlsx`;
     if(t1.files.length){
       const files=[{name:`${base}.xlsx`,data:new Uint8Array(await xlsx.arrayBuffer())}];
-      t1.files.forEach(f=>{const m=/^data:image\/(jpeg|jpg|png);base64,(.*)$/i.exec(f.src||""); if(m) files.push({name:`fotos/${f.name}`,data:b64bytes(m[2])});});
+      t1.files.forEach(f=>{const mm=/^data:image\/(jpeg|jpg|png);base64,(.*)$/i.exec(f.src||""); if(mm) files.push({name:`fotos/${f.name}`,data:b64bytes(mm[2])});});
       blob=zip(files,"application/zip"); filename=`${base}.zip`;
     }
-    const file=new File([blob],filename,{type:blob.type});
-    try{ if(navigator.share&&(!navigator.canShare||navigator.canShare({files:[file]}))){ await navigator.share({title:"EBR Geomecánica",text:"Evaluaciones RMR y mapeo estructural exportados desde EBR Geomecánica.",files:[file]}); return; } }
-    catch(err){ if(err&&err.name==="AbortError") return; }
-    const url=URL.createObjectURL(blob), a=document.createElement("a"); a.href=url; a.download=filename; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),1000);
+    return new File([blob],filename,{type:blob.type});
+  }
+  async function marcarEnviados(r,m){
+    const ahora=new Date().toISOString();
+    for(const x of r){ x.enviadoAt=ahora; await dbAdd(x); }
+    for(const x of m){ x.enviadoAt=ahora; await M().put(x); }
+  }
+  const sel=document.createElement("div");
+  sel.className="sel-modal hidden"; sel.setAttribute("role","dialog"); sel.setAttribute("aria-modal","true");
+  sel.innerHTML=`<div class="sel-box">
+    <div class="sel-head"><b>Compartir / exportar</b><button type="button" class="pv-x" id="selClose" aria-label="Cerrar">×</button></div>
+    <div class="sel-quick"><button type="button" class="btn" data-q="pend">Pendientes</button><button type="button" class="btn" data-q="todos">Todos</button><button type="button" class="btn" data-q="nada">Ninguno</button></div>
+    <div class="sel-list" id="selList"></div>
+    <div class="sel-foot"><div class="small" id="selInfo"></div><button type="button" class="btn ok" id="selGo">Compartir</button></div>
+  </div>`;
+  document.body.appendChild(sel);
+  let regs=[], listoArchivo=null;
+  const fechaCorta=iso=>{try{const d=new Date(iso);return d.toLocaleString("es-PE",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit",hour12:false});}catch(_){return "";}};
+  function pintarSel(){
+    $("selList").innerHTML=regs.map((g,i)=>{
+      const x=g.x, est=x.enviadoAt?`<span class="sel-st ok">✓ Exportado ${esc(fechaCorta(x.enviadoAt))}</span>`:`<span class="sel-st pend">Pendiente</span>`;
+      const det=g.k==="rmr"
+        ?`RMR ${x.rmrTotal??"—"} · ${esc(x.tipoRoca||"")}${x.estructuras&&x.estructuras.length?` · 🧭 ${x.estructuras.length}`:""}${x.photos&&x.photos.length?` · 📷 ${x.photos.length}`:""}`
+        :`${esc(x.tipo)} ${esc(x.tipo==="O"&&x.otro?x.otro:x.tipoNombre)} · ${M().lecturasDe(x).length} lectura${M().lecturasDe(x).length===1?"":"s"}`;
+      return `<label class="sel-row"><input type="checkbox" data-i="${i}" ${g.on?"checked":""}>
+        <span class="sel-txt"><span class="kind ${g.k==="rmr"?"rmr":"map"}">${g.k==="rmr"?"RMR":"Mapeo"}</span> <b>${esc(x.labor||"Sin labor")}</b> · ${esc(x.fecha||"")}<br><span class="small">${det}</span><br>${est}</span></label>`;
+    }).join("")||`<div class="small" style="padding:14px">No hay registros guardados.</div>`;
+    $("selList").querySelectorAll("input[data-i]").forEach(c=>c.onchange=()=>{regs[+c.dataset.i].on=c.checked;resumen();});
+    resumen();
+  }
+  function resumen(){
+    listoArchivo=null;
+    const n=regs.filter(g=>g.on).length, nr=regs.filter(g=>g.on&&g.k==="rmr").length;
+    $("selInfo").textContent=`${n} seleccionado${n===1?"":"s"} (${nr} RMR · ${n-nr} mapeo) · ${regs.filter(g=>!g.x.enviadoAt).length} pendiente${regs.filter(g=>!g.x.enviadoAt).length===1?"":"s"} en total`;
+    $("selGo").disabled=!n; $("selGo").textContent=n?`📤 Compartir ${n} registro${n===1?"":"s"}`:"Selecciona registros";
+  }
+  sel.querySelectorAll("[data-q]").forEach(b=>b.onclick=()=>{ const q=b.dataset.q; regs.forEach(g=>g.on=q==="todos"?true:q==="nada"?false:!g.x.enviadoAt); pintarSel(); });
+  $("selClose").onclick=()=>{ sel.classList.add("hidden"); document.body.classList.remove("sk-lock"); };
+  $("exportBtn").onclick=async()=>{
+    const r=await dbAll(); let m=[]; try{ m=await M().all(); }catch(e){}
+    if(!r.length&&!m.length){alert("No hay registros para compartir o exportar.");return;}
+    regs=[...r.map(x=>({k:"rmr",x})),...m.map(x=>({k:"map",x}))].sort((a,b)=>String(b.x.createdAt||"").localeCompare(String(a.x.createdAt||"")));
+    regs.forEach(g=>g.on=!g.x.enviadoAt); // por defecto: lo que aún no se exportó
+    pintarSel(); sel.classList.remove("hidden"); document.body.classList.add("sk-lock");
+  };
+  $("selGo").onclick=async()=>{
+    const elegidos=regs.filter(g=>g.on), r=elegidos.filter(g=>g.k==="rmr").map(g=>g.x), m=elegidos.filter(g=>g.k==="map").map(g=>g.x);
+    if(!elegidos.length) return;
+    const btn=$("selGo");
+    try{
+      // si ya se preparó el archivo (segundo toque tras un bloqueo del sistema), se comparte de inmediato
+      const file=listoArchivo||await construirArchivo(r,m); listoArchivo=null;
+      let enviado=false;
+      try{
+        if(navigator.share&&(!navigator.canShare||navigator.canShare({files:[file]}))){ await navigator.share({title:"EBR Geomecánica",text:"Evaluaciones RMR y mapeo estructural exportados desde EBR Geomecánica.",files:[file]}); enviado=true; }
+      }catch(err){
+        if(err&&err.name==="AbortError") return;
+        if(err&&err.name==="NotAllowedError"){ listoArchivo=file; btn.textContent="📤 Toca de nuevo para compartir"; return; }
+      }
+      if(!enviado){ const url=URL.createObjectURL(file), a=document.createElement("a"); a.href=url; a.download=file.name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),1500); }
+      await marcarEnviados(r,m);
+      sel.classList.add("hidden"); document.body.classList.remove("sk-lock");
+      await renderHistory();
+      const msg=document.createElement("div"); msg.className="save-confirm";
+      msg.innerHTML=`<b>Exportado: ${elegidos.length} registro${elegidos.length===1?"":"s"}</b><span>${esc(file.name)} · quedaron marcados como exportados.</span>`;
+      document.querySelectorAll(".save-confirm:not(#mSaved)").forEach(el=>el.remove()); $("historyMain").prepend(msg); setTimeout(()=>{ if(msg.isConnected) msg.remove(); },6000);
+    }catch(err){ console.error(err); alert("No se pudo exportar. Detalle: "+(err?.message||String(err))); }
   };
   $("deleteAllBtn").onclick=async()=>{
     if(!confirm("¿Borrar todo el historial local de este dispositivo? Se eliminarán las evaluaciones RMR y el mapeo estructural.")) return;
