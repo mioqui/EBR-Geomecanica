@@ -478,8 +478,8 @@ html[data-theme="dark"] .kind.map{background:#3a2e12;color:#f0d9a4}
   </div>
 
   <div class="card">
-    <h2>5. Observaciones</h2>
-    <div class="field"><label>Observaciones de campo</label><textarea id="observaciones" placeholder="Fallas, fracturas, condición local, comentarios…"></textarea>
+    <h2>5. Observaciones geomecánicas</h2>
+    <div class="field"><label>Observaciones geomecánicas</label><textarea id="observaciones" placeholder="Fallas, fracturas, condición local, comentarios…"></textarea>
       <div class="actions" style="margin-top:8px"><button class="btn" id="dictateBtn" type="button">🎙️ Dictar observación</button></div>
       <div id="dictateStatus" class="help">Dictado directo de la app. También puedes usar el micrófono del teclado.</div>
     </div>
@@ -554,7 +554,7 @@ html[data-theme="dark"] .kind.map{background:#3a2e12;color:#f0d9a4}
     <div id="detailSketches"></div>
     <h3>Fotografías de campo</h3>
     <div id="detailPhotos" class="photo-grid"></div>
-    <h3>Observaciones</h3>
+    <h3>Observaciones geomecánicas</h3>
     <div id="detailObs" class="trace"></div>
     <div class="actions">
       <button class="btn primary" id="editHistoryBtn" type="button">Modificar</button>
@@ -1016,30 +1016,30 @@ const obsField=$("observaciones");
 obsField.addEventListener("change",applyGeoCorrection);
 obsField.addEventListener("blur",applyGeoCorrection);
 
+// Datos de prueba: cada toque alterna entre dos ejemplos (fecha del día).
+let ejemploPrueba=0;
 function preloadRealTestData(){
-  // Caso real tomado del Control Operativo Geomecánica del 22/08/2026:
-  // Zona Profunda, Nivel 3960, Block 7998, Labor GL665S, RMR reportado 45 (IIIB).
-  $("fecha").value="2026-08-22";
-  $("turno").value="Día";
-  $("nivel").value="3960";
-  $("block").value="7998";
-  $("labor").value="GL665S";
-  $("condicionLabor").value="Temporal";
-  $("supervisor").value="GEOMECÁNICA";
-  // Parámetros de prueba coherentes con RMR básico 50; ajuste Regular (-5) => RMR total 45.
-  $("resistencia").value="7";
-  $("rqd").value="13";
-  $("espaciamiento").value="10";
-  $("apertura").value="4";
-  $("rugosidad").value="3";
-  $("relleno").value="4";
-  $("persistencia").value="4";
-  $("alteracion").value="5";
-  $("agua").value="0";
-  $("buzamiento").value="0-20";
-  orientation();
-  $("observaciones").value="Caso de prueba: SLOT. Registro de referencia del Control Operativo Geomecánica 22/08/2026.";
+  const EJ=[
+    { // Ejemplo 1 · Regular B (III-B): RMR básico 50, ajuste Regular (−5) => RMR 45
+      turno:"Día",nivel:"3960",block:"7998",labor:"GL665S",tipo:"Temporal",
+      p:{resistencia:"7",rqd:"13",espaciamiento:"10",apertura:"4",rugosidad:"3",relleno:"4",persistencia:"4",alteracion:"5",agua:"0"},
+      buz:"0-20",rumbo:"",sentido:"",
+      obs:"Caso de prueba 1: roca Regular B (III-B)."},
+    { // Ejemplo 2 · Mala (IV-A1): RMR básico 39, ajuste Regular (−5) => RMR 34
+      turno:"Noche",nivel:"3912",block:"8760",labor:"GL8760",tipo:"Permanente",
+      p:{resistencia:"4",rqd:"8",espaciamiento:"8",apertura:"1",rugosidad:"1",relleno:"2",persistencia:"2",alteracion:"3",agua:"10"},
+      buz:"45-90",rumbo:"perpendicular",sentido:"contra",
+      obs:"Caso de prueba 2: roca Mala (IV-A1)."}
+  ];
+  const e=EJ[ejemploPrueba%EJ.length]; ejemploPrueba++;
+  $("fecha").value=today();
+  $("turno").value=e.turno; $("nivel").value=e.nivel; $("block").value=e.block; $("labor").value=e.labor;
+  $("condicionLabor").value=e.tipo; $("supervisor").value="KEVIN ALVAREZ";
+  Object.entries(e.p).forEach(([id,v])=>{$(id).value=v;});
+  $("buzamiento").value=e.buz; orientation(); $("rumbo").value=e.rumbo; orientation(); $("sentido").value=e.sentido; orientation();
+  $("observaciones").value=e.obs;
   currentPhotos=[]; renderPhotoPreview(); recalc();
+  $("preloadBtn").textContent=`Precargar datos de prueba (siguiente: ejemplo ${ejemploPrueba%EJ.length+1})`;
   window.scrollTo({top:0,behavior:"smooth"});
 }
 $("preloadBtn").onclick=preloadRealTestData;
@@ -1272,7 +1272,7 @@ function rmrTable(a){
     "Resistencia de la roca intacta","RQD","Espaciamiento","Apertura","Rugosidad","Relleno","Persistencia","Alteración","Agua subterránea","RMR básico",
     "Rango de buzamiento","Rumbo respecto al eje","Sentido de excavación","Categoría ajuste","Ajuste orientación","RMR total","Tipo de roca",
     "Sostenimiento","Sostenimiento de sacrificio","Restricción","Nota por agua",
-    "Observaciones","N° estructuras","Croquis","Representación estructural","N° fotos","Fotos","Guardado","Actualizado","ID"];
+    "Observaciones geomecánicas","N° estructuras","Croquis","Representación estructural","N° fotos","Fotos","Guardado","Actualizado","ID"];
   const photos=[], files=[];
   const rows=a.map((x,ri)=>{
     const P=x.params||{}, L=k=>P[k]?.label||"";
@@ -1535,7 +1535,7 @@ recalc();renderHistory();
   let muestra=0;
   $m("mPreloadBtn").addEventListener("click",()=>{
     const m=MUESTRAS[muestra++%MUESTRAS.length];
-    $m("mFecha").value=today(); $m("mTurno").value="Día"; $m("mNivel").value="3960"; $m("mBlock").value="7998"; $m("mLabor").value="GL665S"; $m("mGeo").value="GEOMECÁNICA";
+    $m("mFecha").value=today(); $m("mTurno").value="Día"; $m("mNivel").value="3960"; $m("mBlock").value="7998"; $m("mLabor").value="GL665S"; $m("mGeo").value="KEVIN ALVAREZ";
     $m("mTipo").value=m.t; $m("mOtroWrap").classList.add("hidden"); $m("mOtro").value="";
     $m("mDip").value=m.dip; $m("mDipDir").value=m.dd; $m("mDesde").value=m.d; $m("mHasta").value=m.h;
     $m("mPers").selectedIndex=m.p; $m("mRug").selectedIndex=m.r; $m("mRell").selectedIndex=m.f; $m("mObs").value=m.o;
@@ -1699,7 +1699,7 @@ recalc();renderHistory();
     // filas en orden de registro: del más antiguo al más reciente
     const t1=rmrTable([...r].reverse()), t2=M().table([...m].reverse(),[...r].reverse());
     const xlsx=await workbook([
-      {name:"RMR",headers:t1.headers,rows:t1.rows,photos:t1.photos,photoCols:t1.photoCols,wide:["Observaciones","Sostenimiento","Sostenimiento de sacrificio","Restricción","Nota por agua"]},
+      {name:"RMR",headers:t1.headers,rows:t1.rows,photos:t1.photos,photoCols:t1.photoCols,wide:["Observaciones geomecánicas","Sostenimiento","Sostenimiento de sacrificio","Restricción","Nota por agua"]},
       {name:"Mapeo estructural",headers:t2.headers,rows:t2.rows,wide:["Observaciones"]}
     ]);
     const base=`Geomecanica_${today()}`;
@@ -2074,6 +2074,7 @@ function drawDataOver(cv,x){
   writeLines(cv,x.observaciones||"",50,53);
   const ind=[];
   if(x.sostPrincipal)ind.push(`Sostenimiento${x.sostTipoLabor?" ("+x.sostTipoLabor+")":""}: ${x.sostPrincipal}`);
+  if(x.sostSacrificio)ind.push(`Sostenimiento de sacrificio: ${x.sostSacrificio}`);
   if(x.sostRestriccion)ind.push(`Restricción: ${x.sostRestriccion}`);
   if(x.sostNotaAgua)ind.push(`Nota por agua: ${x.sostNotaAgua}`);
   writeLines(cv,ind.join("\n"),55,58);
