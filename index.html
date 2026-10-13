@@ -24,7 +24,7 @@ html,body{margin:0;padding:0;max-width:100%;overflow-x:hidden;background:var(--b
   font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif}
 button,input,select,textarea{font:inherit}
 button,input,select,textarea{max-width:100%;min-width:0}
-.app{width:min(980px,100%);margin:0 auto;padding:12px 12px 28px}
+.app{width:min(980px,100%);margin:0 auto;padding:12px 12px calc(120px + env(safe-area-inset-bottom))}
 header{background:linear-gradient(135deg,var(--brand),var(--brand2));color:white;border-radius:18px;padding:18px;
   box-shadow:var(--shadow);margin-bottom:12px}
 header h1{font-size:min(1.25rem,calc((100vw - 54px) * .058));margin:0 0 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -124,6 +124,26 @@ html[data-theme="dark"] .sk-state{color:#9fb2bd}
 .photo-pick{display:flex;gap:8px;flex-wrap:wrap;margin:4px 0 2px}.photo-pick .btn{width:auto;flex:1 1 140px;text-align:center}
 .vh{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;pointer-events:none}
 .preload-sel{width:auto;max-width:60%;padding:9px 10px;border-radius:11px;font-weight:700;font-size:.85rem}
+.pv-modal{position:fixed;inset:0;z-index:1000;background:#1d2b33;display:flex;flex-direction:column;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+.pv-modal.hidden{display:none}
+.pv-top{display:flex;align-items:center;gap:10px;color:#fff;padding:10px 12px}.pv-top b{font-size:1rem}.pv-sub{color:#b9cad3;font-size:.8rem;flex:1}
+.pv-x{border:0;background:#fff;color:#111;width:38px;height:38px;border-radius:999px;font-size:24px;line-height:1;cursor:pointer}
+.pv-fotos{color:#e6eef2;font-size:.85rem;padding:0 12px 6px;display:flex;gap:8px;align-items:center}
+.pv-pages{flex:1;min-height:0;overflow:auto;padding:6px 10px;display:flex;flex-direction:column;gap:10px;align-items:center;-webkit-overflow-scrolling:touch}
+.pv-page{width:100%;max-width:820px;height:auto;background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.4);cursor:zoom-in}
+.pv-pages.zoom{align-items:flex-start}.pv-pages.zoom .pv-page{width:220%;max-width:none;cursor:zoom-out}
+.pv-msg{color:#fff;padding:30px;text-align:center}
+.pv-hint{color:#9fb2bd;font-size:.75rem;text-align:center;padding:2px}
+.pv-bottom{display:flex;gap:8px;padding:8px 10px calc(10px + env(safe-area-inset-bottom))}.pv-bottom .btn{flex:1;width:auto}
+#printArea{display:none}
+@media print{
+  @page{size:A4 portrait;margin:0}
+  body.imprimiendo > *:not(#printArea){display:none!important}
+  body.imprimiendo{background:#fff!important;margin:0;padding:0}
+  body.imprimiendo #printArea{display:block}
+  #printArea img{display:block;width:210mm;height:297mm;page-break-after:always;break-after:page}
+  #printArea img:last-child{page-break-after:auto;break-after:auto}
+}
 .lect-list{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 8px}
 .lect-chip{display:inline-flex;align-items:center;gap:6px;padding:5px 6px 5px 10px;border-radius:999px;background:#e8eef1;color:#203b4b;font-weight:700;font-size:.85rem}
 .lect-chip button{border:0;background:#cfdbe2;color:#203b4b;border-radius:999px;width:24px;height:24px;font-weight:800;cursor:pointer;line-height:1}
@@ -545,7 +565,7 @@ html[data-theme="dark"] .kind.map{background:#3a2e12;color:#f0d9a4}
       <button class="btn" id="backHistoryBtn" type="button">← Historial</button>
     </div>
     <div class="ind-pdf">
-      <button class="btn ok" id="indPdfBtn" type="button">🖨️ Indicación geomecánica · PDF A4</button>
+      <button class="btn ok" id="indPdfBtn" type="button">🖨️ Indicación geomecánica · ver / imprimir</button>
       <div class="small">Formato F-EBR-GM-01.02 con los datos de esta evaluación. Imprímelo, completa a mano lo faltante (riesgo, progresiva, croquis…) y firma para dejarlo en el tablero de la labor.</div>
     </div>
     <div class="scoregrid" style="margin-top:14px">
@@ -1075,7 +1095,7 @@ async function saveEval(){
     document.querySelectorAll(".save-confirm:not(#mSaved)").forEach(el=>el.remove());
     const msg=document.createElement("div");
     msg.className="save-confirm";
-    msg.innerHTML=`<b>${wasEditing?"Evaluación actualizada":"Evaluación guardada correctamente"}</b><span>${formatSavedAt(wasEditing?x.updatedAt:x.createdAt)} · Registro disponible en el Historial.</span><button class="btn ok" type="button">🖨️ Generar indicación PDF A4</button>`;
+    msg.innerHTML=`<b>${wasEditing?"Evaluación actualizada":"Evaluación guardada correctamente"}</b><span>${formatSavedAt(wasEditing?x.updatedAt:x.createdAt)} · Registro disponible en el Historial.</span><button class="btn ok" type="button">🖨️ Ver / imprimir indicación</button>`;
     msg.querySelector("button").onclick=()=>window.generarIndicacion(x.id);
     $("historyMain").prepend(msg);
     setTimeout(()=>{ if(msg.isConnected) msg.remove(); },20000);
@@ -1087,6 +1107,21 @@ async function saveEval(){
 }
 
 $("saveEvalBtn").addEventListener("click",saveEval);
+/* Toque confiable: si el teclado está abierto, el primer toque lo cierra y la pantalla se reacomoda;
+   el «click» puede caer fuera del botón. Se captura el dedo en el botón y se ejecuta al soltar. */
+function toqueSeguro(btn){
+  if(!btn) return;
+  let ini=null, hecho=0;
+  btn.addEventListener("pointerdown",e=>{ if(e.pointerType==="mouse") return; ini={x:e.clientX,y:e.clientY,id:e.pointerId}; try{btn.setPointerCapture(e.pointerId);}catch(_){} });
+  btn.addEventListener("pointerup",e=>{
+    if(!ini||e.pointerId!==ini.id) return; const d=Math.hypot(e.clientX-ini.x,e.clientY-ini.y); ini=null;
+    if(d<14&&!btn.disabled){ hecho=Date.now(); btn.click(); }
+  });
+  btn.addEventListener("pointercancel",()=>{ini=null;});
+  // evitar doble ejecución: el click nativo que llega justo después se ignora
+  btn.addEventListener("click",e=>{ if(e.isTrusted&&Date.now()-hecho<700){ e.stopImmediatePropagation(); e.preventDefault(); } },true);
+}
+toqueSeguro($("saveEvalBtn"));
 $("cancelEditBtn").addEventListener("click",()=>{
   editingId=null;
   $("saveEvalBtn").textContent="Guardar evaluación";
@@ -1604,6 +1639,7 @@ function crearEditorEstructuras(px,seccion){
     setTimeout(()=>{ if(msg.isConnected) msg.remove(); },5000);
     window.scrollTo({top:0,behavior:"smooth"});
   });
+  if(typeof toqueSeguro==="function") toqueSeguro($m("mSaveBtn"));
   $m("mPreloadBtn").addEventListener("click",()=>{
     $m("mFecha").value=today(); $m("mTurno").value="Día"; $m("mNivel").value="3960"; $m("mBlock").value="7998"; $m("mLabor").value="GL665S"; $m("mGeo").value="MILTON O.";
     editor.precargar(); $m("mSaveError").textContent="";
@@ -2130,7 +2166,7 @@ function areas(){
   out.croquis.norte={x:(nx-cb.x)/cb.w,y:(ny-ctop)/cb.h,w:ns/cb.w,h:ns/cb.h};
   return out;
 }
-function generar(x,opts){
+function preparar(x,opts){
   opts=opts||{};
   const images={};
   const lb=b64bytes(LOGO_B64), nb=b64bytes(NORTE_B64);
@@ -2163,9 +2199,96 @@ function generar(x,opts){
     }
     pages.push({ops:pc.ops,images:names});
   }
-  return buildPDF(pages,images);
+  return {pages,images};
 }
-window.indicacionPDF={generar,areas:areas(),norteSrc:"data:image/jpeg;base64,"+NORTE_B64};
+function generar(x,opts){ const d=preparar(x,opts); return buildPDF(d.pages,d.images); }
+
+/* ---------- vista previa: dibuja las mismas instrucciones del PDF en un <canvas> ----------
+   Permite ver e imprimir la indicación dentro de la app, sin abrir un lector de PDF externo. */
+const ANSI_INV={}; Object.entries(SPECIAL).forEach(([ch,c])=>{ANSI_INV[c]=ch;});
+const deAnsi=s=>{let o="";for(let i=0;i<s.length;i++){const c=s.charCodeAt(i);o+=ANSI_INV[c]||s[i];}return o;};
+function tokens(src){
+  const out=[];let i=0;const n=src.length;
+  while(i<n){
+    const ch=src[i];
+    if(ch===" "||ch==="\n"||ch==="\r"||ch==="\t"){i++;continue;}
+    if(ch==="("){ // cadena con escapes \\ \( \)
+      let d=1,s="";i++;
+      while(i<n&&d>0){const c=src[i];
+        if(c==="\\"){s+=src[i+1];i+=2;continue;}
+        if(c==="(")d++; else if(c===")"){d--; if(d===0){i++;break;}}
+        s+=c;i++;}
+      out.push({s});continue;
+    }
+    let j=i;while(j<n&&!" \n\r\t()".includes(src[j]))j++;
+    const t=src.slice(i,j);i=j;
+    if(/^-?[\d.]+$/.test(t))out.push(+t); else if(t[0]==="/")out.push({name:t.slice(1)}); else out.push({op:t});
+  }
+  return out;
+}
+async function cargarImagenes(images){
+  const m={};
+  await Promise.all(Object.entries(images).map(([k,im])=>new Promise(res=>{
+    const url=URL.createObjectURL(new Blob([im.bytes],{type:"image/jpeg"}));
+    const img=new Image(); img.onload=()=>{m[k]=img;res();}; img.onerror=()=>res(); img.src=url;
+  })));
+  return m;
+}
+function pintarPagina(ctx,page,imgs,k){
+  const st=[];let fill="#000",stroke="#000",lw=1,font="F1",size=10,tz=100,path=false,clip=false;
+  const col=(r,g,b)=>`rgb(${Math.round(r*255)},${Math.round(g*255)},${Math.round(b*255)})`;
+  ctx.save(); ctx.setTransform(k,0,0,-k,0,PH*k); ctx.fillStyle="#fff"; ctx.fillRect(0,0,PW,PH);
+  ctx.lineCap="butt"; ctx.lineJoin="miter";
+  const T=tokens(page.ops.join("\n")); let a=[];
+  for(const t of T){
+    if(typeof t==="number"||t.s!==undefined||t.name!==undefined){a.push(t);continue;}
+    const op=t.op;
+    switch(op){
+      case "q": ctx.save(); st.push({fill,stroke,lw,font,size,tz}); break;
+      case "Q": { ctx.restore(); const g=st.pop(); if(g){fill=g.fill;stroke=g.stroke;lw=g.lw;font=g.font;size=g.size;tz=g.tz;} break; }
+      case "cm": ctx.transform(a[0],a[1],a[2],a[3],a[4],a[5]); break;
+      case "rg": fill=col(a[0],a[1],a[2]); break;
+      case "RG": stroke=col(a[0],a[1],a[2]); break;
+      case "w": lw=a[0]; break;
+      case "J": ctx.lineCap=["butt","round","square"][a[0]]||"butt"; break;
+      case "j": ctx.lineJoin=["miter","round","bevel"][a[0]]||"miter"; break;
+      case "re": if(!path){ctx.beginPath();path=true;} ctx.rect(a[0],a[1],a[2],a[3]); break;
+      case "m": if(!path){ctx.beginPath();path=true;} ctx.moveTo(a[0],a[1]); break;
+      case "l": ctx.lineTo(a[0],a[1]); break;
+      case "c": ctx.bezierCurveTo(a[0],a[1],a[2],a[3],a[4],a[5]); break;
+      case "f": ctx.fillStyle=fill; ctx.fill(); path=false; break;
+      case "S": ctx.strokeStyle=stroke; ctx.lineWidth=lw; ctx.stroke(); path=false; break;
+      case "W": clip=true; break;
+      case "n": if(clip) ctx.clip(); clip=false; path=false; break;
+      case "Tf": font=a[0].name; size=a[1]; break;
+      case "Tz": tz=a[0]; break;
+      case "Tm": ctx.__tm=a.slice(0,6); break;
+      case "Td": ctx.__tm=[1,0,0,1,a[0],a[1]]; break;
+      case "Tj": {
+        const raw=a[0].s, txt=deAnsi(raw), m=ctx.__tm||[1,0,0,1,0,0];
+        ctx.save(); ctx.transform(m[0],m[1],m[2],m[3],m[4],m[5]);
+        const bold=font==="F2";
+        ctx.font=`${bold?"700 ":""}${size}px Helvetica, Arial, "Liberation Sans", Roboto, sans-serif`;
+        // ancho exacto como en el PDF (métricas Helvetica × Tz), ajustando la letra disponible del equipo
+        const wPdf=tw(raw,size,bold,tz), wCan=ctx.measureText(txt).width||1;
+        ctx.scale(wPdf/wCan,-1); ctx.fillStyle=fill; ctx.fillText(txt,0,0);
+        ctx.restore(); break; }
+      case "Do": { const im=imgs[a[0].name]; if(im){ ctx.save(); ctx.scale(1,-1); ctx.drawImage(im,0,-1,1,1); ctx.restore(); } break; }
+      case "BT": case "ET": break;
+    }
+    a=[];
+  }
+  ctx.restore();
+}
+// Devuelve un <canvas> por página, con «ppp» puntos por pulgada (pantalla ≈ 110–150, impresión ≈ 200)
+async function vistaPrevia(x,opts,ppp){
+  const d=preparar(x,opts), imgs=await cargarImagenes(d.images), k=(ppp||150)/72;
+  return d.pages.map(pg=>{
+    const c=document.createElement("canvas"); c.width=Math.round(PW*k); c.height=Math.round(PH*k);
+    pintarPagina(c.getContext("2d"),pg,imgs,k); return c;
+  });
+}
+window.indicacionPDF={generar,vistaPrevia,areas:areas(),norteSrc:"data:image/jpeg;base64,"+NORTE_B64};
 })();
 
 (function(){
@@ -2176,15 +2299,58 @@ window.indicacionPDF={generar,areas:areas(),norteSrc:"data:image/jpeg;base64,"+N
     catch(err){ if(err&&err.name==="AbortError") return; }
     const url=URL.createObjectURL(blob), a=document.createElement("a"); a.href=url; a.download=filename; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),4000);
   }
+  /* --- Vista previa dentro de la app: no depende de un lector de PDF externo --- */
+  const modal=document.createElement("div");
+  modal.className="pv-modal hidden"; modal.setAttribute("role","dialog"); modal.setAttribute("aria-modal","true");
+  modal.innerHTML=`<div class="pv-top"><b>Indicación geomecánica</b><span class="pv-sub" id="pvSub"></span><button type="button" class="pv-x" id="pvClose" aria-label="Cerrar">×</button></div>
+    <label class="pv-fotos hidden" id="pvFotosWrap"><input type="checkbox" id="pvFotos"> Incluir anexo fotográfico <span id="pvFotosN"></span></label>
+    <div class="pv-pages" id="pvPages"><div class="pv-msg">Generando…</div></div>
+    <div class="pv-hint">Toca la hoja para acercar o alejar.</div>
+    <div class="pv-bottom"><button type="button" class="btn primary" id="pvPrint">🖨️ Imprimir</button><button type="button" class="btn" id="pvShare">📤 Compartir / guardar PDF</button></div>`;
+  document.body.appendChild(modal);
+  const area=document.createElement("div"); area.id="printArea"; document.body.appendChild(area);
+  let actual=null;
+  const opciones=()=>({fotos:$("pvFotos").checked});
+  async function pintar(){
+    const cont=$("pvPages"); cont.innerHTML=`<div class="pv-msg">Generando…</div>`;
+    const dpr=Math.min(window.devicePixelRatio||1,3), ppp=Math.max(110,Math.min(190,(Math.min(window.innerWidth,900)*dpr)/8.27*1.4));
+    const hojas=await window.indicacionPDF.vistaPrevia(actual,opciones(),ppp);
+    cont.innerHTML="";
+    hojas.forEach((c,i)=>{ c.className="pv-page"; c.setAttribute("aria-label",`Hoja ${i+1}`); c.onclick=()=>cont.classList.toggle("zoom"); cont.appendChild(c); });
+    $("pvSub").textContent=`${actual.labor||""} · ${hojas.length} hoja${hojas.length===1?"":"s"}`;
+  }
+  async function abrir(x){
+    actual=x;
+    const nf=(x.photos||[]).length;
+    $("pvFotosWrap").classList.toggle("hidden",!nf); $("pvFotos").checked=false; $("pvFotosN").textContent=nf?`(${nf} foto${nf===1?"":"s"})`:"";
+    $("pvPages").classList.remove("zoom");
+    modal.classList.remove("hidden"); document.body.classList.add("sk-lock");
+    try{ await pintar(); }catch(err){ console.error(err); $("pvPages").innerHTML=`<div class="pv-msg">No se pudo generar la vista previa: ${esc(err.message||err)}</div>`; }
+  }
+  function cerrar(){ modal.classList.add("hidden"); document.body.classList.remove("sk-lock"); $("pvPages").innerHTML=""; actual=null; }
+  $("pvClose").onclick=cerrar;
+  $("pvFotos").onchange=()=>pintar();
+  $("pvShare").onclick=async()=>{ if(!actual) return; try{ const blob=window.indicacionPDF.generar(actual,opciones()); await entregar(blob,`Indicacion_${safe(actual.labor)||"labor"}_${actual.fecha||""}.pdf`);}catch(err){ alert("No se pudo generar el PDF. Detalle: "+(err?.message||String(err))); } };
+  // Imprimir desde la app: hojas a 200 ppp en tamaño A4 exacto, con el diálogo de impresión del sistema
+  $("pvPrint").onclick=async()=>{
+    if(!actual) return;
+    const btn=$("pvPrint"); btn.disabled=true; btn.textContent="Preparando…";
+    try{
+      const hojas=await window.indicacionPDF.vistaPrevia(actual,opciones(),200);
+      area.innerHTML=""; hojas.forEach(c=>{ const im=new Image(); im.src=c.toDataURL("image/png"); area.appendChild(im); });
+      await Promise.all([...area.querySelectorAll("img")].map(im=>im.decode?im.decode().catch(()=>{}):null));
+      document.body.classList.add("imprimiendo");
+      window.print();
+    }catch(err){ alert("No se pudo preparar la impresión. Usa «Compartir / guardar PDF». Detalle: "+(err?.message||String(err))); }
+    finally{ btn.disabled=false; btn.textContent="🖨️ Imprimir"; }
+  };
+  window.addEventListener("afterprint",()=>{ document.body.classList.remove("imprimiendo"); area.innerHTML=""; });
   window.generarIndicacion=async function(id){
     try{
       const x=(await dbAll()).find(r=>String(r.id)===String(id));
       if(!x){ alert("No se encontró la evaluación."); return; }
-      let fotos=false;
-      if(x.photos&&x.photos.length) fotos=confirm(`La evaluación tiene ${x.photos.length} foto${x.photos.length===1?"":"s"}.\n\n¿Agregar anexo fotográfico (páginas adicionales)?\n\nAceptar = incluir fotos · Cancelar = solo la hoja A4 del formato`);
-      const blob=window.indicacionPDF.generar(x,{fotos});
-      await entregar(blob,`Indicacion_${safe(x.labor)||"labor"}_${x.fecha||""}.pdf`);
-    }catch(err){ console.error(err); alert("No se pudo generar el PDF. Detalle: "+(err?.message||String(err))); }
+      await abrir(x);
+    }catch(err){ console.error(err); alert("No se pudo generar la indicación. Detalle: "+(err?.message||String(err))); }
   };
   const b=document.getElementById("indPdfBtn");
   if(b) b.addEventListener("click",()=>{ if(detailId) window.generarIndicacion(detailId); });
