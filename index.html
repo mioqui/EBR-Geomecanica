@@ -1034,7 +1034,7 @@ function preloadRealTestData(){
   const e=EJ[ejemploPrueba%EJ.length]; ejemploPrueba++;
   $("fecha").value=today();
   $("turno").value=e.turno; $("nivel").value=e.nivel; $("block").value=e.block; $("labor").value=e.labor;
-  $("condicionLabor").value=e.tipo; $("supervisor").value="KEVIN ALVAREZ";
+  $("condicionLabor").value=e.tipo; $("supervisor").value="MILTON O.";
   Object.entries(e.p).forEach(([id,v])=>{$(id).value=v;});
   $("buzamiento").value=e.buz; orientation(); $("rumbo").value=e.rumbo; orientation(); $("sentido").value=e.sentido; orientation();
   $("observaciones").value=e.obs;
@@ -1535,7 +1535,7 @@ recalc();renderHistory();
   let muestra=0;
   $m("mPreloadBtn").addEventListener("click",()=>{
     const m=MUESTRAS[muestra++%MUESTRAS.length];
-    $m("mFecha").value=today(); $m("mTurno").value="Día"; $m("mNivel").value="3960"; $m("mBlock").value="7998"; $m("mLabor").value="GL665S"; $m("mGeo").value="KEVIN ALVAREZ";
+    $m("mFecha").value=today(); $m("mTurno").value="Día"; $m("mNivel").value="3960"; $m("mBlock").value="7998"; $m("mLabor").value="GL665S"; $m("mGeo").value="MILTON O.";
     $m("mTipo").value=m.t; $m("mOtroWrap").classList.add("hidden"); $m("mOtro").value="";
     $m("mDip").value=m.dip; $m("mDipDir").value=m.dd; $m("mDesde").value=m.d; $m("mHasta").value=m.h;
     $m("mPers").selectedIndex=m.p; $m("mRug").selectedIndex=m.r; $m("mRell").selectedIndex=m.f; $m("mObs").value=m.o;
