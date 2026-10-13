@@ -397,7 +397,13 @@ html[data-theme="dark"] .kind.map{background:#3a2e12;color:#f0d9a4}
       <div class="field"><label>Labor</label><input id="labor" autocomplete="off" placeholder="Ej. GL765N"></div>
       <div class="field full"><label for="condicionLabor">Tipo de labor</label><select id="condicionLabor"><option value="">Seleccionar…</option><option value="Permanente">Avance permanente (&gt; 1 año)</option><option value="Temporal">Avance temporal (≤ 1 año)</option><option value="Interseccion permanente">Intersección permanente (RC 10)</option><option value="Interseccion temporal">Intersección temporal (RC 6)</option><option value="Explotacion">Explotación: tajo de perforación positiva (ancho &gt; 6 m)</option></select></div>
       <div class="field full"><label>Supervisor / Geomecánico</label><input id="supervisor" autocomplete="off"></div>
-      <div class="field full"><label for="litologia">Litología</label><input id="litologia" autocomplete="off" placeholder="Ej. arenisca, caliza, brecha…"></div>
+      <div class="field"><label for="litologia">Litología</label><input id="litologia" list="litoLista" autocomplete="off" placeholder="Ej. CONGS, DAPO…">
+        <datalist id="litoLista"><option value="LITO"><option value="PIRO"><option value="DAPO"><option value="CSUP"><option value="CMVAR"><option value="CMFAV"><option value="CINF"><option value="CONGT"><option value="CONGS"><option value="MITU"></datalist></div>
+      <div class="field"><label for="riesgo">Nivel de riesgo</label><select id="riesgo"><option value="">Seleccionar…</option><option>BAJO</option><option>MEDIO</option><option>ALTO</option></select></div>
+      <div class="field"><label for="seccion">Sección de la labor</label><input id="seccion" list="seccLista" autocomplete="off" placeholder="Ej. 4.5 x 4.5">
+        <datalist id="seccLista"><option value="3.9 x 3.7"><option value="4.0 x 4.0"><option value="4.0 x 4.5"><option value="4.5 x 4.5"><option value="5.0 x 4.5"><option value="5.0 x 5.0"><option value="6.0 x 6.5"></datalist></div>
+      <div class="field"><label for="azimut">Azimut de la labor (°)</label><input id="azimut" type="text" inputmode="numeric" autocomplete="off" placeholder="0–360"></div>
+      <div class="field full"><label for="refTopo">Referencia topográfica</label><input id="refTopo" autocomplete="off" placeholder="Ej. V22 + 20.73m, C32 + 5m"></div>
     </div>
     <h3>Coordenadas UTM del punto evaluado</h3>
     <div class="grid grid3">
@@ -1075,7 +1081,8 @@ function collect(){
     updatedAt:null,
     fecha:$("fecha").value,turno:$("turno").value,nivel:$("nivel").value.trim().toUpperCase(),block:$("block").value.trim().toUpperCase(),
     labor:$("labor").value.trim().toUpperCase(),condicionLabor:$("condicionLabor").value,supervisor:$("supervisor").value.trim().toUpperCase(),
-    empresa:window.ebrEmpresa?window.ebrEmpresa():"smeb",litologia:$("litologia").value.trim(),
+    empresa:window.ebrEmpresa?window.ebrEmpresa():"smeb",litologia:$("litologia").value.trim().toUpperCase(),
+    riesgo:$("riesgo").value,seccion:$("seccion").value.trim().replace(/\s*[xX×]\s*/," x "),azimut:numTxt($("azimut").value),refTopo:$("refTopo").value.trim(),
     coordX:numTxt($("coordX").value),coordY:numTxt($("coordY").value),coordZ:numTxt($("coordZ").value),ph:phValor(),
     params,buzamiento:$("buzamiento").value,rumbo:$("rumbo").value,sentido:$("sentido").value,
     ajusteCategoria:calc.orientation.cat,ajuste:calc.orientation.adj,trazabilidad:calc.orientation.trace,
@@ -1200,7 +1207,7 @@ async function showHistoryDetail(id){
     $("detailTotal").textContent=x.rmrTotal??"—";
     $("detailRock").textContent=x.tipoRoca||"—";
     applyRockColor("detailRockCard",x.rmrTotal);
-    $("detailIdentification").innerHTML=`<strong>Labor:</strong> ${esc(x.labor||"—")}<br><strong>Nivel:</strong> ${esc(x.nivel||"—")} · <strong>Block:</strong> ${esc(x.block||"—")}<br><strong>Turno:</strong> ${esc(x.turno||"—")} · <strong>Tipo de labor:</strong> ${esc(TIPOS_LABOR[x.condicionLabor]||x.condicionLabor||"—")}<br><strong>Supervisor / Geomecánico:</strong> ${esc(x.supervisor||"—")}<br><strong>Formato:</strong> ${esc((window.ebrPerfilNombre&&window.ebrPerfilNombre(x.empresa))||"Brocal (SMEB)")}${x.litologia?`<br><strong>Litología:</strong> ${esc(x.litologia)}`:""}${(x.coordX||x.coordY||x.coordZ)?`<br><strong>Coordenadas UTM:</strong> X ${esc(x.coordX||"—")} · Y ${esc(x.coordY||"—")} · Z ${esc(x.coordZ||"—")}`:""}${x.ph!==null&&x.ph!==undefined?`<br><strong>pH:</strong> ${esc(x.ph)}${x.ph<=5?" · aguas ácidas":""}`:""}<br><strong>Fecha y hora de guardado:</strong> ${esc(formatSavedAt(x.createdAt))}${x.updatedAt?`<br><strong>Última actualización:</strong> ${esc(formatSavedAt(x.updatedAt))}`:""}`;
+    $("detailIdentification").innerHTML=`<strong>Labor:</strong> ${esc(x.labor||"—")}<br><strong>Nivel:</strong> ${esc(x.nivel||"—")} · <strong>Block:</strong> ${esc(x.block||"—")}<br><strong>Turno:</strong> ${esc(x.turno||"—")} · <strong>Tipo de labor:</strong> ${esc(TIPOS_LABOR[x.condicionLabor]||x.condicionLabor||"—")}<br><strong>Supervisor / Geomecánico:</strong> ${esc(x.supervisor||"—")}<br><strong>Formato:</strong> ${esc((window.ebrPerfilNombre&&window.ebrPerfilNombre(x.empresa))||"Brocal (SMEB)")}${x.litologia?`<br><strong>Litología:</strong> ${esc(x.litologia)}`:""}${x.riesgo?`<br><strong>Nivel de riesgo:</strong> ${esc(x.riesgo)}`:""}${x.seccion?`<br><strong>Sección:</strong> ${esc(x.seccion)}`:""}${x.azimut?` · <strong>Azimut:</strong> ${esc(x.azimut)}°`:""}${x.refTopo?`<br><strong>Referencia topográfica:</strong> ${esc(x.refTopo)}`:""}${(x.coordX||x.coordY||x.coordZ)?`<br><strong>Coordenadas UTM:</strong> X ${esc(x.coordX||"—")} · Y ${esc(x.coordY||"—")} · Z ${esc(x.coordZ||"—")}`:""}${x.ph!==null&&x.ph!==undefined?`<br><strong>pH:</strong> ${esc(x.ph)}${x.ph<=5?" · aguas ácidas":""}`:""}<br><strong>Fecha y hora de guardado:</strong> ${esc(formatSavedAt(x.createdAt))}${x.updatedAt?`<br><strong>Última actualización:</strong> ${esc(formatSavedAt(x.updatedAt))}`:""}`;
     $("detailGsi").innerHTML=(x.gsi===null||x.gsi===undefined)?"Sin GSI calculado (evaluación anterior a esta función o datos incompletos).":`<strong>GSI ${esc(x.gsi)}</strong> · JCond89 = ${esc(x.jcond89)} · RQD = ${esc(x.gsiRqd)} %${x.rqdMedido!==null&&x.rqdMedido!==undefined?" (medido)":" (punto medio del rango)"}`;
     { const c=cartillaFor(x.rmrTotal,x.condicionLabor,x.params?.agua?.score);
       if(x.sostPrincipal!==undefined||x.sostRestriccion!==undefined){ c.principal=x.sostPrincipal||""; c.sacrificio=x.sostSacrificio||""; c.restriccion=x.sostRestriccion||""; if(c.estado==="ok"||c.estado==="sin-dato") c.estado=(c.principal||c.restriccion)?"ok":c.estado; }
@@ -1228,7 +1235,7 @@ $("editHistoryBtn").onclick=async()=>{
   rmrIds.forEach(id=>{$(id).value=x.params?.[id]?.score===null||x.params?.[id]?.score===undefined?"":String(x.params[id].score);});
   $("buzamiento").value=x.buzamiento||""; orientation(); $("rumbo").value=x.rumbo||""; orientation(); $("sentido").value=x.sentido||"";
   $("observaciones").value=x.observaciones||"";
-  $("litologia").value=x.litologia||""; $("coordX").value=x.coordX||""; $("coordY").value=x.coordY||""; $("coordZ").value=x.coordZ||"";
+  $("litologia").value=x.litologia||""; $("riesgo").value=x.riesgo||""; $("seccion").value=x.seccion||""; $("azimut").value=x.azimut||""; $("refTopo").value=x.refTopo||""; $("coordX").value=x.coordX||""; $("coordY").value=x.coordY||""; $("coordZ").value=x.coordZ||"";
   $("ph").value=x.ph===null||x.ph===undefined?"":String(x.ph);
   if(x.indicaciones!==undefined&&x.indicaciones!==null){ $("indCartilla").checked=x.indCartilla!==false; $("indicaciones").value=x.indicaciones; indAuto=null; }
   else{ $("indCartilla").checked=true; $("indicaciones").value=""; indAuto=""; }
@@ -1314,7 +1321,7 @@ function rmrTable(a){
   // Mismo orden que el formulario: identificación, parámetros RMR, orientación, resultado, sostenimiento, observaciones y fotos
   const maxFotos=Math.max(0,...a.map(x=>(x.photos||[]).length));
   const fotoHeaders=Array.from({length:maxFotos},(_,i)=>`Foto ${i+1}`);
-  const headers=["Fecha","Turno","Nivel","Block","Labor","Tipo de labor","Supervisor / Geomecánico","Formato","Litología","X (UTM Este)","Y (UTM Norte)","Z (cota)",
+  const headers=["Fecha","Turno","Nivel","Block","Labor","Tipo de labor","Supervisor / Geomecánico","Formato","Litología","Nivel de riesgo","Sección","Azimut de la labor","Referencia topográfica","X (UTM Este)","Y (UTM Norte)","Z (cota)",
     "Resistencia de la roca intacta","RQD","Espaciamiento","Apertura","Rugosidad","Relleno","Persistencia","Alteración","Agua subterránea","pH","RMR básico",
     "Rango de buzamiento","Rumbo respecto al eje","Sentido de excavación","Categoría ajuste","Ajuste orientación","RMR total","Tipo de roca","GSI estimado",
     "Sostenimiento","Sostenimiento de sacrificio","Restricción","Nota por agua","Indicaciones de estabilidad",
@@ -1330,7 +1337,7 @@ function rmrTable(a){
     fotos.forEach((src,i)=>{ const ext=/^data:image\/png/i.test(src)?"png":"jpg", name=`${id8}_${i+1}.${ext}`; nombres.push(name); files.push({name,src}); });
     const nv=v=>{const t=String(v??"").trim();return /^-?\d+(\.\d+)?$/.test(t)?Number(t):t;};
     return [x.fecha,x.turno,x.nivel,x.block,x.labor,TIPOS_LABOR[x.condicionLabor]||x.condicionLabor||"",x.supervisor,
-      (window.ebrPerfilNombre&&window.ebrPerfilNombre(x.empresa))||"Brocal (SMEB)",x.litologia||"",nv(x.coordX),nv(x.coordY),nv(x.coordZ),
+      (window.ebrPerfilNombre&&window.ebrPerfilNombre(x.empresa))||"Brocal (SMEB)",x.litologia||"",x.riesgo||"",x.seccion||"",nv(x.azimut),x.refTopo||"",nv(x.coordX),nv(x.coordY),nv(x.coordZ),
       L("resistencia"),L("rqd"),L("espaciamiento"),L("apertura"),L("rugosidad"),L("relleno"),L("persistencia"),L("alteracion"),L("agua"),x.ph??"",x.rmrBasico,
       x.buzamiento,x.rumbo,x.sentido,x.ajusteCategoria,x.ajuste,x.rmrTotal,x.tipoRoca,x.gsi??"",
       ...sost,(x.indicaciones!==undefined&&x.indicaciones!==null)?x.indicaciones:"",
@@ -1340,7 +1347,7 @@ function rmrTable(a){
 }
 $("deleteAllBtn").onclick=async()=>{if(confirm("¿Borrar todo el historial local de este dispositivo?")){await dbDeleteAll();renderHistory();}};
 function clearForm(){
- ["turno","nivel","block","labor","condicionLabor","supervisor","resistencia","rqd","espaciamiento","apertura","rugosidad","relleno","persistencia","alteracion","agua","buzamiento","rumbo","sentido","observaciones","rqdMedido","litologia","coordX","coordY","coordZ","ph","indicaciones"].forEach(id=>$(id).value="");
+ ["turno","nivel","block","labor","condicionLabor","supervisor","resistencia","rqd","espaciamiento","apertura","rugosidad","relleno","persistencia","alteracion","agua","buzamiento","rumbo","sentido","observaciones","rqdMedido","litologia","riesgo","seccion","azimut","refTopo","coordX","coordY","coordZ","ph","indicaciones"].forEach(id=>$(id).value="");
  $("indCartilla").checked=true; indAuto="";
  $("fecha").value=today(); currentPhotos=[]; renderPhotoPreview(); window.rmrStructs?.clear(); window.sketches?.clear(); recalc();
 }
@@ -1731,6 +1738,8 @@ function crearEditorEstructuras(px,seccion){
     const cols=headers.map((h,i)=>`<col min="${i+1}" max="${i+1}" width="${photoCols.includes(i)?22:wide.includes(h)?60:Math.min(Math.max(h.length+2,12),34)}" customWidth="1"/>`).join("");
     const cell=(v,r,c,st)=>{const ref=colName(c)+r;
       if(v===null||v===undefined||v==="") return "";
+      if(typeof v==="object"&&v.f) return `<c r="${ref}"${st?` s="${st}"`:""}><f>${xesc(v.f)}</f></c>`;  // fórmula
+      if(typeof v==="object"&&v.d!==undefined) return `<c r="${ref}" s="4"><v>${v.d}</v></c>`;           // fecha (número de serie)
       if(typeof v==="number"&&Number.isFinite(v)) return `<c r="${ref}"${st?` s="${st}"`:""}><v>${v}</v></c>`;
       return `<c r="${ref}" t="inlineStr"${st?` s="${st}"`:""}><is><t xml:space="preserve">${xesc(v)}</t></is></c>`;};
     const head=`<row r="1">${headers.map((h,c)=>cell(h,1,c,1)).join("")}</row>`;
@@ -1764,9 +1773,9 @@ function crearEditorEstructuras(px,seccion){
     const files=[
       {name:"[Content_Types].xml",data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/>${anyImg?'<Default Extension="jpeg" ContentType="image/jpeg"/><Default Extension="png" ContentType="image/png"/>':""}<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>${sheets.map((s,i)=>`<Override PartName="/xl/worksheets/sheet${i+1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`+(s._imgs.length?`<Override PartName="/xl/drawings/drawing${i+1}.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/>`:"")).join("")}</Types>`},
       {name:"_rels/.rels",data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`},
-      {name:"xl/workbook.xml",data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>${sheets.map((s,i)=>`<sheet name="${xesc(s.name)}" sheetId="${i+1}" r:id="rId${i+1}"/>`).join("")}</sheets></workbook>`},
+      {name:"xl/workbook.xml",data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>${sheets.map((s,i)=>`<sheet name="${xesc(s.name)}" sheetId="${i+1}" r:id="rId${i+1}"/>`).join("")}</sheets><calcPr calcId="191029" fullCalcOnLoad="1"/></workbook>`},
       {name:"xl/_rels/workbook.xml.rels",data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${sheets.map((s,i)=>`<Relationship Id="rId${i+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i+1}.xml"/>`).join("")}<Relationship Id="rId${sheets.length+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`},
-      {name:"xl/styles.xml",data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF123D5A"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="4"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"><alignment vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="top"/></xf></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`}
+      {name:"xl/styles.xml",data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF123D5A"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="5"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"><alignment vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="top"/></xf><xf numFmtId="14" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`}
     ];
     sheets.forEach((s,i)=>{
       const has=s._imgs.length>0, prow=new Set(s._imgs.map(m=>m.row));
@@ -1780,15 +1789,46 @@ function crearEditorEstructuras(px,seccion){
     });
     return zip(files);
   }
-  window.buildWorkbook=workbook;
+  window.buildWorkbook=workbook; window.bdTable=bdTable; window.construirArchivo=(r,m)=>construirArchivo(r,m);
   /* ---------- Compartir / exportar con selección ----------
      Cada registro guarda «enviadoAt» cuando se exporta; por defecto se seleccionan los pendientes. */
+  /* Hoja «BD Reporte Diario»: mismas columnas (A:BK) y fórmulas que la hoja «Base de Datos» de BD_Reporte Diario_Brocal.xlsm,
+     para copiar las filas y pegarlas debajo de la última fila de esa base. Lo que la app no registra queda en blanco. */
+  const MESES=["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+  const BD_HEAD=["MES","FECHA","TURNO","SECCION","ZONA","BLOCK","NIVEL","LABOR","AZIMUT LABOR","REFERENCIA TOPOGRAFICA",
+    "TIPO_ES1","X1","Y2","Z2","D1","DD1","TIPO_ES2","X2","Y22","Z23","D2","DD2","TIPO_ES3","X3","Y3","Z3","D3","DD3","TIPO_ES4","X4","Y4","Z4","D4","DD4",
+    "Resistencia","RQD","Espaciamiento","Apertura","Rugosidad","Relleno","Persistencia","Alteración","Agua","Ajuste x\nOrientacion","RMRb","RMRc","TIPO DE ROCA",
+    "LITOLOGÍA","DESVÍO","STATUS","OBSERVACIONES","INDICACION DE SOSTENIMIENTO","RIESGO","ANCHO REAL","ALTURA REAL","% SOBREROTURA","FECHA DE PYV",
+    "DÍAS SIN SOSTENER","PASIVO","MAPEAR","GEOMECANICO","RESPONSABLE","ESTRUCTURAS"];
+  function bdTable(a){
+    const n=v=>{const t=String(v??"").trim().replace(",",".");return t===""?"":(/^-?\d+(\.\d+)?$/.test(t)?Number(t):t);};
+    const serial=f=>{const m=/^(\d{4})-(\d{2})-(\d{2})/.exec(f||"");return m?{d:Math.round((Date.UTC(+m[1],+m[2]-1,+m[3])-Date.UTC(1899,11,30))/864e5)}:"";};
+    const rows=a.map((x,i)=>{
+      const R=i+2, P=x.params||{}, sc=k=>P[k]?.score??"", m=/^(\d{4})-(\d{2})/.exec(x.fecha||"");
+      const est=(x.estructuras||[]).slice(0,4).map(e=>{const L=M().lecturasDe(e)[0]||{};return [e.tipo==="O"&&e.otro?e.otro:e.tipo,n(e.x),n(e.y),n(e.z),n(L.dip),n(L.dipDir)];});
+      while(est.length<4) est.push(["","","","","",""]);
+      const ind=(x.indicaciones!==undefined&&x.indicaciones!==null)?x.indicaciones:(x.sostPrincipal||"");
+      return [m?MESES[+m[2]-1]:"",serial(x.fecha),x.turno==="Día"?"Dia":(x.turno||""),x.seccion||"","",n(x.block),n(x.nivel),x.labor||"",n(x.azimut),x.refTopo||"",
+        ...est.flat(),
+        sc("resistencia"),sc("rqd"),sc("espaciamiento"),sc("apertura"),sc("rugosidad"),sc("relleno"),sc("persistencia"),sc("alteracion"),sc("agua"),x.ajuste??"",
+        {f:`+SUM(AI${R}:AQ${R})`},{f:`+SUM(AI${R}:AQ${R})+AR${R}`},
+        {f:`IF(AND(AT${R}>=61,AT${R}<81),"II",IF(AND(AT${R}>50,AT${R}<=60),"IIIA",IF(AND(AT${R}>=41,AT${R}<=50),"IIIB",IF(AND(AT${R}>=31,AT${R}<=35),"IVA",IF(AND(AT${R}>=36,AT${R}<=40),"IVA",IF(AND(AT${R}>=21,AT${R}<=30),"IVB",IF(AND(AT${R}>=1,AT${R}<21),"V")))))))`},
+        x.litologia||"","","",x.observaciones||"",ind,x.riesgo||"","","",
+        {f:`+IF(((BB${R}*BC${R})/(_xlfn.NUMBERVALUE(LEFT(D${R},4))*_xlfn.NUMBERVALUE(RIGHT(D${R},4)))-1)<0%,"Falta Sección",(BB${R}*BC${R})/(_xlfn.NUMBERVALUE(LEFT(D${R},4))*_xlfn.NUMBERVALUE(RIGHT(D${R},4)))-1)`},
+        "",{f:`TODAY()-BE${R}`},
+        {f:`IF(AND(OR(AU${R}="IIIB",AU${R}="IIIA",AU${R}="IIB"),BF${R}>3),"SI",IF(AND(OR(AU${R}="IVA",AU${R}="IVB",AU${R}="V"),BF${R}>1),"SI","NO"))`},
+        {f:`+IF((TODAY()-B${R})>3,"SI","NO")`},
+        x.supervisor||"","",(x.estructuras||[]).length?"SI":"NO"];
+    });
+    return {headers:BD_HEAD,rows};
+  }
   async function construirArchivo(r,m){
     // filas en orden de registro: del más antiguo al más reciente
-    const t1=rmrTable([...r].reverse()), t2=M().table([...m].reverse(),[...r].reverse());
+    const t1=rmrTable([...r].reverse()), t2=M().table([...m].reverse(),[...r].reverse()), t3=bdTable([...r].reverse());
     const xlsx=await workbook([
       {name:"RMR",headers:t1.headers,rows:t1.rows,photos:t1.photos,photoCols:t1.photoCols,wide:["Observaciones geomecánicas","Sostenimiento","Sostenimiento de sacrificio","Restricción","Nota por agua","Indicaciones de estabilidad"]},
-      {name:"Mapeo estructural",headers:t2.headers,rows:t2.rows,wide:["Observaciones"]}
+      {name:"Mapeo estructural",headers:t2.headers,rows:t2.rows,wide:["Observaciones"]},
+      {name:"BD Reporte Diario",headers:t3.headers,rows:t3.rows,wide:["OBSERVACIONES","INDICACION DE SOSTENIMIENTO"]}
     ]);
     const base=`Geomecanica_${today()}_${horaArchivo()}`; // fecha y hora local: distingue cada envío
     let blob=xlsx, filename=`${base}.xlsx`;
@@ -2114,7 +2154,7 @@ function drawData(cv,x){
 function drawDataOver(cv,x){
   // Encabezado
   val(cv,"D6:F6",x.nivel);val(cv,"I6:J6",x.block);val(cv,"N6:Q6",x.supervisor,{size:10*SC});
-  val(cv,"T6:W6",fmtFecha(x.fecha));val(cv,"D7:F7",x.labor);val(cv,"T7:W7",fmtHora(x.createdAt));
+  val(cv,"T6:W6",fmtFecha(x.fecha));val(cv,"D7:F7",x.labor);if(hay(x.riesgo))val(cv,"I7:J7",x.riesgo,{size:10*SC});val(cv,"T7:W7",fmtHora(x.createdAt));
   const tl=String(x.condicionLabor||"").toLowerCase();
   if(tl.includes("temporal"))mark(cv,"N7:O7");
   if(tl.includes("permanente"))mark(cv,"P7:Q7");
