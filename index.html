@@ -143,7 +143,7 @@ html[data-theme="dark"] .sk-state{color:#9fb2bd}
 html[data-theme="dark"] .ph-aviso{background:#3a2e12;border-color:#6b5420;color:#f0d9a4}
 .sk-range{display:flex!important;align-items:center;gap:6px;color:#e6eef2;font-size:.78rem;font-weight:700;margin:0!important;padding:0}
 .sk-range input{width:96px;min-height:0;height:24px;padding:0;margin:0;border:0;background:transparent;accent-color:#ffd479}
-.sk-range output{min-width:34px;text-align:right}
+.sk-range output{min-width:36px;text-align:right;margin-right:12px}
 .preload-sel{width:auto;max-width:60%;padding:9px 10px;border-radius:11px;font-weight:700;font-size:.85rem}
 .pv-modal{position:fixed;inset:0;z-index:1000;background:#1d2b33;display:flex;flex-direction:column;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
 .pv-modal.hidden{display:none}
@@ -2524,7 +2524,7 @@ window.indicacionPDF={generar,vistaPrevia,areas:areas(),norteSrc:"data:image/jpe
   const COLORES=[["#111111","Negro"],...RMR_CLASSES.map(c=>[c.color,c.label])];
   // Grosor y opacidad propios de cada herramienta (el pincel es grueso y semitransparente para pintar zonas)
   const CFG={lapiz:{g:4,o:100},pincel:{g:30,o:40},linea:{g:4,o:100},circulo:{g:4,o:100},texto:{g:28,o:100},seccion:{g:5,o:100}};
-  const RANGO={lapiz:[1,20],pincel:[8,80],linea:[1,20],circulo:[1,20],texto:[14,80],seccion:[1,20]};
+  const RANGO={lapiz:[1,40],pincel:[8,250],linea:[1,40],circulo:[1,40],texto:[14,120],seccion:[1,40]};
   // Sección típica (bóveda) inscrita en el rectángulo p=[x1,y1,x2,y2]: paredes verticales, arco y piso; se estira libremente
   function secPts(p){
     const x0=Math.min(p[0],p[2]), x1=Math.max(p[0],p[2]), y0=Math.min(p[1],p[3]), y1=Math.max(p[1],p[3]);
