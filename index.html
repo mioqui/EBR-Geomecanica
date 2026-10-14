@@ -2555,9 +2555,16 @@ window.indicacionPDF={generar,vistaPrevia,areas:areas(),norteSrc:"data:image/jpe
 
 (function(){
   function safe(s){return String(s||"").normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^A-Za-z0-9_-]+/g,"_").replace(/^_+|_+$/g,"");}
-  async function entregar(blob,filename){
+  // Nombre al compartir: «Tipo de evaluación de Nv <nivel> <labor> <block>», p. ej. «Indicación geomecánica de Nv 3922 GL 727 S S/B»
+  function nombreIndicacion(x){
+    const t=String(x.tipoEval||"Indicación Geomecánica").trim(), tipo=t.charAt(0).toUpperCase()+t.slice(1).toLowerCase();
+    const resto=[x.nivel?`Nv ${String(x.nivel).trim()}`:"",String(x.labor||"").trim(),String(x.block||"").trim()].filter(Boolean).join(" ");
+    return resto?`${tipo} de ${resto}`:tipo;
+  }
+  const archivoIndicacion=x=>nombreIndicacion(x).replace(/[\\/:*?"<>|]+/g,"-").replace(/\s+/g," ").trim()+".pdf";
+  async function entregar(blob,filename,titulo){
     const file=new File([blob],filename,{type:"application/pdf"});
-    try{ if(navigator.share&&navigator.canShare&&navigator.canShare({files:[file]})){ await navigator.share({title:"Indicación geomecánica",files:[file]}); return; } }
+    try{ if(navigator.share&&navigator.canShare&&navigator.canShare({files:[file]})){ await navigator.share({title:titulo||"Indicación geomecánica",files:[file]}); return; } }
     catch(err){ if(err&&err.name==="AbortError") return; }
     const url=URL.createObjectURL(blob), a=document.createElement("a"); a.href=url; a.download=filename; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),4000);
   }
@@ -2609,7 +2616,7 @@ window.indicacionPDF={generar,vistaPrevia,areas:areas(),norteSrc:"data:image/jpe
   function cerrar(){ modal.classList.add("hidden"); document.body.classList.remove("sk-lock"); $("pvPages").innerHTML=""; area.innerHTML=""; actual=null; listo=false; }
   $("pvClose").onclick=cerrar;
   $("pvFotos").onchange=async()=>{ await pintar(); prepararImpresion(); };
-  $("pvShare").onclick=async()=>{ if(!actual) return; try{ const blob=window.indicacionPDF.generar(actual,opciones()); await entregar(blob,`Indicacion_${safe(actual.labor)||"labor"}_${actual.fecha||""}.pdf`);}catch(err){ alert("No se pudo generar el PDF. Detalle: "+(err?.message||String(err))); } };
+  $("pvShare").onclick=async()=>{ if(!actual) return; try{ const blob=window.indicacionPDF.generar(actual,opciones()); await entregar(blob,archivoIndicacion(actual),nombreIndicacion(actual));}catch(err){ alert("No se pudo generar el PDF. Detalle: "+(err?.message||String(err))); } };
   // Imprimir desde la app: las hojas (A4, 180 ppp) ya están preparadas al abrir el visor,
   // así window.print() se llama en el mismo toque (si se demora, el sistema lo bloquea sin avisar).
   let abrioImpresion=false;
@@ -2618,7 +2625,7 @@ window.indicacionPDF={generar,vistaPrevia,areas:areas(),norteSrc:"data:image/jpe
   let usarCompartir=esIOS&&appInstalada; // en iOS la app instalada no puede abrir la impresión directa
   function compartirParaImprimir(){
     const blob=window.indicacionPDF.generar(actual,opciones());
-    return entregar(blob,`Indicacion_${safe(actual.labor)||"labor"}_${actual.fecha||""}.pdf`);
+    return entregar(blob,archivoIndicacion(actual),nombreIndicacion(actual));
   }
   window.addEventListener("beforeprint",()=>{ abrioImpresion=true; });
   window.addEventListener("afterprint",()=>{ document.body.classList.remove("imprimiendo"); });
