@@ -522,12 +522,6 @@ html[data-theme="dark"] .kind.map{background:#3a2e12;color:#f0d9a4}
       <div class="gsi-calc-body" id="gsiCalcTrace">Completa RQD y las cinco condiciones de las juntas para estimar el GSI.</div>
     </details>
     <div class="sost-box" id="sostBox" aria-live="polite"></div>
-    <div class="ind-box" id="indBox">
-      <h3>Indicaciones de estabilidad <span class="small">(van en la indicación impresa)</span></h3>
-      <label class="chk"><input type="checkbox" id="indCartilla" checked> Tomar el sostenimiento de la cartilla</label>
-      <textarea id="indicaciones" rows="5" placeholder="Escribe las indicaciones de estabilidad (p. ej. en tajos: shotcrete…)"></textarea>
-      <div class="help">Con la casilla marcada se escribe el sostenimiento de la cartilla y puedes modificarlo. Sin marcar, queda en blanco para escribirlo tú. En la hoja impresa va seguido desde la primera línea y la letra se reduce para que entre todo.</div>
-    </div>
 
     <div id="traceLive" class="hidden"></div><div id="nextStep" class="help" style="margin-top:8px"></div>
   </div>
@@ -573,6 +567,12 @@ html[data-theme="dark"] .kind.map{background:#3a2e12;color:#f0d9a4}
     <h2>5. Observaciones geomecánicas</h2>
     <div class="field"><label>Observaciones geomecánicas</label><textarea id="observaciones" placeholder="Fallas, fracturas, condición local, comentarios…"></textarea>
       <div class="help">🎙️ Para dictar, toca el campo y usa el micrófono del teclado del celular.</div>
+    </div>
+    <div class="ind-box" id="indBox" style="margin-top:12px">
+      <h3>Indicaciones de estabilidad <span class="small">(van en la indicación impresa)</span></h3>
+      <label class="chk"><input type="checkbox" id="indCartilla" checked> Tomar el sostenimiento de la cartilla</label>
+      <textarea id="indicaciones" rows="5" placeholder="Escribe las indicaciones de estabilidad (p. ej. en tajos: shotcrete…)"></textarea>
+      <div class="help">Con la casilla marcada se escribe el sostenimiento de la cartilla y puedes modificarlo. Sin marcar, queda en blanco para escribirlo tú. En la hoja impresa va seguido desde la primera línea y la letra se reduce para que entre todo.</div>
     </div>
     <div class="field" style="margin-top:12px">
       <label>Fotografías de campo <span class="small">(máximo 2)</span></label>
