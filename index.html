@@ -146,6 +146,9 @@ html[data-theme="dark"] .sk-state{color:#9fb2bd}
 html[data-theme="dark"] .ph-aviso{background:#3a2e12;border-color:#6b5420;color:#f0d9a4}
 .sk-flot{position:absolute;top:6px;left:50%;transform:translateX(-50%);z-index:3;background:rgba(18,32,42,.92);padding:5px 6px;border-radius:12px;box-shadow:0 4px 14px rgba(0,0,0,.35);flex-wrap:nowrap;align-items:center;max-width:calc(100% - 12px);overflow-x:auto}
 .sk-flot.hidden{display:none}
+.sk-flot .hidden{display:none!important}
+.sk-hint-txt{color:#ffd479;font-size:.78rem;font-weight:700;padding:2px 6px;white-space:normal}
+.sk-bottom .btn:disabled{opacity:.4;cursor:default}
 .sk-range{display:flex!important;align-items:center;gap:6px;color:#e6eef2;font-size:.78rem;font-weight:700;margin:0!important;padding:0}
 .sk-range input{width:96px;min-height:0;height:24px;padding:0;margin:0;border:0;background:transparent;accent-color:#ffd479}
 .sk-range output{min-width:36px;text-align:right;margin-right:12px}
@@ -2362,7 +2365,15 @@ function drawSketch(cv,d,area){
   const b=box(ref(AREAS[area])), k=b.w/(d.w||1000), ky=d.h?b.h/d.h:k; // ky: dibujos hechos con otra proporción entran completos
   const X=v=>b.x+v*k, Y=v=>b.y+b.h-v*ky;
   cv.push(`q ${f2(b.x)} ${f2(b.y)} ${f2(b.w)} ${f2(b.h)} re W n 1 J 1 j`);
-  d.items.forEach(it=>{
+  // Pincel semitransparente: trazos del mismo color, opacidad y grosor en un solo trazo (los cruces no se oscurecen)
+  const transl=it=>it.k==="s"&&it.o!==undefined&&it.o<0.99&&(it.p||[]).length>=3;
+  const grupos=new Map();
+  d.items.filter(transl).forEach(it=>{ const key=`${it.c}|${it.o}|${it.w}`; if(!grupos.has(key)) grupos.set(key,[]); grupos.get(key).push(it); });
+  grupos.forEach(g=>{ const it0=g[0], op=Math.max(1,Math.min(20,Math.round(it0.o*20)));
+    let o=`q /GA${op} gs ${rgb(hexRgb(it0.c))} RG ${f2((it0.w||4)*k)} w`;
+    g.forEach(it=>{ const p=it.p; o+=` ${f2(X(p[0]))} ${f2(Y(p[1]))} m`; if(p.length===3) o+=` ${f2(X(p[0])+0.01)} ${f2(Y(p[1]))} l`; for(let i=3;i<p.length;i+=3) o+=` ${f2(X(p[i]))} ${f2(Y(p[i+1]))} l`; });
+    cv.push(o+" S Q 1 J 1 j"); });
+  d.items.filter(it=>!transl(it)).forEach(it=>{
     const col=rgb(hexRgb(it.c));
     const op=it.o!==undefined&&it.o!==null&&it.o<0.99?Math.max(1,Math.min(20,Math.round(it.o*20))):0;
     if(op) cv.push(`q /GA${op} gs`);
@@ -2689,7 +2700,17 @@ window.indicacionPDF={generar,vistaPrevia,areas:areas(),norteSrc:"data:image/jpe
     ctx.lineCap="round"; ctx.lineJoin="round";
     // dibujo guardado con otra proporción de recuadro: se ajusta a lo alto para que entre completo
     if(d&&d.h){ const sy=(H/d.h)/k; if(Math.abs(sy-1)>0.01) ctx.scale(1,sy); }
-    const items=(d&&d.items||[]).concat(extra?[extra]:[]);
+    const items0=(d&&d.items||[]).concat(extra?[extra]:[]);
+    // Pincel semitransparente: los trazos del mismo color, opacidad y grosor se pintan juntos en una sola pasada,
+    // así donde se cruzan no se ve más oscuro (se mantiene el color elegido). Van debajo de líneas y textos.
+    const transl=it=>it.k==="s"&&it.o!==undefined&&it.o<0.99&&(it.p||[]).length>=3;
+    const grupos=new Map();
+    items0.filter(transl).forEach(it=>{ const key=`${it.c}|${it.o}|${it.w}`; if(!grupos.has(key)) grupos.set(key,[]); grupos.get(key).push(it); });
+    grupos.forEach(g=>{ const it0=g[0]; ctx.globalAlpha=it0.o; ctx.strokeStyle=ctx.fillStyle=it0.c||"#111"; ctx.lineWidth=(it0.w||4)*k; ctx.beginPath();
+      g.forEach(it=>{ const p=it.p; ctx.moveTo(p[0]*k,p[1]*k); if(p.length===3) ctx.lineTo(p[0]*k+0.01,p[1]*k); for(let i=3;i<p.length;i+=3) ctx.lineTo(p[i]*k,p[i+1]*k); });
+      ctx.stroke(); });
+    ctx.globalAlpha=1;
+    const items=items0.filter(it=>!transl(it));
     items.forEach(it=>{
       ctx.strokeStyle=ctx.fillStyle=it.c||"#111";
       ctx.globalAlpha=(it.o!==undefined&&it.o!==null)?it.o:1;
@@ -2743,6 +2764,7 @@ window.indicacionPDF={generar,vistaPrevia,areas:areas(),norteSrc:"data:image/jpe
     </div>
     <div class="sk-stage" id="skStage"><canvas id="skCanvas"></canvas>
       <div class="sk-group sk-flot hidden" id="skTxtCtl">
+        <span class="sk-hint-txt" id="skTxtHint">Toca un texto para elegirlo y girarlo · toca un espacio vacío para escribir uno nuevo</span>
         <button type="button" data-giro="-15" title="Girar a la izquierda 15°">⟲ 15°</button>
         <label class="sk-range">Giro<input type="range" id="skGiro" min="-180" max="180" step="5"><output id="skGiroOut"></output></label>
         <button type="button" data-giro="15" title="Girar a la derecha 15°">⟳ 15°</button>
@@ -2751,7 +2773,8 @@ window.indicacionPDF={generar,vistaPrevia,areas:areas(),norteSrc:"data:image/jpe
       </div>
     </div>
     <div class="sk-bottom">
-      <button type="button" class="btn" id="skUndo">↶ Deshacer</button>
+      <button type="button" class="btn" id="skUndo" title="Deshacer el último cambio">↶ Deshacer</button>
+      <button type="button" class="btn" id="skRedo" title="Rehacer el cambio deshecho">Rehacer ↷</button>
       <button type="button" class="btn danger" id="skClear">Borrar todo</button>
       <span style="flex:1"></span>
       <button type="button" class="btn" id="skCancel">Cancelar</button>
@@ -2807,7 +2830,10 @@ window.indicacionPDF={generar,vistaPrevia,areas:areas(),norteSrc:"data:image/jpe
     modal.querySelector("#skGOut").textContent=c.g; modal.querySelector("#skOOut").textContent=c.o+" %";
     g.disabled=o.disabled=pad.herr==="borrador";
     modal.querySelector("#skSeccion").classList.toggle("hidden",pad.area!=="rep");
-    { const tx=pad.herr==="texto"&&txtSel(); modal.querySelector("#skTxtCtl").classList.toggle("hidden",!tx);
+    { const tx=pad.herr==="texto"&&txtSel(), bar=modal.querySelector("#skTxtCtl");
+      bar.classList.toggle("hidden",pad.herr!=="texto");
+      bar.querySelectorAll(":scope > :not(#skTxtHint)").forEach(el=>el.classList.toggle("hidden",!tx));
+      modal.querySelector("#skTxtHint").classList.toggle("hidden",!!tx);
       if(tx){ modal.querySelector("#skGiro").value=tx.r||0; modal.querySelector("#skGiroOut").textContent=(tx.r||0)+"°"; } }
     const vertical=window.innerHeight>window.innerWidth&&window.innerWidth<700;
     modal.querySelector("#skHint").textContent=pad.herr==="seccion"?"Sección típica: arrastra los cuadritos para estirarla y el centro para moverla"
@@ -2843,6 +2869,7 @@ window.indicacionPDF={generar,vistaPrevia,areas:areas(),norteSrc:"data:image/jpe
     pad.abierto=true; pad.area=area; pad.d=copia(datos[area])||{w:1000,h:Math.round(1000/A(area).aspect),items:[]};
     { const h=Math.round(1000/A(area).aspect); if(pad.d.h&&Math.abs(pad.d.h-h)>2) reescalarY(pad.d,h/pad.d.h,h); } pad.actual=null; pad.pid=null; pad.mover=null; pad.sel=null; pad.selTxt=null; pad.ajuste=null; if(pad.herr==="borrador"||pad.herr==="texto"||pad.herr==="seccion") pad.herr="lapiz";
     modal.querySelector("#skTitle").textContent=NOMBRES[area];
+    histIniciar();
     modal.classList.remove("hidden"); document.body.classList.add("sk-lock"); marcar();
     requestAnimationFrame(ajustar);
   }
@@ -2989,7 +3016,25 @@ window.indicacionPDF={generar,vistaPrevia,areas:areas(),norteSrc:"data:image/jpe
     const [cx,cy]=local(e), lx=(cx-vista.ox)/vista.z, ly=(cy-vista.oy)/vista.z;
     vista.z=Math.max(1,Math.min(6,vista.z*Math.exp(-e.deltaY*0.01))); vista.ox=cx-lx*vista.z; vista.oy=cy-ly*vista.z; fijarVista(); dibujar(); },{passive:false});
   cv.addEventListener("touchmove",e=>e.preventDefault(),{passive:false});
-  modal.querySelector("#skUndo").onclick=()=>{pad.d.items.pop(); if(pad.sel!==null&&pad.sel>=pad.d.items.length) pad.sel=null; if(pad.selTxt!==null&&pad.selTxt>=pad.d.items.length) pad.selTxt=null; marcar(); dibujar();};
+  /* Historial de cambios: cada trazo, texto, giro, sección o borrado queda como un paso; ↶ retrocede y ↷ avanza */
+  const hist={pasos:[],i:-1};
+  function histIniciar(){ hist.pasos=[JSON.stringify(pad.d.items)]; hist.i=0; histBotones(); }
+  function histGuardar(){
+    if(!pad.abierto||pad.pid!==null) return;
+    const j=JSON.stringify(pad.d.items); if(j===hist.pasos[hist.i]) return;
+    hist.pasos=hist.pasos.slice(0,hist.i+1); hist.pasos.push(j); if(hist.pasos.length>150) hist.pasos.shift(); hist.i=hist.pasos.length-1; histBotones();
+  }
+  function histIr(d){
+    const n=hist.i+d; if(n<0||n>=hist.pasos.length) return;
+    hist.i=n; pad.d.items=JSON.parse(hist.pasos[n]); pad.sel=null; pad.selTxt=null; pad.actual=null; marcar(); dibujar(); histBotones();
+  }
+  function histBotones(){ modal.querySelector("#skUndo").disabled=hist.i<=0; modal.querySelector("#skRedo").disabled=hist.i>=hist.pasos.length-1; }
+  modal.querySelector("#skUndo").onclick=()=>histIr(-1);
+  modal.querySelector("#skRedo").onclick=()=>histIr(1);
+  // después de cada acción (soltar el dedo, tocar un botón o terminar de mover un control) se guarda el paso si hubo cambios
+  ["pointerup","pointercancel"].forEach(ev=>cv.addEventListener(ev,()=>setTimeout(histGuardar,0)));
+  modal.addEventListener("click",()=>setTimeout(histGuardar,0));
+  modal.addEventListener("change",()=>setTimeout(histGuardar,0));
   modal.querySelector("#skClear").onclick=()=>{ if(pad.d.items.length&&confirm("¿Borrar todo el dibujo?")){pad.d.items=[];pad.sel=null;pad.selTxt=null;marcar();dibujar();} };
   modal.querySelector("#skCancel").onclick=()=>{ if(JSON.stringify(pad.d.items)!==JSON.stringify((datos[pad.area]&&datos[pad.area].items)||[])&&!confirm("¿Salir sin guardar los cambios del dibujo?")) return; cerrar(); };
   modal.querySelector("#skSave").onclick=()=>{ datos[pad.area]=vacio(pad.d)?null:copia(pad.d); cerrar(); pintarMiniaturas(); };
