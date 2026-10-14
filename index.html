@@ -392,24 +392,18 @@ html[data-theme="dark"] .kind.map{background:#3a2e12;color:#f0d9a4}
     <div class="grid">
       <div class="field date-field"><label>Fecha</label><input id="fecha" type="date"></div>
       <div class="field"><label>Turno</label><select id="turno"><option value="">Seleccionar…</option><option>Día</option><option>Noche</option></select></div>
+      <div class="field full"><label for="geoSel">Geomecánico</label><select id="geoSel"><option value="">Seleccionar…</option><option value="GRECIA MESCUA">Grecia Mescua</option><option value="JHON ALVAREZ">Jhon Alvarez</option><option value="STIVE VELARDE">Stive Velarde</option><option value="otro">Otro…</option></select>
+        <input id="supervisor" class="hidden" autocomplete="off" placeholder="Escribe el nombre" style="margin-top:6px"></div>
       <div class="field"><label>Nivel</label><input id="nivel" autocomplete="off" placeholder="Ej. 4055"></div>
       <div class="field"><label>Block</label><input id="block" autocomplete="off" placeholder="Ej. B7998"></div>
       <div class="field"><label>Labor</label><input id="labor" autocomplete="off" placeholder="Ej. GL765N"></div>
-      <div class="field full"><label for="condicionLabor">Tipo de labor</label><select id="condicionLabor"><option value="">Seleccionar…</option><option value="Permanente">Avance permanente (&gt; 1 año)</option><option value="Temporal">Avance temporal (≤ 1 año)</option><option value="Interseccion permanente">Intersección permanente (RC 10)</option><option value="Interseccion temporal">Intersección temporal (RC 6)</option><option value="Explotacion">Explotación: tajo de perforación positiva (ancho &gt; 6 m)</option></select></div>
-      <div class="field full"><label>Supervisor / Geomecánico</label><input id="supervisor" autocomplete="off"></div>
+      <div class="field"><label for="condicionLabor">Tipo de labor</label><select id="condicionLabor"><option value="">Seleccionar…</option><option value="Permanente">Avance permanente (&gt; 1 año)</option><option value="Temporal">Avance temporal (≤ 1 año)</option><option value="Interseccion permanente">Intersección permanente (RC 10)</option><option value="Interseccion temporal">Intersección temporal (RC 6)</option><option value="Explotacion">Explotación: tajo de perforación positiva (ancho &gt; 6 m)</option></select></div>
       <div class="field"><label for="litologia">Litología</label><input id="litologia" list="litoLista" autocomplete="off" placeholder="Ej. CONGS, DAPO…">
         <datalist id="litoLista"><option value="LITO"><option value="PIRO"><option value="DAPO"><option value="CSUP"><option value="CMVAR"><option value="CMFAV"><option value="CINF"><option value="CONGT"><option value="CONGS"><option value="MITU"></datalist></div>
-      <div class="field"><label for="riesgo">Nivel de riesgo</label><select id="riesgo"><option value="">Seleccionar…</option><option>BAJO</option><option>MEDIO</option><option>ALTO</option></select></div>
-      <div class="field"><label for="seccionSel">Sección de la labor (m)</label><select id="seccionSel"><option value="">Seleccionar…</option><option>2.0 x 2.0</option><option>2.0 x 2.5</option><option>2.1 x 2.1</option><option>2.5 x 2.0</option><option>2.8 x 2.8</option><option>3.0 x 3.0</option><option>3.1 x 3.1</option><option>3.9 x 3.7</option><option>4.0 x 3.0</option><option>4.0 x 4.0</option><option>4.0 x 4.5</option><option>4.0 x 7.5</option><option>4.5 x 4.0</option><option>4.5 x 4.5</option><option>5.0 x 4.5</option><option>5.0 x 5.0</option><option>6.0 x 6.5</option><option value="otra">Otra…</option></select>
-        <input id="seccion" class="hidden" autocomplete="off" placeholder="Escribe la sección, ej. 3.5 x 3.5" style="margin-top:6px"></div>
+      <div class="field"><label for="seccionSel">Sección de la labor (m)</label><select id="seccionSel"><option value="">Seleccionar…</option><option>4.5 x 4.5</option><option>5.0 x 5.0</option><option value="otra">Otra…</option></select>
+        <input id="seccion" class="hidden" autocomplete="off" placeholder="Escribe la sección, ej. 3.9 x 3.7" style="margin-top:6px"></div>
       <div class="field"><label for="azimut">Azimut de la labor (°)</label><input id="azimut" type="text" inputmode="numeric" autocomplete="off" placeholder="0–360"></div>
-      <div class="field full"><label for="refTopo">Referencia topográfica</label><input id="refTopo" autocomplete="off" placeholder="Ej. V22 + 20.73m, C32 + 5m"></div>
-    </div>
-    <h3>Coordenadas UTM del punto evaluado</h3>
-    <div class="grid grid3">
-      <div class="field"><label for="coordX">X (Este)</label><input id="coordX" type="text" inputmode="decimal" autocomplete="off" placeholder="Ej. 362150.5"></div>
-      <div class="field"><label for="coordY">Y (Norte)</label><input id="coordY" type="text" inputmode="decimal" autocomplete="off" placeholder="Ej. 8829540.2"></div>
-      <div class="field"><label for="coordZ">Z (cota)</label><input id="coordZ" type="text" inputmode="decimal" autocomplete="off" placeholder="Ej. 3960"></div>
+      <div class="field"><label for="refTopo">Referencia topográfica</label><input id="refTopo" autocomplete="off" placeholder="Ej. V22 + 20.73m, C32 + 5m"></div>
     </div>
   </div>
 
@@ -524,6 +518,9 @@ html[data-theme="dark"] .kind.map{background:#3a2e12;color:#f0d9a4}
     <div class="sost-box" id="sostBox" aria-live="polite"></div>
 
     <div id="traceLive" class="hidden"></div><div id="nextStep" class="help" style="margin-top:8px"></div>
+    <div class="grid" style="margin-top:12px">
+      <div class="field"><label for="riesgo">Nivel de riesgo</label><select id="riesgo"><option value="">Seleccionar…</option><option>BAJO</option><option>MEDIO</option><option>ALTO</option></select></div>
+    </div>
   </div>
 
   <div class="card" id="eMapCard">
@@ -887,6 +884,14 @@ function actualizarIndicaciones(sost){
   if(ta.value.trim()===""||(indAuto!==null&&ta.value===indAuto)){ ta.value=t; indAuto=t; }
 }
 const numTxt=v=>String(v??"").trim().replace(",",".");
+// Geomecánico: lista del área; «Otro…» permite escribir el nombre
+let coordAnt={x:"",y:"",z:""}; // coordenadas UTM de registros anteriores (el campo ya no está en el formulario)
+function geoValor(){ const v=$("geoSel").value; return v==="otro"?$("supervisor").value.trim().toUpperCase():v; }
+function geoPoner(v){
+  v=String(v||"").trim().toUpperCase(); const sel=$("geoSel"), hay=v!==""&&[...sel.options].some(o=>o.value===v);
+  sel.value=v===""?"":(hay?v:"otro"); $("supervisor").value=hay?"":v; $("supervisor").classList.toggle("hidden",sel.value!=="otro");
+}
+$("geoSel").addEventListener("change",()=>{ const o=$("geoSel").value==="otro"; $("supervisor").classList.toggle("hidden",!o); if(o) $("supervisor").focus(); });
 // Sección: lista con las secciones de la base del área (MASTER / Base de Datos); «Otra…» permite escribir una distinta
 function seccionValor(){
   const v=$("seccionSel").value;
@@ -1070,7 +1075,7 @@ function preloadRealTestData(n){
   const e=EJEMPLOS_PRUEBA[n]; if(!e) return;
   $("fecha").value=today();
   $("turno").value=e.turno; $("nivel").value=e.nivel; $("block").value=e.block; $("labor").value=e.labor;
-  $("condicionLabor").value=e.tipo; $("supervisor").value="MILTON O.";
+  $("condicionLabor").value=e.tipo; geoPoner("MILTON O.");
   Object.entries(e.p).forEach(([id,v])=>{$(id).value=v;});
   $("buzamiento").value=e.buz; orientation(); $("rumbo").value=e.rumbo; orientation(); $("sentido").value=e.sentido; orientation();
   $("observaciones").value=e.obs;
@@ -1089,10 +1094,10 @@ function collect(){
     createdAt:new Date().toISOString(),
     updatedAt:null,
     fecha:$("fecha").value,turno:$("turno").value,nivel:$("nivel").value.trim().toUpperCase(),block:$("block").value.trim().toUpperCase(),
-    labor:$("labor").value.trim().toUpperCase(),condicionLabor:$("condicionLabor").value,supervisor:$("supervisor").value.trim().toUpperCase(),
+    labor:$("labor").value.trim().toUpperCase(),condicionLabor:$("condicionLabor").value,supervisor:geoValor(),
     empresa:window.ebrEmpresa?window.ebrEmpresa():"smeb",litologia:$("litologia").value.trim().toUpperCase(),
     riesgo:$("riesgo").value,seccion:seccionValor(),azimut:numTxt($("azimut").value),refTopo:$("refTopo").value.trim(),
-    coordX:numTxt($("coordX").value),coordY:numTxt($("coordY").value),coordZ:numTxt($("coordZ").value),ph:phValor(),
+    coordX:coordAnt.x,coordY:coordAnt.y,coordZ:coordAnt.z,ph:phValor(),
     params,buzamiento:$("buzamiento").value,rumbo:$("rumbo").value,sentido:$("sentido").value,
     ajusteCategoria:calc.orientation.cat,ajuste:calc.orientation.adj,trazabilidad:calc.orientation.trace,
     rmrBasico:calc.basic,rmrTotal:calc.total,tipoRoca:calc.rock,
@@ -1240,11 +1245,11 @@ $("editHistoryBtn").onclick=async()=>{
   const a=await dbAll(), x=a.find(r=>r.id===detailId); if(!x)return;
   editingId=x.id;
   $("fecha").value=x.fecha||today(); $("turno").value=x.turno||""; $("nivel").value=x.nivel||""; $("block").value=x.block||"";
-  $("labor").value=x.labor||""; $("condicionLabor").value=x.condicionLabor||""; $("supervisor").value=x.supervisor||"";
+  $("labor").value=x.labor||""; $("condicionLabor").value=x.condicionLabor||"";
   rmrIds.forEach(id=>{$(id).value=x.params?.[id]?.score===null||x.params?.[id]?.score===undefined?"":String(x.params[id].score);});
   $("buzamiento").value=x.buzamiento||""; orientation(); $("rumbo").value=x.rumbo||""; orientation(); $("sentido").value=x.sentido||"";
   $("observaciones").value=x.observaciones||"";
-  $("litologia").value=x.litologia||""; $("riesgo").value=x.riesgo||""; seccionPoner(x.seccion); $("azimut").value=x.azimut||""; $("refTopo").value=x.refTopo||""; $("coordX").value=x.coordX||""; $("coordY").value=x.coordY||""; $("coordZ").value=x.coordZ||"";
+  $("litologia").value=x.litologia||""; $("riesgo").value=x.riesgo||""; seccionPoner(x.seccion); $("azimut").value=x.azimut||""; $("refTopo").value=x.refTopo||""; coordAnt={x:x.coordX||"",y:x.coordY||"",z:x.coordZ||""}; geoPoner(x.supervisor);
   $("ph").value=x.ph===null||x.ph===undefined?"":String(x.ph);
   if(x.indicaciones!==undefined&&x.indicaciones!==null){ $("indCartilla").checked=x.indCartilla!==false; $("indicaciones").value=x.indicaciones; indAuto=null; }
   else{ $("indCartilla").checked=true; $("indicaciones").value=""; indAuto=""; }
@@ -1356,8 +1361,8 @@ function rmrTable(a){
 }
 $("deleteAllBtn").onclick=async()=>{if(confirm("¿Borrar todo el historial local de este dispositivo?")){await dbDeleteAll();renderHistory();}};
 function clearForm(){
- ["turno","nivel","block","labor","condicionLabor","supervisor","resistencia","rqd","espaciamiento","apertura","rugosidad","relleno","persistencia","alteracion","agua","buzamiento","rumbo","sentido","observaciones","rqdMedido","litologia","riesgo","seccionSel","seccion","azimut","refTopo","coordX","coordY","coordZ","ph","indicaciones"].forEach(id=>$(id).value="");
- $("indCartilla").checked=true; indAuto=""; $("seccion").classList.add("hidden");
+ ["turno","nivel","block","labor","condicionLabor","supervisor","resistencia","rqd","espaciamiento","apertura","rugosidad","relleno","persistencia","alteracion","agua","buzamiento","rumbo","sentido","observaciones","rqdMedido","litologia","riesgo","geoSel","seccionSel","seccion","azimut","refTopo","ph","indicaciones"].forEach(id=>$(id).value="");
+ $("indCartilla").checked=true; indAuto=""; $("seccion").classList.add("hidden"); $("supervisor").classList.add("hidden"); coordAnt={x:"",y:"",z:""};
  $("fecha").value=today(); currentPhotos=[]; renderPhotoPreview(); window.rmrStructs?.clear(); window.sketches?.clear(); recalc();
 }
 $("clearBtn").onclick=clearForm;
