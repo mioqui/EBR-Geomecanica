@@ -1946,7 +1946,7 @@ function crearEditorEstructuras(px,seccion){
       const file=listoArchivo||await construirArchivo(r,m); listoArchivo=null;
       let enviado=false;
       try{
-        if(navigator.share&&(!navigator.canShare||navigator.canShare({files:[file]}))){ await navigator.share({title:"EBR Geomecánica",text:"Evaluaciones RMR y mapeo estructural exportados desde EBR Geomecánica.",files:[file]}); enviado=true; }
+        if(navigator.share&&(!navigator.canShare||navigator.canShare({files:[file]}))){ { const msg=`Expor_Evaluaciones Geomecanica_${today()}`; await navigator.share({title:msg,text:msg,files:[file]}); } enviado=true; }
       }catch(err){
         if(err&&err.name==="AbortError") return;
         if(err&&err.name==="NotAllowedError"){ listoArchivo=file; btn.textContent="📤 Toca de nuevo para compartir"; return; }
