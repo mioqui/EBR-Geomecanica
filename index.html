@@ -429,7 +429,7 @@ html[data-theme="dark"] .kind.map{background:#3a2e12;color:#f0d9a4}
     <h2>2. Clasificación RMR · parámetros de campo</h2>
     <div class="section-note">Selecciona la condición observada. La aplicación asigna el puntaje automáticamente; el usuario no digita el RMR.</div>
     <div class="grid" style="margin-top:12px">
-      <div class="field full"><label>Resistencia de la roca intacta</label>
+      <div class="field"><label>Resistencia de la roca intacta</label>
         <select id="resistencia" class="rmr"><option value="">Seleccionar…</option>
           <option value="15">&gt; 250 MPa — 15 pts</option><option value="12">100–250 MPa — 12 pts</option>
           <option value="7">50–100 MPa — 7 pts</option><option value="4">25–50 MPa — 4 pts</option>
@@ -480,13 +480,13 @@ html[data-theme="dark"] .kind.map{background:#3a2e12;color:#f0d9a4}
           <option value="5">Ligera — 5 pts</option><option value="6">Sana — 6 pts</option>
         </select>
       </div>
-      <div class="field full"><label>Agua subterránea</label>
+      <div class="field"><label>Agua subterránea</label>
         <select id="agua" class="rmr"><option value="">Seleccionar…</option>
           <option value="0">Flujo — 0 pts</option><option value="4">Goteo — 4 pts</option><option value="7">Mojado — 7 pts</option>
           <option value="10">Húmedo — 10 pts</option><option value="15">Seco — 15 pts</option>
         </select>
       </div>
-      <div class="field full"><label for="ph">pH del agua <span class="small">(si se midió)</span></label><input id="ph" type="text" inputmode="decimal" autocomplete="off" placeholder="Ej. 6.5">
+      <div class="field"><label for="ph">pH del agua <span class="small">(si se midió)</span></label><input id="ph" type="text" inputmode="decimal" autocomplete="off" placeholder="Ej. 6.5">
         <div class="ph-aviso hidden" id="phAviso">pH ≤ 5: utilizar sostenimiento con recubrimiento para aguas ácidas (labores permanentes).</div>
       </div>
       <div class="field full">
@@ -2371,7 +2371,12 @@ function drawSketch(cv,d,area){
 }
 function dibujarItem(cv,it,col,k,X,Y){
   {
-    if(it.k==="t"){ if(it.t) cv.text(X(it.x),Y(it.y),toAnsi(it.t),(it.s||28)*k,!!it.b,hexRgb(it.c),100); return; }
+    if(it.k==="t"){ if(!it.t) return;
+      if(it.r){ // texto girado (grados, sentido horario como en la pantalla)
+        const g=it.r*Math.PI/180, c=Math.cos(g), sn=Math.sin(g);
+        cv.push(`BT ${rgb(hexRgb(it.c))} rg ${it.b?"/F2":"/F1"} ${f2((it.s||28)*k)} Tf 100 Tz ${f2(c)} ${f2(-sn)} ${f2(sn)} ${f2(c)} ${f2(X(it.x))} ${f2(Y(it.y))} Tm ${pdfStr(toAnsi(it.t))} Tj ET`);
+      } else cv.text(X(it.x),Y(it.y),toAnsi(it.t),(it.s||28)*k,!!it.b,hexRgb(it.c),100);
+      return; }
     const p=it.p||[]; if(p.length<(it.k==="sec"?4:3))return;
     if(it.k==="l"){ cv.push(`${col} RG ${f2((it.w||4)*k)} w ${f2(X(p[0]))} ${f2(Y(p[1]))} m ${f2(X(p[3]))} ${f2(Y(p[4]))} l S`); return; }
     if(it.k==="sec"){ // sección típica (bóveda) inscrita en el rectángulo p=[x1,y1,x2,y2]
@@ -2679,7 +2684,7 @@ window.indicacionPDF={generar,vistaPrevia,areas:areas(),norteSrc:"data:image/jpe
     items.forEach(it=>{
       ctx.strokeStyle=ctx.fillStyle=it.c||"#111";
       ctx.globalAlpha=(it.o!==undefined&&it.o!==null)?it.o:1;
-      if(it.k==="t"){ ctx.font=`${it.b?"700 ":""}${(it.s||28)*k}px Helvetica, Arial, sans-serif`; ctx.textBaseline="alphabetic"; ctx.fillText(it.t||"",it.x*k,it.y*k); return; }
+      if(it.k==="t"){ ctx.font=`${it.b?"700 ":""}${(it.s||28)*k}px Helvetica, Arial, sans-serif`; ctx.textBaseline="alphabetic"; if(it.r){ ctx.save(); ctx.translate(it.x*k,it.y*k); ctx.rotate(it.r*Math.PI/180); ctx.fillText(it.t||"",0,0); ctx.restore(); } else ctx.fillText(it.t||"",it.x*k,it.y*k); return; }
       const p=it.p||[];
       if(it.k==="l"){ if(p.length<6)return; ctx.lineWidth=(it.w||4)*k; ctx.beginPath(); ctx.moveTo(p[0]*k,p[1]*k); ctx.lineTo(p[3]*k,p[4]*k); ctx.stroke(); return; }
       if(it.k==="sec"){ if(p.length<4)return; const q=secPts(p); ctx.lineWidth=(it.w||4)*k; ctx.beginPath(); ctx.moveTo(q[0]*k,q[1]*k); for(let i=2;i<q.length;i+=2) ctx.lineTo(q[i]*k,q[i+1]*k); ctx.stroke(); return; }
@@ -2706,7 +2711,7 @@ window.indicacionPDF={generar,vistaPrevia,areas:areas(),norteSrc:"data:image/jpe
   }
 
   /* --- lienzo a pantalla completa --- */
-  const pad={abierto:false,area:null,d:null,herr:"lapiz",color:"#111111",actual:null,lapizVisto:false,pid:null,mover:null,sel:null,ajuste:null};
+  const pad={abierto:false,area:null,d:null,herr:"lapiz",color:"#111111",actual:null,lapizVisto:false,pid:null,mover:null,sel:null,ajuste:null,selTxt:null};
   const modal=document.createElement("div");
   modal.className="sk-modal hidden"; modal.setAttribute("role","dialog"); modal.setAttribute("aria-modal","true");
   modal.innerHTML=`
@@ -2720,6 +2725,13 @@ window.indicacionPDF={generar,vistaPrevia,areas:areas(),norteSrc:"data:image/jpe
         <button type="button" data-h="texto" title="Toca para escribir; toca un texto para corregirlo o arrástralo para moverlo">🔤 Texto</button>
         <button type="button" data-h="borrador" title="Borra el trazo que toques">🧽 Borrar trazo</button>
         <button type="button" id="skSeccion" data-h="seccion" title="Sección típica (bóveda): arrastra los cuadritos para estirarla y el centro para moverla">⌂ Sección típica</button>
+      </div>
+      <div class="sk-group hidden" id="skTxtCtl">
+        <button type="button" data-giro="-15" title="Girar a la izquierda 15°">⟲ 15°</button>
+        <label class="sk-range">Giro<input type="range" id="skGiro" min="-180" max="180" step="5"><output id="skGiroOut"></output></label>
+        <button type="button" data-giro="15" title="Girar a la derecha 15°">⟳ 15°</button>
+        <button type="button" id="skTxtEdit" title="Corregir el texto">✏️ Corregir</button>
+        <button type="button" id="skTxtDel" title="Quitar el texto">🗑️</button>
       </div>
       <div class="sk-group" id="skColors">${COLORES.map(([c,n])=>`<button type="button" class="sk-color" data-c="${c}" title="${n}" aria-label="${n}" style="background:${c}"></button>`).join("")}</div>
       <div class="sk-group">
@@ -2755,6 +2767,10 @@ window.indicacionPDF={generar,vistaPrevia,areas:areas(),norteSrc:"data:image/jpe
   }
   function dibujar(){ const r=window.devicePixelRatio||1, ctx=cv.getContext("2d"); ctx.setTransform(1,0,0,1,0,0); ctx.clearRect(0,0,cv.width,cv.height);
     ctx.setTransform(r*vista.z,0,0,r*vista.z,r*vista.ox,r*vista.oy); render(ctx,CW,CH,pad.area,pad.d,pad.actual);
+    const tx=txtSel(); if(pad.herr==="texto"&&tx){ // marco del texto elegido (gira con el texto)
+      ctx.save(); ctx.translate(tx.x*escala,tx.y*escala); ctx.rotate((tx.r||0)*Math.PI/180);
+      ctx.strokeStyle="#1f6fd1"; ctx.lineWidth=1.5/vista.z; ctx.setLineDash([6/vista.z,4/vista.z]);
+      const h=(tx.s||28)*escala; ctx.strokeRect(-4/vista.z,-h-2/vista.z,anchoTexto(tx)*escala+8/vista.z,h*1.25+4/vista.z); ctx.restore(); }
     const it=secSel(); if(pad.herr==="seccion"&&it){ // marco y cuadritos para estirar
       const [a,b,c,d]=norm(it.p).map(v=>v*escala), h=7/vista.z;
       ctx.save(); ctx.strokeStyle="#1f6fd1"; ctx.lineWidth=1.5/vista.z; ctx.setLineDash([6/vista.z,4/vista.z]); ctx.strokeRect(a,b,c-a,d-b); ctx.setLineDash([]);
@@ -2781,6 +2797,8 @@ window.indicacionPDF={generar,vistaPrevia,areas:areas(),norteSrc:"data:image/jpe
     modal.querySelector("#skGOut").textContent=c.g; modal.querySelector("#skOOut").textContent=c.o+" %";
     g.disabled=o.disabled=pad.herr==="borrador";
     modal.querySelector("#skSeccion").classList.toggle("hidden",pad.area!=="rep");
+    { const tx=pad.herr==="texto"&&txtSel(); modal.querySelector("#skTxtCtl").classList.toggle("hidden",!tx);
+      if(tx){ modal.querySelector("#skGiro").value=tx.r||0; modal.querySelector("#skGiroOut").textContent=(tx.r||0)+"°"; } }
     const vertical=window.innerHeight>window.innerWidth&&window.innerWidth<700;
     modal.querySelector("#skHint").textContent=pad.herr==="seccion"?"Sección típica: arrastra los cuadritos para estirarla y el centro para moverla"
       :(vertical?"Gira el celular para dibujar más grande · ":"")+"Dos dedos: acercar y mover";
@@ -2794,16 +2812,26 @@ window.indicacionPDF={generar,vistaPrevia,areas:areas(),norteSrc:"data:image/jpe
     marcar(); dibujar();
   });
   modal.querySelectorAll("#skColors button").forEach(b=>b.onclick=()=>{pad.color=b.dataset.c;if(pad.herr==="borrador")pad.herr="lapiz"; const it=pad.herr==="seccion"&&secSel(); if(it){ it.c=pad.color; dibujar(); } marcar();});
+  // Texto elegido: girar, corregir o quitar
+  const girar=g=>{ const tx=txtSel(); if(!tx) return; let r=Math.round(((tx.r||0)+g)/5)*5; r=((r+180)%360+360)%360-180; if(r) tx.r=r; else delete tx.r; marcar(); dibujar(); };
+  modal.querySelectorAll("#skTxtCtl [data-giro]").forEach(b=>b.onclick=()=>girar(+b.dataset.giro));
+  modal.querySelector("#skGiro").oninput=e=>{ const tx=txtSel(); if(!tx) return; const r=+e.target.value; if(r) tx.r=r; else delete tx.r; modal.querySelector("#skGiroOut").textContent=r+"°"; dibujar(); };
+  modal.querySelector("#skTxtEdit").onclick=()=>{ const tx=txtSel(); if(!tx) return; const t=prompt("Corregir el texto:",tx.t||""); if(t!==null&&t.trim()){ tx.t=t.trim(); dibujar(); } };
+  modal.querySelector("#skTxtDel").onclick=()=>{ if(pad.selTxt===null) return; pad.d.items.splice(pad.selTxt,1); pad.selTxt=null; marcar(); dibujar(); };
   modal.querySelector("#skGrosor").oninput=e=>{ if(CFG[pad.herr]) CFG[pad.herr].g=+e.target.value; const it=pad.herr==="seccion"&&secSel(); if(it){ it.w=+e.target.value; dibujar(); } marcar(); };
   modal.querySelector("#skOpac").oninput=e=>{ if(CFG[pad.herr]) CFG[pad.herr].o=+e.target.value; const it=pad.herr==="seccion"&&secSel(); if(it){ const o=+e.target.value; if(o<100) it.o=o/100; else delete it.o; dibujar(); } marcar(); };
 
+  // coordenadas del punto en el sistema del texto (con su giro)
+  const enTexto=(it,x,y)=>{ const a=-(it.r||0)*Math.PI/180, dx=x-it.x, dy=y-it.y; return [dx*Math.cos(a)-dy*Math.sin(a), dx*Math.sin(a)+dy*Math.cos(a)]; };
+  const anchoTexto=it=>(it.t||"").length*(it.s||28)*0.58;
   const textoEn=(x,y)=>{ for(let i=pad.d.items.length-1;i>=0;i--){ const it=pad.d.items[i]; if(it.k!=="t") continue;
-    const w=(it.t||"").length*(it.s||28)*0.58, h=(it.s||28), m=10/vista.z; if(x>=it.x-m&&x<=it.x+w+m&&y>=it.y-h-m&&y<=it.y+m*0.6) return i; } return -1; };
+    const [u,v]=enTexto(it,x,y), w=anchoTexto(it), h=(it.s||28), m=10/vista.z; if(u>=-m&&u<=w+m&&v>=-h-m&&v<=m*0.6) return i; } return -1; };
+  const txtSel=()=>{ const it=pad.selTxt!==null&&pad.d?pad.d.items[pad.selTxt]:null; return it&&it.k==="t"?it:null; };
 
   function abrir(area){
     dedos.clear(); gesto=null; esperarSoltar=false;
     pad.abierto=true; pad.area=area; pad.d=copia(datos[area])||{w:1000,h:Math.round(1000/A(area).aspect),items:[]};
-    { const h=Math.round(1000/A(area).aspect); if(pad.d.h&&Math.abs(pad.d.h-h)>2) reescalarY(pad.d,h/pad.d.h,h); } pad.actual=null; pad.pid=null; pad.mover=null; pad.sel=null; pad.ajuste=null; if(pad.herr==="borrador"||pad.herr==="texto"||pad.herr==="seccion") pad.herr="lapiz";
+    { const h=Math.round(1000/A(area).aspect); if(pad.d.h&&Math.abs(pad.d.h-h)>2) reescalarY(pad.d,h/pad.d.h,h); } pad.actual=null; pad.pid=null; pad.mover=null; pad.sel=null; pad.selTxt=null; pad.ajuste=null; if(pad.herr==="borrador"||pad.herr==="texto"||pad.herr==="seccion") pad.herr="lapiz";
     modal.querySelector("#skTitle").textContent=NOMBRES[area];
     modal.classList.remove("hidden"); document.body.classList.add("sk-lock"); marcar();
     requestAnimationFrame(ajustar);
@@ -2837,7 +2865,7 @@ window.indicacionPDF={generar,vistaPrevia,areas:areas(),norteSrc:"data:image/jpe
       for(let i=0;i<p.length;i+=3) if(Math.hypot(p[i]-x,p[i+1]-y)<=Rw) return false;
       return true;
     });
-    if(pad.d.items.length!==antes){ pad.sel=null; dibujar(); }
+    if(pad.d.items.length!==antes){ pad.sel=null; pad.selTxt=null; dibujar(); }
   }
   /* Gestos: un dedo (o el lápiz) dibuja; dos dedos acercan/alejan (pellizco) y mueven la hoja.
      Con lápiz digital, un dedo mueve la hoja en vez de dibujar. */
@@ -2865,11 +2893,12 @@ window.indicacionPDF={generar,vistaPrevia,areas:areas(),norteSrc:"data:image/jpe
       const i=textoEn(x,y);
       if(i>=0){ // texto existente: arrastrar para moverlo, tocar para corregirlo
         const it=pad.d.items[i]; pad.pid=e.pointerId; try{cv.setPointerCapture(e.pointerId);}catch(_){}
-        pad.mover={i,x0:x,y0:y,ix:it.x,iy:it.y,movido:false}; return;
+        pad.mover={i,x0:x,y0:y,ix:it.x,iy:it.y,movido:false,yaElegido:pad.selTxt===i}; pad.selTxt=i; marcar(); dibujar(); return;
       }
+      if(pad.selTxt!==null){ pad.selTxt=null; marcar(); dibujar(); dedos.delete(e.pointerId); return; } // toque afuera: suelta el texto elegido
       const t=prompt("Texto a colocar en el dibujo (ej. L20°, 5 m, Falla 1):","");
       const c=cfg();
-      if(t&&t.trim()){ pad.d.items.push({k:"t",c:pad.color,s:c.g,b:1,x,y,t:t.trim(),...(c.o<100?{o:c.o/100}:{})}); dibujar(); }
+      if(t&&t.trim()){ pad.d.items.push({k:"t",c:pad.color,s:c.g,b:1,x,y,t:t.trim(),...(c.o<100?{o:c.o/100}:{})}); pad.selTxt=pad.d.items.length-1; marcar(); dibujar(); }
       dedos.delete(e.pointerId); return;
     }
     if(pad.herr==="seccion"){
@@ -2934,11 +2963,12 @@ window.indicacionPDF={generar,vistaPrevia,areas:areas(),norteSrc:"data:image/jpe
     if(e.pointerId!==pad.pid) return; pad.pid=null;
     if(pad.ajuste){ pad.ajuste=null; dibujar(); return; }
     if(pad.mover){ const m=pad.mover; pad.mover=null; const it=pad.d.items[m.i];
-      if(it&&!m.movido&&e.type==="pointerup"){
+      // tocar un texto lo elige (aparecen Giro, Corregir y Quitar); tocarlo otra vez permite corregirlo
+      if(it&&!m.movido&&e.type==="pointerup"&&m.yaElegido){
         const t=prompt("Corregir el texto (déjalo vacío para quitarlo):",it.t||"");
-        if(t!==null){ if(t.trim()) it.t=t.trim(); else pad.d.items.splice(m.i,1); }
+        if(t!==null){ if(t.trim()) it.t=t.trim(); else { pad.d.items.splice(m.i,1); pad.selTxt=null; } }
       }
-      dibujar(); return; }
+      marcar(); dibujar(); return; }
     if(pad.actual){ const it=pad.actual; pad.actual=null;
       if(!((it.k==="l"||it.k==="e")&&Math.hypot(it.p[3]-it.p[0],it.p[4]-it.p[1])<3)) pad.d.items.push(it);
       dibujar(); }
@@ -2949,8 +2979,8 @@ window.indicacionPDF={generar,vistaPrevia,areas:areas(),norteSrc:"data:image/jpe
     const [cx,cy]=local(e), lx=(cx-vista.ox)/vista.z, ly=(cy-vista.oy)/vista.z;
     vista.z=Math.max(1,Math.min(6,vista.z*Math.exp(-e.deltaY*0.01))); vista.ox=cx-lx*vista.z; vista.oy=cy-ly*vista.z; fijarVista(); dibujar(); },{passive:false});
   cv.addEventListener("touchmove",e=>e.preventDefault(),{passive:false});
-  modal.querySelector("#skUndo").onclick=()=>{pad.d.items.pop(); if(pad.sel!==null&&pad.sel>=pad.d.items.length) pad.sel=null; dibujar();};
-  modal.querySelector("#skClear").onclick=()=>{ if(pad.d.items.length&&confirm("¿Borrar todo el dibujo?")){pad.d.items=[];pad.sel=null;dibujar();} };
+  modal.querySelector("#skUndo").onclick=()=>{pad.d.items.pop(); if(pad.sel!==null&&pad.sel>=pad.d.items.length) pad.sel=null; if(pad.selTxt!==null&&pad.selTxt>=pad.d.items.length) pad.selTxt=null; marcar(); dibujar();};
+  modal.querySelector("#skClear").onclick=()=>{ if(pad.d.items.length&&confirm("¿Borrar todo el dibujo?")){pad.d.items=[];pad.sel=null;pad.selTxt=null;marcar();dibujar();} };
   modal.querySelector("#skCancel").onclick=()=>{ if(JSON.stringify(pad.d.items)!==JSON.stringify((datos[pad.area]&&datos[pad.area].items)||[])&&!confirm("¿Salir sin guardar los cambios del dibujo?")) return; cerrar(); };
   modal.querySelector("#skSave").onclick=()=>{ datos[pad.area]=vacio(pad.d)?null:copia(pad.d); cerrar(); pintarMiniaturas(); };
 
