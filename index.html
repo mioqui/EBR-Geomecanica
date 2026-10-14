@@ -409,12 +409,20 @@ html[data-theme="dark"] .kind.map{background:#3a2e12;color:#f0d9a4}
       <div class="field"><label for="azimut">Azimut de la labor (°)</label><input id="azimut" type="text" inputmode="numeric" autocomplete="off" placeholder="0–360"></div>
       <div class="field"><label for="refTopo">Referencia topográfica</label><input id="refTopo" autocomplete="off" placeholder="Ej. V22 + 20.73m, C32 + 5m"></div>
     </div>
+    <h3>Dimensiones reales de la labor</h3>
+    <div class="grid grid3">
+      <div class="field"><label for="anchoReal">Ancho (m)</label><input id="anchoReal" type="text" inputmode="decimal" autocomplete="off" placeholder="Ej. 4.80"></div>
+      <div class="field"><label for="altoReal">Alto (m)</label><input id="altoReal" type="text" inputmode="decimal" autocomplete="off" placeholder="Ej. 4.70"></div>
+      <div class="field"><label for="largoL">L (m)</label><input id="largoL" type="text" inputmode="decimal" autocomplete="off" placeholder="Ej. 3.0"></div>
+    </div>
+    <div class="help" id="sobreroturaLive" style="margin-top:6px">Sobrerotura: ingresa la sección, el ancho y el alto.</div>
     <h3>Coordenadas UTM del punto evaluado</h3>
     <div class="grid grid3">
       <div class="field"><label for="coordX">X (Este)</label><input id="coordX" type="text" inputmode="decimal" autocomplete="off" placeholder="Ej. 362150.5"></div>
       <div class="field"><label for="coordY">Y (Norte)</label><input id="coordY" type="text" inputmode="decimal" autocomplete="off" placeholder="Ej. 8829540.2"></div>
       <div class="field"><label for="coordZ">Z (cota)</label><input id="coordZ" type="text" inputmode="decimal" autocomplete="off" placeholder="Ej. 3960"></div>
     </div>
+    <div class="field" style="margin-top:10px"><label for="factores">Factores influyentes</label><textarea id="factores" rows="2" placeholder="Ej. presencia de agua, esfuerzos, voladura…"></textarea></div>
   </div>
 
   <div class="card">
@@ -913,6 +921,18 @@ function seccionPoner(v){
   sel.value=v===""?"":(hay?v:"otra"); $("seccion").value=hay?"":v; $("seccion").classList.toggle("hidden",sel.value!=="otra");
 }
 $("seccionSel").addEventListener("change",()=>{ const o=$("seccionSel").value==="otra"; $("seccion").classList.toggle("hidden",!o); if(o) $("seccion").focus(); });
+// Sobrerotura (%) = (ancho real × alto real) / (ancho × alto de la sección) − 1, igual que la base del área
+function numOrNull(id){ const t=numTxt($(id).value); if(t==="") return null; const n=Number(t); return Number.isFinite(n)?n:null; }
+function sobrerotura(sec,an,al){
+  const m=/^(\d+(?:\.\d+)?) x (\d+(?:\.\d+)?)$/.exec(String(sec||"")); if(!m||an===null||al===null||an===undefined||al===undefined) return null;
+  const a=Number(m[1])*Number(m[2]); if(!a) return null; return Math.round(((an*al)/a-1)*1000)/10;
+}
+function pintarSobrerotura(){
+  const v=sobrerotura(seccionValor(),numOrNull("anchoReal"),numOrNull("altoReal")), el=$("sobreroturaLive");
+  el.innerHTML=v===null?"Sobrerotura: ingresa la sección, el ancho y el alto.":`Sobrerotura: <b>${v.toFixed(1)} %</b> respecto a la sección ${esc(seccionValor())}${v<0?" (área menor que la sección)":""}`;
+  return v;
+}
+["anchoReal","altoReal","seccionSel","seccion"].forEach(id=>["input","change"].forEach(ev=>$(id).addEventListener(ev,pintarSobrerotura)));
 function phValor(){ const t=numTxt($("ph").value); if(t==="") return null; const n=Number(t); return Number.isFinite(n)?n:null; }
 
 function recalc(){
@@ -1109,6 +1129,8 @@ function collect(){
     riesgo:$("riesgo").value,seccion:seccionValor(),azimut:numTxt($("azimut").value),refTopo:$("refTopo").value.trim(),
     coordX:numTxt($("coordX").value),coordY:numTxt($("coordY").value),coordZ:numTxt($("coordZ").value),ph:phValor(),
     tipoEval:$("tipoEval").value,
+    anchoReal:numTxt($("anchoReal").value),altoReal:numTxt($("altoReal").value),largoL:numTxt($("largoL").value),
+    sobrerotura:sobrerotura(seccionValor(),numOrNull("anchoReal"),numOrNull("altoReal")),factores:$("factores").value.trim(),
     params,buzamiento:$("buzamiento").value,rumbo:$("rumbo").value,sentido:$("sentido").value,
     ajusteCategoria:calc.orientation.cat,ajuste:calc.orientation.adj,trazabilidad:calc.orientation.trace,
     rmrBasico:calc.basic,rmrTotal:calc.total,tipoRoca:calc.rock,
@@ -1232,7 +1254,7 @@ async function showHistoryDetail(id){
     $("detailTotal").textContent=x.rmrTotal??"—";
     $("detailRock").textContent=x.tipoRoca||"—";
     applyRockColor("detailRockCard",x.rmrTotal);
-    $("detailIdentification").innerHTML=`<strong>Labor:</strong> ${esc(x.labor||"—")}<br><strong>Nivel:</strong> ${esc(x.nivel||"—")} · <strong>Block:</strong> ${esc(x.block||"—")}<br><strong>Turno:</strong> ${esc(x.turno||"—")} · <strong>Tipo de labor:</strong> ${esc(TIPOS_LABOR[x.condicionLabor]||x.condicionLabor||"—")}<br><strong>Supervisor / Geomecánico:</strong> ${esc(x.supervisor||"—")}<br><strong>Tipo de evaluación:</strong> ${esc(x.tipoEval||"Indicación Geomecánica")}<br><strong>Formato:</strong> ${esc((window.ebrPerfilNombre&&window.ebrPerfilNombre(x.empresa))||"Brocal (SMEB)")}${x.litologia?`<br><strong>Litología:</strong> ${esc(x.litologia)}`:""}${x.riesgo?`<br><strong>Nivel de riesgo:</strong> ${esc(x.riesgo)}`:""}${x.seccion?`<br><strong>Sección:</strong> ${esc(x.seccion)}`:""}${x.azimut?` · <strong>Azimut:</strong> ${esc(x.azimut)}°`:""}${x.refTopo?`<br><strong>Referencia topográfica:</strong> ${esc(x.refTopo)}`:""}${(x.coordX||x.coordY||x.coordZ)?`<br><strong>Coordenadas UTM:</strong> X ${esc(x.coordX||"—")} · Y ${esc(x.coordY||"—")} · Z ${esc(x.coordZ||"—")}`:""}${x.ph!==null&&x.ph!==undefined?`<br><strong>pH:</strong> ${esc(x.ph)}${x.ph<=5?" · aguas ácidas":""}`:""}<br><strong>Fecha y hora de guardado:</strong> ${esc(formatSavedAt(x.createdAt))}${x.updatedAt?`<br><strong>Última actualización:</strong> ${esc(formatSavedAt(x.updatedAt))}`:""}`;
+    $("detailIdentification").innerHTML=`<strong>Labor:</strong> ${esc(x.labor||"—")}<br><strong>Nivel:</strong> ${esc(x.nivel||"—")} · <strong>Block:</strong> ${esc(x.block||"—")}<br><strong>Turno:</strong> ${esc(x.turno||"—")} · <strong>Tipo de labor:</strong> ${esc(TIPOS_LABOR[x.condicionLabor]||x.condicionLabor||"—")}<br><strong>Supervisor / Geomecánico:</strong> ${esc(x.supervisor||"—")}<br><strong>Tipo de evaluación:</strong> ${esc(x.tipoEval||"Indicación Geomecánica")}<br><strong>Formato:</strong> ${esc((window.ebrPerfilNombre&&window.ebrPerfilNombre(x.empresa))||"Brocal (SMEB)")}${x.litologia?`<br><strong>Litología:</strong> ${esc(x.litologia)}`:""}${x.riesgo?`<br><strong>Nivel de riesgo:</strong> ${esc(x.riesgo)}`:""}${x.seccion?`<br><strong>Sección:</strong> ${esc(x.seccion)}`:""}${x.azimut?` · <strong>Azimut:</strong> ${esc(x.azimut)}°`:""}${x.refTopo?`<br><strong>Referencia topográfica:</strong> ${esc(x.refTopo)}`:""}${(x.anchoReal||x.altoReal||x.largoL)?`<br><strong>Ancho × alto real:</strong> ${esc(x.anchoReal||"—")} × ${esc(x.altoReal||"—")} m${x.largoL?` · <strong>L:</strong> ${esc(x.largoL)} m`:""}${x.sobrerotura!==null&&x.sobrerotura!==undefined?` · <strong>Sobrerotura:</strong> ${esc(x.sobrerotura)} %`:""}`:""}${x.factores?`<br><strong>Factores influyentes:</strong> ${esc(x.factores)}`:""}${(x.coordX||x.coordY||x.coordZ)?`<br><strong>Coordenadas UTM:</strong> X ${esc(x.coordX||"—")} · Y ${esc(x.coordY||"—")} · Z ${esc(x.coordZ||"—")}`:""}${x.ph!==null&&x.ph!==undefined?`<br><strong>pH:</strong> ${esc(x.ph)}${x.ph<=5?" · aguas ácidas":""}`:""}<br><strong>Fecha y hora de guardado:</strong> ${esc(formatSavedAt(x.createdAt))}${x.updatedAt?`<br><strong>Última actualización:</strong> ${esc(formatSavedAt(x.updatedAt))}`:""}`;
     $("detailGsi").innerHTML=(x.gsi===null||x.gsi===undefined)?"Sin GSI calculado (evaluación anterior a esta función o datos incompletos).":`<strong>GSI ${esc(x.gsi)}</strong> · JCond89 = ${esc(x.jcond89)} · RQD = ${esc(x.gsiRqd)} %${x.rqdMedido!==null&&x.rqdMedido!==undefined?" (medido)":" (punto medio del rango)"}`;
     { const c=cartillaFor(x.rmrTotal,x.condicionLabor,x.params?.agua?.score);
       if(x.sostPrincipal!==undefined||x.sostRestriccion!==undefined){ c.principal=x.sostPrincipal||""; c.sacrificio=x.sostSacrificio||""; c.restriccion=x.sostRestriccion||""; if(c.estado==="ok"||c.estado==="sin-dato") c.estado=(c.principal||c.restriccion)?"ok":c.estado; }
@@ -1260,7 +1282,7 @@ $("editHistoryBtn").onclick=async()=>{
   rmrIds.forEach(id=>{$(id).value=x.params?.[id]?.score===null||x.params?.[id]?.score===undefined?"":String(x.params[id].score);});
   $("buzamiento").value=x.buzamiento||""; orientation(); $("rumbo").value=x.rumbo||""; orientation(); $("sentido").value=x.sentido||"";
   $("observaciones").value=x.observaciones||"";
-  $("litologia").value=x.litologia||""; $("riesgo").value=x.riesgo||""; seccionPoner(x.seccion); $("azimut").value=x.azimut||""; $("refTopo").value=x.refTopo||""; $("coordX").value=x.coordX||""; $("coordY").value=x.coordY||""; $("coordZ").value=x.coordZ||""; geoPoner(x.supervisor); if(x.tipoEval){ $("tipoEval").value=x.tipoEval; window.ebrPintarTipo?.(); }
+  $("litologia").value=x.litologia||""; $("riesgo").value=x.riesgo||""; seccionPoner(x.seccion); $("azimut").value=x.azimut||""; $("refTopo").value=x.refTopo||""; $("coordX").value=x.coordX||""; $("coordY").value=x.coordY||""; $("coordZ").value=x.coordZ||""; geoPoner(x.supervisor); $("anchoReal").value=x.anchoReal||""; $("altoReal").value=x.altoReal||""; $("largoL").value=x.largoL||""; $("factores").value=x.factores||""; pintarSobrerotura(); if(x.tipoEval){ $("tipoEval").value=x.tipoEval; window.ebrPintarTipo?.(); }
   $("ph").value=x.ph===null||x.ph===undefined?"":String(x.ph);
   if(x.indicaciones!==undefined&&x.indicaciones!==null){ $("indCartilla").checked=x.indCartilla!==false; $("indicaciones").value=x.indicaciones; indAuto=null; }
   else{ $("indCartilla").checked=true; $("indicaciones").value=""; indAuto=""; }
@@ -1346,7 +1368,7 @@ function rmrTable(a){
   // Mismo orden que el formulario: identificación, parámetros RMR, orientación, resultado, sostenimiento, observaciones y fotos
   const maxFotos=Math.max(0,...a.map(x=>(x.photos||[]).length));
   const fotoHeaders=Array.from({length:maxFotos},(_,i)=>`Foto ${i+1}`);
-  const headers=["Fecha","Turno","Nivel","Block","Labor","Tipo de labor","Supervisor / Geomecánico","Tipo de evaluación","Formato","Litología","Nivel de riesgo","Sección","Azimut de la labor","Referencia topográfica","X (UTM Este)","Y (UTM Norte)","Z (cota)",
+  const headers=["Fecha","Turno","Nivel","Block","Labor","Tipo de labor","Supervisor / Geomecánico","Tipo de evaluación","Formato","Litología","Nivel de riesgo","Sección","Azimut de la labor","Referencia topográfica","Ancho real (m)","Alto real (m)","L (m)","Sobrerotura (%)","Factores influyentes","X (UTM Este)","Y (UTM Norte)","Z (cota)",
     "Resistencia de la roca intacta","RQD","Espaciamiento","Apertura","Rugosidad","Relleno","Persistencia","Alteración","Agua subterránea","pH","RMR básico",
     "Rango de buzamiento","Rumbo respecto al eje","Sentido de excavación","Categoría ajuste","Ajuste orientación","RMR total","Tipo de roca","GSI estimado",
     "Sostenimiento","Sostenimiento de sacrificio","Restricción","Nota por agua","Indicaciones de estabilidad",
@@ -1362,7 +1384,7 @@ function rmrTable(a){
     fotos.forEach((src,i)=>{ const ext=/^data:image\/png/i.test(src)?"png":"jpg", name=`${id8}_${i+1}.${ext}`; nombres.push(name); files.push({name,src}); });
     const nv=v=>{const t=String(v??"").trim();return /^-?\d+(\.\d+)?$/.test(t)?Number(t):t;};
     return [x.fecha,x.turno,x.nivel,x.block,x.labor,TIPOS_LABOR[x.condicionLabor]||x.condicionLabor||"",x.supervisor,x.tipoEval||"Indicación Geomecánica",
-      (window.ebrPerfilNombre&&window.ebrPerfilNombre(x.empresa))||"Brocal (SMEB)",x.litologia||"",x.riesgo||"",x.seccion||"",nv(x.azimut),x.refTopo||"",nv(x.coordX),nv(x.coordY),nv(x.coordZ),
+      (window.ebrPerfilNombre&&window.ebrPerfilNombre(x.empresa))||"Brocal (SMEB)",x.litologia||"",x.riesgo||"",x.seccion||"",nv(x.azimut),x.refTopo||"",nv(x.anchoReal),nv(x.altoReal),nv(x.largoL),x.sobrerotura??"",x.factores||"",nv(x.coordX),nv(x.coordY),nv(x.coordZ),
       L("resistencia"),L("rqd"),L("espaciamiento"),L("apertura"),L("rugosidad"),L("relleno"),L("persistencia"),L("alteracion"),L("agua"),x.ph??"",x.rmrBasico,
       x.buzamiento,x.rumbo,x.sentido,x.ajusteCategoria,x.ajuste,x.rmrTotal,x.tipoRoca,x.gsi??"",
       ...sost,(x.indicaciones!==undefined&&x.indicaciones!==null)?x.indicaciones:"",
@@ -1372,8 +1394,8 @@ function rmrTable(a){
 }
 $("deleteAllBtn").onclick=async()=>{if(confirm("¿Borrar todo el historial local de este dispositivo?")){await dbDeleteAll();renderHistory();}};
 function clearForm(){
- ["turno","nivel","block","labor","condicionLabor","supervisor","resistencia","rqd","espaciamiento","apertura","rugosidad","relleno","persistencia","alteracion","agua","buzamiento","rumbo","sentido","observaciones","rqdMedido","litologia","riesgo","seccionSel","coordX","coordY","coordZ","seccion","azimut","refTopo","ph","indicaciones"].forEach(id=>$(id).value="");
- $("indCartilla").checked=true; indAuto=""; $("seccion").classList.add("hidden"); 
+ ["turno","nivel","block","labor","condicionLabor","supervisor","resistencia","rqd","espaciamiento","apertura","rugosidad","relleno","persistencia","alteracion","agua","buzamiento","rumbo","sentido","observaciones","rqdMedido","litologia","riesgo","seccionSel","coordX","coordY","coordZ","anchoReal","altoReal","largoL","factores","seccion","azimut","refTopo","ph","indicaciones"].forEach(id=>$(id).value="");
+ $("indCartilla").checked=true; indAuto=""; $("seccion").classList.add("hidden"); pintarSobrerotura(); 
  $("fecha").value=today(); currentPhotos=[]; renderPhotoPreview(); window.rmrStructs?.clear(); window.sketches?.clear(); recalc();
 }
 $("clearBtn").onclick=clearForm;
@@ -1841,7 +1863,7 @@ function crearEditorEstructuras(px,seccion){
         sc("resistencia"),sc("rqd"),sc("espaciamiento"),sc("apertura"),sc("rugosidad"),sc("relleno"),sc("persistencia"),sc("alteracion"),sc("agua"),x.ajuste??"",
         {f:`+SUM(AI${R}:AQ${R})`},{f:`+SUM(AI${R}:AQ${R})+AR${R}`},
         {f:`IF(AND(AT${R}>=61,AT${R}<81),"II",IF(AND(AT${R}>50,AT${R}<=60),"IIIA",IF(AND(AT${R}>=41,AT${R}<=50),"IIIB",IF(AND(AT${R}>=31,AT${R}<=35),"IVA",IF(AND(AT${R}>=36,AT${R}<=40),"IVA",IF(AND(AT${R}>=21,AT${R}<=30),"IVB",IF(AND(AT${R}>=1,AT${R}<21),"V")))))))`},
-        x.litologia||"","","",x.observaciones||"",ind,x.riesgo||"","","",
+        x.litologia||"","","",x.observaciones||"",ind,x.riesgo||"",n(x.anchoReal),n(x.altoReal),
         {f:`+IF(((BB${R}*BC${R})/(_xlfn.NUMBERVALUE(LEFT(D${R},4))*_xlfn.NUMBERVALUE(RIGHT(D${R},4)))-1)<0%,"Falta Sección",(BB${R}*BC${R})/(_xlfn.NUMBERVALUE(LEFT(D${R},4))*_xlfn.NUMBERVALUE(RIGHT(D${R},4)))-1)`},
         "",{f:`TODAY()-BE${R}`},
         {f:`IF(AND(OR(AU${R}="IIIB",AU${R}="IIIA",AU${R}="IIB"),BF${R}>3),"SI",IF(AND(OR(AU${R}="IVA",AU${R}="IVB",AU${R}="V"),BF${R}>1),"SI","NO"))`},
@@ -1854,7 +1876,7 @@ function crearEditorEstructuras(px,seccion){
     // filas en orden de registro: del más antiguo al más reciente
     const t1=rmrTable([...r].reverse()), t2=M().table([...m].reverse(),[...r].reverse()), t3=bdTable([...r].reverse());
     const xlsx=await workbook([
-      {name:"RMR",headers:t1.headers,rows:t1.rows,photos:t1.photos,photoCols:t1.photoCols,wide:["Observaciones geomecánicas","Sostenimiento","Sostenimiento de sacrificio","Restricción","Nota por agua","Indicaciones de estabilidad"]},
+      {name:"RMR",headers:t1.headers,rows:t1.rows,photos:t1.photos,photoCols:t1.photoCols,wide:["Observaciones geomecánicas","Sostenimiento","Sostenimiento de sacrificio","Restricción","Nota por agua","Indicaciones de estabilidad","Factores influyentes"]},
       {name:"Mapeo estructural",headers:t2.headers,rows:t2.rows,wide:["Observaciones"]},
       {name:"BD Reporte Diario",headers:t3.headers,rows:t3.rows,wide:["OBSERVACIONES","INDICACION DE SOSTENIMIENTO"]}
     ]);
@@ -2207,12 +2229,17 @@ function drawDataOver(cv,x){
   if(x.rmrTotal!==null&&x.rmrTotal!==undefined){
     const rr=ROCK_ROWS.find(z=>x.rmrTotal>=z.min);
     const b=box(ref(rr.r));cv.ellipse({x:b.x-1.5,y:b.y-2.5,w:b.w+3,h:b.h+5},1.8,"000000");
-    const bs=box(ref(`O${rr.ck}:P${rr.ck}`));cv.ellipse({x:bs.x-3,y:bs.y-1.5,w:bs.w+6,h:bs.h+3},1.6,"000000");
+    // (la tabla de sostenimiento de sacrificio no se marca: la indicación se escribe en «Indicaciones de estabilidad»)
     val(cv,"J31",String(x.rmrTotal),{size:12*SC});
   }
   // Fila de datos: litología, GSI y coordenadas UTM del punto evaluado
   if(hay(x.litologia)) val(cv,"C31:D31",x.litologia,{size:9*SC});
   if(hay(x.gsi)) val(cv,"K31:L31",String(x.gsi),{size:11*SC});
+  if(hay(x.anchoReal)) val(cv,"E31",String(x.anchoReal),{size:9.5*SC});
+  if(hay(x.altoReal)) val(cv,"F31",String(x.altoReal),{size:9.5*SC});
+  if(hay(x.largoL)) val(cv,"G31",String(x.largoL),{size:9.5*SC});
+  if(hay(x.sobrerotura)) val(cv,"H31:I31",`${Number(x.sobrerotura).toFixed(1)} %`,{size:9.5*SC});
+  if(hay(x.factores)) drawInBox(cv,box(ref("S30:W31")),x.factores,{size:10*SC,color:MARK,h:"l",v:"t",scale:90});
   if(hay(x.coordX)) val(cv,"M31:N31",String(x.coordX),{size:9.5*SC});
   if(hay(x.coordY)) val(cv,"O31:P31",String(x.coordY),{size:9.5*SC});
   if(hay(x.coordZ)) val(cv,"Q31:R31",String(x.coordZ),{size:9.5*SC});
