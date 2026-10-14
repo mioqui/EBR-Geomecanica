@@ -117,7 +117,7 @@ body.sk-lock{overflow:hidden}
 .sk-group button.on{background:#fff;color:#123d5a}
 .sk-group .sk-color{width:30px;height:30px;padding:0;border-radius:50%;border:2px solid #2f4552}
 .sk-group .sk-color.on{outline:3px solid #fff;outline-offset:1px}
-.sk-stage{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;padding:4px}
+.sk-stage{position:relative;flex:1;min-height:0;display:flex;align-items:center;justify-content:center;padding:4px}
 .sk-stage canvas{touch-action:none;background:#fff;border-radius:4px;box-shadow:0 2px 12px rgba(0,0,0,.4);cursor:crosshair}
 .sk-bottom{display:flex;gap:8px;padding:8px 10px;align-items:center;flex-wrap:wrap}
 .sk-bottom .btn{width:auto;padding:9px 12px}
@@ -144,6 +144,8 @@ html[data-theme="dark"] .sk-state{color:#9fb2bd}
 .chk input{width:22px;height:22px;flex:0 0 auto}
 .ph-aviso{margin-top:6px;padding:8px 10px;border-radius:10px;background:#fff4e2;border:1px solid #f0d9a4;color:#6b4a0e;font-size:.84rem;font-weight:700}
 html[data-theme="dark"] .ph-aviso{background:#3a2e12;border-color:#6b5420;color:#f0d9a4}
+.sk-flot{position:absolute;top:6px;left:50%;transform:translateX(-50%);z-index:3;background:rgba(18,32,42,.92);padding:5px 6px;border-radius:12px;box-shadow:0 4px 14px rgba(0,0,0,.35);flex-wrap:nowrap;align-items:center;max-width:calc(100% - 12px);overflow-x:auto}
+.sk-flot.hidden{display:none}
 .sk-range{display:flex!important;align-items:center;gap:6px;color:#e6eef2;font-size:.78rem;font-weight:700;margin:0!important;padding:0}
 .sk-range input{width:96px;min-height:0;height:24px;padding:0;margin:0;border:0;background:transparent;accent-color:#ffd479}
 .sk-range output{min-width:36px;text-align:right;margin-right:12px}
@@ -2726,20 +2728,21 @@ window.indicacionPDF={generar,vistaPrevia,areas:areas(),norteSrc:"data:image/jpe
         <button type="button" data-h="borrador" title="Borra el trazo que toques">🧽 Borrar trazo</button>
         <button type="button" id="skSeccion" data-h="seccion" title="Sección típica (bóveda): arrastra los cuadritos para estirarla y el centro para moverla">⌂ Sección típica</button>
       </div>
-      <div class="sk-group hidden" id="skTxtCtl">
-        <button type="button" data-giro="-15" title="Girar a la izquierda 15°">⟲ 15°</button>
-        <label class="sk-range">Giro<input type="range" id="skGiro" min="-180" max="180" step="5"><output id="skGiroOut"></output></label>
-        <button type="button" data-giro="15" title="Girar a la derecha 15°">⟳ 15°</button>
-        <button type="button" id="skTxtEdit" title="Corregir el texto">✏️ Corregir</button>
-        <button type="button" id="skTxtDel" title="Quitar el texto">🗑️</button>
-      </div>
       <div class="sk-group" id="skColors">${COLORES.map(([c,n])=>`<button type="button" class="sk-color" data-c="${c}" title="${n}" aria-label="${n}" style="background:${c}"></button>`).join("")}</div>
       <div class="sk-group">
         <label class="sk-range"><span id="skGLab">Grosor</span><input type="range" id="skGrosor" min="1" max="20" step="1"><output id="skGOut"></output></label>
         <label class="sk-range">Opacidad<input type="range" id="skOpac" min="10" max="100" step="5"><output id="skOOut"></output></label>
       </div>
     </div>
-    <div class="sk-stage" id="skStage"><canvas id="skCanvas"></canvas></div>
+    <div class="sk-stage" id="skStage"><canvas id="skCanvas"></canvas>
+      <div class="sk-group sk-flot hidden" id="skTxtCtl">
+        <button type="button" data-giro="-15" title="Girar a la izquierda 15°">⟲ 15°</button>
+        <label class="sk-range">Giro<input type="range" id="skGiro" min="-180" max="180" step="5"><output id="skGiroOut"></output></label>
+        <button type="button" data-giro="15" title="Girar a la derecha 15°">⟳ 15°</button>
+        <button type="button" id="skTxtEdit" title="Corregir el texto">✏️ Corregir</button>
+        <button type="button" id="skTxtDel" title="Quitar el texto">🗑️</button>
+      </div>
+    </div>
     <div class="sk-bottom">
       <button type="button" class="btn" id="skUndo">↶ Deshacer</button>
       <button type="button" class="btn danger" id="skClear">Borrar todo</button>
