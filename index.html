@@ -126,9 +126,6 @@ html[data-theme="dark"] .sk-state{color:#9fb2bd}
 .photo-pick{display:flex;gap:8px;flex-wrap:wrap;margin:4px 0 2px}.photo-pick .btn{width:auto;flex:1 1 140px;text-align:center}
 .vh{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;pointer-events:none}
 .hdr-row{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;margin-top:8px}
-.tipo-eval{display:flex!important;align-items:center;gap:8px;margin:0!important;color:#fff;font-size:.8rem;font-weight:800}
-.tipo-eval select{width:auto;min-height:0;padding:5px 30px 5px 12px;border-radius:999px;border:1px solid rgba(255,255,255,.45);background-color:rgba(255,255,255,.14);color:#fff;font-weight:800;font-size:.8rem}
-.tipo-eval select option{color:#14232d}
 .empresa-chip{margin-top:0;border:1px solid rgba(255,255,255,.45);background:rgba(255,255,255,.14);color:#fff;border-radius:999px;padding:5px 12px;font-weight:800;font-size:.8rem;cursor:pointer}
 .emp-modal{position:fixed;inset:0;z-index:80;background:rgba(10,25,35,.72);display:flex;align-items:center;justify-content:center;padding:16px}
 .emp-modal.hidden{display:none}
@@ -373,8 +370,8 @@ html[data-theme="dark"] .kind.map{background:#3a2e12;color:#f0d9a4}
   <p>Captura guiada, cálculo automático y trazabilidad del ajuste de orientación.</p>
   <div class="hdr-row">
     <button type="button" class="empresa-chip" id="empresaBtn" aria-label="Cambiar formato de la indicación">Formato: …</button>
-    <label class="tipo-eval">Tipo de evaluación
-      <select id="tipoEval" aria-label="Tipo de evaluación"><option>Indicación Geomecánica</option><option>Indicación de Tajo</option><option>Rehabilitación</option></select></label>
+    <button type="button" class="empresa-chip" id="tipoEvalBtn" aria-label="Cambiar tipo de evaluación">Tipo de evaluación: …</button>
+    <select id="tipoEval" class="hidden" aria-hidden="true" tabindex="-1"><option>Indicación Geomecánica</option><option>Indicación de Tajo</option><option>Rehabilitación</option></select>
   </div>
 </header>
 
@@ -407,8 +404,8 @@ html[data-theme="dark"] .kind.map{background:#3a2e12;color:#f0d9a4}
       <div class="field"><label for="condicionLabor">Tipo de labor</label><select id="condicionLabor"><option value="">Seleccionar…</option><option value="Permanente">Avance permanente (&gt; 1 año)</option><option value="Temporal">Avance temporal (≤ 1 año)</option><option value="Interseccion permanente">Intersección permanente (RC 10)</option><option value="Interseccion temporal">Intersección temporal (RC 6)</option><option value="Explotacion">Explotación: tajo de perforación positiva (ancho &gt; 6 m)</option></select></div>
       <div class="field"><label for="litologia">Litología</label><input id="litologia" list="litoLista" autocomplete="off" placeholder="Ej. CONGS, DAPO…">
         <datalist id="litoLista"><option value="LITO"><option value="PIRO"><option value="DAPO"><option value="CSUP"><option value="CMVAR"><option value="CMFAV"><option value="CINF"><option value="CONGT"><option value="CONGS"><option value="MITU"></datalist></div>
-      <div class="field"><label for="seccionSel">Sección de la labor (m)</label><select id="seccionSel"><option value="">Seleccionar…</option><option>4.5 x 4.5</option><option>5.0 x 5.0</option><option value="otra">Otra…</option></select>
-        <input id="seccion" class="hidden" autocomplete="off" placeholder="Escribe la sección, ej. 3.9 x 3.7" style="margin-top:6px"></div>
+      <div class="field"><label for="seccionSel">Sección de la labor (m)</label><select id="seccionSel"><option value="">Seleccionar…</option><option>2.00 x 2.50</option><option>3.90 x 3.70</option><option>4.00 x 4.00</option><option>4.00 x 4.50</option><option>4.50 x 4.50</option><option>5.00 x 5.00</option><option>6.00 x 6.50</option><option value="otra">Otra…</option></select>
+        <input id="seccion" class="hidden" autocomplete="off" placeholder="Escribe la sección, ej. 3.50 x 3.50" style="margin-top:6px"></div>
       <div class="field"><label for="azimut">Azimut de la labor (°)</label><input id="azimut" type="text" inputmode="numeric" autocomplete="off" placeholder="0–360"></div>
       <div class="field"><label for="refTopo">Referencia topográfica</label><input id="refTopo" autocomplete="off" placeholder="Ej. V22 + 20.73m, C32 + 5m"></div>
     </div>
@@ -901,13 +898,18 @@ const numTxt=v=>String(v??"").trim().replace(",",".");
 function geoValor(){ return $("supervisor").value.trim().toUpperCase(); }
 function geoPoner(v){ $("supervisor").value=String(v||"").trim().toUpperCase(); }
 // Sección: lista con las secciones de la base del área (MASTER / Base de Datos); «Otra…» permite escribir una distinta
+// formato de la base del área: «4.50 x 4.50» (dos decimales)
+function seccionNorm(t){
+  t=String(t||"").trim(); const m=/^(\d+(?:[.,]\d+)?)\s*m?\s*[xX×]\s*(\d+(?:[.,]\d+)?)\s*m?$/.exec(t);
+  return m?`${Number(m[1].replace(",",".")).toFixed(2)} x ${Number(m[2].replace(",",".")).toFixed(2)}`:t;
+}
 function seccionValor(){
   const v=$("seccionSel").value;
   if(v!=="otra") return v;
-  return $("seccion").value.trim().replace(/m/gi,"").replace(/\s*[xX×]\s*/," x ").replace(/\s+/g," ").trim();
+  return seccionNorm($("seccion").value);
 }
 function seccionPoner(v){
-  v=String(v||"").trim(); const sel=$("seccionSel"), hay=[...sel.options].some(o=>o.value===v&&v!==""&&v!=="otra");
+  v=seccionNorm(v); const sel=$("seccionSel"), hay=[...sel.options].some(o=>o.value===v&&v!==""&&v!=="otra");
   sel.value=v===""?"":(hay?v:"otra"); $("seccion").value=hay?"":v; $("seccion").classList.toggle("hidden",sel.value!=="otra");
 }
 $("seccionSel").addEventListener("change",()=>{ const o=$("seccionSel").value==="otra"; $("seccion").classList.toggle("hidden",!o); if(o) $("seccion").focus(); });
@@ -1258,7 +1260,7 @@ $("editHistoryBtn").onclick=async()=>{
   rmrIds.forEach(id=>{$(id).value=x.params?.[id]?.score===null||x.params?.[id]?.score===undefined?"":String(x.params[id].score);});
   $("buzamiento").value=x.buzamiento||""; orientation(); $("rumbo").value=x.rumbo||""; orientation(); $("sentido").value=x.sentido||"";
   $("observaciones").value=x.observaciones||"";
-  $("litologia").value=x.litologia||""; $("riesgo").value=x.riesgo||""; seccionPoner(x.seccion); $("azimut").value=x.azimut||""; $("refTopo").value=x.refTopo||""; $("coordX").value=x.coordX||""; $("coordY").value=x.coordY||""; $("coordZ").value=x.coordZ||""; geoPoner(x.supervisor); if(x.tipoEval) $("tipoEval").value=x.tipoEval;
+  $("litologia").value=x.litologia||""; $("riesgo").value=x.riesgo||""; seccionPoner(x.seccion); $("azimut").value=x.azimut||""; $("refTopo").value=x.refTopo||""; $("coordX").value=x.coordX||""; $("coordY").value=x.coordY||""; $("coordZ").value=x.coordZ||""; geoPoner(x.supervisor); if(x.tipoEval){ $("tipoEval").value=x.tipoEval; window.ebrPintarTipo?.(); }
   $("ph").value=x.ph===null||x.ph===undefined?"":String(x.ph);
   if(x.indicaciones!==undefined&&x.indicaciones!==null){ $("indCartilla").checked=x.indCartilla!==false; $("indicaciones").value=x.indicaciones; indAuto=null; }
   else{ $("indCartilla").checked=true; $("indicaciones").value=""; indAuto=""; }
@@ -2979,11 +2981,31 @@ window.indicacionPDF={generar,vistaPrevia,areas:areas(),norteSrc:"data:image/jpe
   modal.querySelectorAll(".emp-opt").forEach(b=>b.onclick=()=>{ actual=b.dataset.emp; try{ localStorage.setItem(KEY,actual); }catch(_){} pintar(); cerrar(); });
   modal.addEventListener("click",e=>{ if(e.target===modal&&actual) cerrar(); });
   $("empresaBtn").onclick=abrir;
-  // Tipo de evaluación: se recuerda la última elección en este equipo y se guarda en cada evaluación
-  try{ const t=localStorage.getItem("ebr-tipo-eval"); if(t&&[...$("tipoEval").options].some(o=>o.value===t)) $("tipoEval").value=t; }catch(_){}
-  $("tipoEval").addEventListener("change",()=>{ try{ localStorage.setItem("ebr-tipo-eval",$("tipoEval").value); }catch(_){} });
+  // Tipo de evaluación: ventana igual a la del formato; se recuerda en este equipo y se guarda en cada evaluación
+  const TIPOS_EVAL=[["Indicación Geomecánica","🧭"],["Indicación de Tajo","⛏️"],["Rehabilitación","🛠️"]];
+  let tipoGuardado=null; try{ tipoGuardado=localStorage.getItem("ebr-tipo-eval"); }catch(_){}
+  if(!TIPOS_EVAL.some(t=>t[0]===tipoGuardado)) tipoGuardado=null;
+  if(tipoGuardado) $("tipoEval").value=tipoGuardado;
+  const mt=document.createElement("div");
+  mt.className="emp-modal hidden"; mt.setAttribute("role","dialog"); mt.setAttribute("aria-modal","true"); mt.setAttribute("aria-label","Tipo de evaluación");
+  mt.innerHTML=`<div class="emp-box"><h2>Tipo de evaluación</h2>
+    <div class="small">Elige el tipo de evaluación que vas a registrar. Se guarda con cada evaluación. Puedes cambiarlo tocando «Tipo de evaluación» arriba.</div>
+    ${TIPOS_EVAL.map(([t,ic])=>`<button type="button" class="emp-opt" data-tipo="${esc(t)}"><span>${ic} ${esc(t)}</span></button>`).join("")}
+  </div>`;
+  document.body.appendChild(mt);
+  const pintarTipo=()=>{ $("tipoEvalBtn").textContent=`Tipo de evaluación: ${tipoGuardado?$("tipoEval").value:"elegir…"} ▾`; mt.querySelectorAll(".emp-opt").forEach(b=>b.classList.toggle("on",b.dataset.tipo===$("tipoEval").value&&!!tipoGuardado)); };
+  const abrirTipo=()=>{ pintarTipo(); mt.classList.remove("hidden"); document.body.classList.add("sk-lock"); };
+  const cerrarTipo=()=>{ mt.classList.add("hidden"); document.body.classList.remove("sk-lock"); };
+  mt.querySelectorAll(".emp-opt").forEach(b=>b.onclick=()=>{ $("tipoEval").value=b.dataset.tipo; tipoGuardado=b.dataset.tipo; try{ localStorage.setItem("ebr-tipo-eval",tipoGuardado); }catch(_){} pintarTipo(); cerrarTipo(); });
+  mt.addEventListener("click",e=>{ if(e.target===mt&&tipoGuardado) cerrarTipo(); });
+  $("tipoEvalBtn").onclick=abrirTipo;
+  $("tipoEval").addEventListener("change",pintarTipo); // al modificar una evaluación guardada
+  window.ebrPintarTipo=pintarTipo;
+  pintarTipo();
   pintar();
-  if(!actual) abrir();
+  // al iniciar: primero el formato y luego el tipo de evaluación (solo si aún no se eligieron en este equipo)
+  if(!actual){ abrir(); modal.querySelectorAll(".emp-opt").forEach(b=>b.addEventListener("click",()=>{ if(!tipoGuardado) abrirTipo(); })); }
+  else if(!tipoGuardado) abrirTipo();
 })();
 </script>
 <script>if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));}</script></body>
