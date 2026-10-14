@@ -1988,18 +1988,23 @@ const rgb=h=>[0,2,4].map(i=>(parseInt(h.slice(i,i+2),16)/255).toFixed(3)).join("
 const f2=n=>(Math.round(n*100)/100).toString();
 
 /* ---------- geometría ---------- */
-let CX,RY,TW,TH,SC,SCY;
+let CX,RY,FY,TW,TH,SC,SCY;
 const OX=MARGIN, OY=MARGIN;
+const FILAS_DIBUJO=[33,48]; // filas 34–49 (croquis y representación): conservan la proporción del Excel
 function geom(rowh){ // rowh: altos de fila propios del perfil {índice: alto}
-  CX=[0];RY=[0];
+  CX=[0];RY=[0];FY=[];
   TPL.colw.forEach((w,i)=>CX.push(CX[i]+w));
-  TPL.rowh.forEach((h,i)=>RY.push(RY[i]+(rowh&&rowh[i]!=null?rowh[i]:h)));
-  TW=CX[CX.length-1]; TH=RY[RY.length-1];
-  SC=(PW-2*MARGIN)/TW;              // escala horizontal (y de letra)
-  SCY=(PH-2*MARGIN-8)/TH;           // escala vertical: la hoja ocupa todo el A4 (más espacio para escribir)
+  TW=CX[CX.length-1]; SC=(PW-2*MARGIN)/TW;   // escala horizontal (y de letra)
+  const H=TPL.rowh.map((h,i)=>rowh&&rowh[i]!=null?rowh[i]:h), dib=i=>i>=FILAS_DIBUJO[0]&&i<=FILAS_DIBUJO[1];
+  // La hoja ocupa todo el A4: el espacio sobrante se reparte en las filas de texto y firmas;
+  // los recuadros de dibujo usan la misma escala que el ancho (no se estiran a lo alto).
+  const disp=PH-2*MARGIN-8, hDib=H.reduce((a,h,i)=>a+(dib(i)?h:0),0), hOtras=H.reduce((a,h,i)=>a+(dib(i)?0:h),0);
+  const G=(disp-hDib*SC)/hOtras;
+  H.forEach((h,i)=>{FY.push(dib(i)?SC:G); RY.push(RY[i]+h*FY[i]);});
+  TH=RY[RY.length-1]; SCY=1;                 // RY ya está en puntos de la hoja
 }
 geom(null);
-const anc=a=>({x:OX+(CX[a[0]]+a[1]/12700)*SC, top:OY+(RY[a[2]]+a[3]/12700)*SCY}); // ancla del Excel → punto en la hoja
+const anc=a=>({x:OX+(CX[a[0]]+a[1]/12700)*SC, top:OY+RY[a[2]]+a[3]/12700*FY[a[2]]}); // ancla del Excel → punto en la hoja
 function box(r){ // rect PDF (x, y inferior, w, h) de una región
   const x=OX+CX[r.c]*SC, w=(CX[r.c2+1]-CX[r.c])*SC;
   const top=OY+RY[r.r]*SCY, h=(RY[r.r2+1]-RY[r.r])*SCY;
@@ -2087,7 +2092,7 @@ function drawTemplate(cv,P){
   P.logos.forEach(L=>{ const p=anc(L.a), w=L.w/12700*SC, h=L.h/12700*SC; cv.image(L.im,p.x,PH-p.top-h,w,h); });
   P.textos.forEach(T=>{ const p=anc(T.de), q=anc(T.a);
     drawInBox(cv,{x:p.x,y:PH-q.top,w:q.x-p.x,h:q.top-p.top},T.t,{size:T.s*SC,bold:true,ital:true,v:"t",h:"c",scale:92,pad:0.5}); });
-  const nx=OX+(CX[10]+202427/12700)*SC, ny=OY+(RY[33]+168489/12700)*SCY, ns=975164/12700*SC;
+  const nx=OX+(CX[10]+202427/12700)*SC, ny=OY+RY[33]+168489/12700*FY[33], ns=975164/12700*SC;
   cv.image("ImNorte",nx,PH-ny-ns,ns,ns);
   [...TPL.edges].sort((a,b)=>(b[5]?1:0)-(a[5]?1:0)).forEach(e=>{
     const col=e[5]||"000000"; // color del borde en el Excel (grilla del croquis: gris muy claro F2F2F2)
@@ -2298,8 +2303,8 @@ const hexRgb=h=>{h=String(h||"#000000").replace("#","");if(h.length===3)h=h.spli
 const presion=pr=>0.5+(pr===undefined||pr===null?0.5:pr);
 function drawSketch(cv,d,area){
   if(!d||!d.items||!d.items.length)return;
-  const b=box(ref(AREAS[area])), k=b.w/(d.w||1000);
-  const X=v=>b.x+v*k, Y=v=>b.y+b.h-v*k;
+  const b=box(ref(AREAS[area])), k=b.w/(d.w||1000), ky=d.h?b.h/d.h:k; // ky: dibujos hechos con otra proporción entran completos
+  const X=v=>b.x+v*k, Y=v=>b.y+b.h-v*ky;
   cv.push(`q ${f2(b.x)} ${f2(b.y)} ${f2(b.w)} ${f2(b.h)} re W n 1 J 1 j`);
   d.items.forEach(it=>{
     const col=rgb(hexRgb(it.c));
@@ -2353,7 +2358,7 @@ function areas(){
       ys:RY.slice(r.r,r.r2+2).map(v=>(OY+v*SCY-top)/b.h)};
   });
   const cb=box(ref(AREAS.croquis)), ctop=OY+RY[ref(AREAS.croquis).r]*SCY, ns=975164/12700*SC;
-  const nx=OX+(CX[10]+202427/12700)*SC, ny=OY+(RY[33]+168489/12700)*SCY;
+  const nx=OX+(CX[10]+202427/12700)*SC, ny=OY+RY[33]+168489/12700*FY[33];
   out.croquis.norte={x:(nx-cb.x)/cb.w,y:(ny-ctop)/cb.h,w:ns/cb.w,h:ns/cb.h};
   return out;
 }
@@ -2614,6 +2619,8 @@ window.indicacionPDF={generar,vistaPrevia,areas:areas(),norteSrc:"data:image/jpe
     (a.ys||[]).forEach(v=>{ctx.beginPath();ctx.moveTo(0,v*H);ctx.lineTo(W,v*H);ctx.stroke();});
     if(area==="croquis"&&a.norte){const im=norte(); if(im) ctx.drawImage(im,a.norte.x*W,a.norte.y*H,a.norte.w*W,a.norte.h*H);}
     ctx.lineCap="round"; ctx.lineJoin="round";
+    // dibujo guardado con otra proporción de recuadro: se ajusta a lo alto para que entre completo
+    if(d&&d.h){ const sy=(H/d.h)/k; if(Math.abs(sy-1)>0.01) ctx.scale(1,sy); }
     const items=(d&&d.items||[]).concat(extra?[extra]:[]);
     items.forEach(it=>{
       ctx.strokeStyle=ctx.fillStyle=it.c||"#111";
@@ -2741,10 +2748,21 @@ window.indicacionPDF={generar,vistaPrevia,areas:areas(),norteSrc:"data:image/jpe
 
   function abrir(area){
     dedos.clear(); gesto=null; esperarSoltar=false;
-    pad.abierto=true; pad.area=area; pad.d=copia(datos[area])||{w:1000,h:Math.round(1000/A(area).aspect),items:[]}; pad.actual=null; pad.pid=null; pad.mover=null; pad.sel=null; pad.ajuste=null; if(pad.herr==="borrador"||pad.herr==="texto"||pad.herr==="seccion") pad.herr="lapiz";
+    pad.abierto=true; pad.area=area; pad.d=copia(datos[area])||{w:1000,h:Math.round(1000/A(area).aspect),items:[]};
+    { const h=Math.round(1000/A(area).aspect); if(pad.d.h&&Math.abs(pad.d.h-h)>2) reescalarY(pad.d,h/pad.d.h,h); } pad.actual=null; pad.pid=null; pad.mover=null; pad.sel=null; pad.ajuste=null; if(pad.herr==="borrador"||pad.herr==="texto"||pad.herr==="seccion") pad.herr="lapiz";
     modal.querySelector("#skTitle").textContent=NOMBRES[area];
     modal.classList.remove("hidden"); document.body.classList.add("sk-lock"); marcar();
     requestAnimationFrame(ajustar);
+  }
+  // Ajusta un dibujo hecho con otra proporción de recuadro (cambio de formato) a la proporción actual
+  function reescalarY(d,f,h){
+    d.items.forEach(it=>{
+      if(it.k==="t"){ it.y=Math.round(it.y*f*10)/10; return; }
+      const p=it.p||[];
+      if(it.k==="sec"){ p[1]*=f; p[3]*=f; }
+      else for(let i=1;i<p.length;i+=3) p[i]=Math.round(p[i]*f*10)/10;
+    });
+    d.h=h;
   }
   function cerrar(){ pad.abierto=false; pad.actual=null; modal.classList.add("hidden"); document.body.classList.remove("sk-lock"); }
   modal.querySelector("#skFit").onclick=()=>{ resetVista(); dibujar(); };
