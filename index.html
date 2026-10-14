@@ -125,7 +125,11 @@ html[data-theme="dark"] .sk-tile{background:#13212a;border-color:#3a4e59}
 html[data-theme="dark"] .sk-state{color:#9fb2bd}
 .photo-pick{display:flex;gap:8px;flex-wrap:wrap;margin:4px 0 2px}.photo-pick .btn{width:auto;flex:1 1 140px;text-align:center}
 .vh{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;pointer-events:none}
-.empresa-chip{margin-top:8px;border:1px solid rgba(255,255,255,.45);background:rgba(255,255,255,.14);color:#fff;border-radius:999px;padding:5px 12px;font-weight:800;font-size:.8rem;cursor:pointer}
+.hdr-row{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;margin-top:8px}
+.tipo-eval{display:flex!important;align-items:center;gap:8px;margin:0!important;color:#fff;font-size:.8rem;font-weight:800}
+.tipo-eval select{width:auto;min-height:0;padding:5px 30px 5px 12px;border-radius:999px;border:1px solid rgba(255,255,255,.45);background-color:rgba(255,255,255,.14);color:#fff;font-weight:800;font-size:.8rem}
+.tipo-eval select option{color:#14232d}
+.empresa-chip{margin-top:0;border:1px solid rgba(255,255,255,.45);background:rgba(255,255,255,.14);color:#fff;border-radius:999px;padding:5px 12px;font-weight:800;font-size:.8rem;cursor:pointer}
 .emp-modal{position:fixed;inset:0;z-index:80;background:rgba(10,25,35,.72);display:flex;align-items:center;justify-content:center;padding:16px}
 .emp-modal.hidden{display:none}
 .emp-box{background:var(--card,#fff);color:inherit;border-radius:16px;padding:18px;max-width:440px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,.35)}
@@ -367,7 +371,11 @@ html[data-theme="dark"] .kind.map{background:#3a2e12;color:#f0d9a4}
 <header>
   <h1>EBR Geomecánica RMR <span class="ver">v1.0</span></h1>
   <p>Captura guiada, cálculo automático y trazabilidad del ajuste de orientación.</p>
-  <button type="button" class="empresa-chip" id="empresaBtn" aria-label="Cambiar formato de la indicación">Formato: …</button>
+  <div class="hdr-row">
+    <button type="button" class="empresa-chip" id="empresaBtn" aria-label="Cambiar formato de la indicación">Formato: …</button>
+    <label class="tipo-eval">Tipo de evaluación
+      <select id="tipoEval" aria-label="Tipo de evaluación"><option>Indicación Geomecánica</option><option>Indicación de Tajo</option><option>Rehabilitación</option></select></label>
+  </div>
 </header>
 
 <nav class="tabs" aria-label="Secciones">
@@ -392,8 +400,7 @@ html[data-theme="dark"] .kind.map{background:#3a2e12;color:#f0d9a4}
     <div class="grid">
       <div class="field date-field"><label>Fecha</label><input id="fecha" type="date"></div>
       <div class="field"><label>Turno</label><select id="turno"><option value="">Seleccionar…</option><option>Día</option><option>Noche</option></select></div>
-      <div class="field full"><label for="geoSel">Geomecánico</label><select id="geoSel"><option value="">Seleccionar…</option><option value="GRECIA MESCUA">Grecia Mescua</option><option value="JHON ALVAREZ">Jhon Alvarez</option><option value="STIVE VELARDE">Stive Velarde</option><option value="otro">Otro…</option></select>
-        <input id="supervisor" class="hidden" autocomplete="off" placeholder="Escribe el nombre" style="margin-top:6px"></div>
+      <div class="field full"><label for="supervisor">Geomecánico</label><input id="supervisor" autocomplete="off" placeholder="Nombre del geomecánico"></div>
       <div class="field"><label>Nivel</label><input id="nivel" autocomplete="off" placeholder="Ej. 4055"></div>
       <div class="field"><label>Block</label><input id="block" autocomplete="off" placeholder="Ej. B7998"></div>
       <div class="field"><label>Labor</label><input id="labor" autocomplete="off" placeholder="Ej. GL765N"></div>
@@ -404,6 +411,12 @@ html[data-theme="dark"] .kind.map{background:#3a2e12;color:#f0d9a4}
         <input id="seccion" class="hidden" autocomplete="off" placeholder="Escribe la sección, ej. 3.9 x 3.7" style="margin-top:6px"></div>
       <div class="field"><label for="azimut">Azimut de la labor (°)</label><input id="azimut" type="text" inputmode="numeric" autocomplete="off" placeholder="0–360"></div>
       <div class="field"><label for="refTopo">Referencia topográfica</label><input id="refTopo" autocomplete="off" placeholder="Ej. V22 + 20.73m, C32 + 5m"></div>
+    </div>
+    <h3>Coordenadas UTM del punto evaluado</h3>
+    <div class="grid grid3">
+      <div class="field"><label for="coordX">X (Este)</label><input id="coordX" type="text" inputmode="decimal" autocomplete="off" placeholder="Ej. 362150.5"></div>
+      <div class="field"><label for="coordY">Y (Norte)</label><input id="coordY" type="text" inputmode="decimal" autocomplete="off" placeholder="Ej. 8829540.2"></div>
+      <div class="field"><label for="coordZ">Z (cota)</label><input id="coordZ" type="text" inputmode="decimal" autocomplete="off" placeholder="Ej. 3960"></div>
     </div>
   </div>
 
@@ -885,13 +898,8 @@ function actualizarIndicaciones(sost){
 }
 const numTxt=v=>String(v??"").trim().replace(",",".");
 // Geomecánico: lista del área; «Otro…» permite escribir el nombre
-let coordAnt={x:"",y:"",z:""}; // coordenadas UTM de registros anteriores (el campo ya no está en el formulario)
-function geoValor(){ const v=$("geoSel").value; return v==="otro"?$("supervisor").value.trim().toUpperCase():v; }
-function geoPoner(v){
-  v=String(v||"").trim().toUpperCase(); const sel=$("geoSel"), hay=v!==""&&[...sel.options].some(o=>o.value===v);
-  sel.value=v===""?"":(hay?v:"otro"); $("supervisor").value=hay?"":v; $("supervisor").classList.toggle("hidden",sel.value!=="otro");
-}
-$("geoSel").addEventListener("change",()=>{ const o=$("geoSel").value==="otro"; $("supervisor").classList.toggle("hidden",!o); if(o) $("supervisor").focus(); });
+function geoValor(){ return $("supervisor").value.trim().toUpperCase(); }
+function geoPoner(v){ $("supervisor").value=String(v||"").trim().toUpperCase(); }
 // Sección: lista con las secciones de la base del área (MASTER / Base de Datos); «Otra…» permite escribir una distinta
 function seccionValor(){
   const v=$("seccionSel").value;
@@ -1097,7 +1105,8 @@ function collect(){
     labor:$("labor").value.trim().toUpperCase(),condicionLabor:$("condicionLabor").value,supervisor:geoValor(),
     empresa:window.ebrEmpresa?window.ebrEmpresa():"smeb",litologia:$("litologia").value.trim().toUpperCase(),
     riesgo:$("riesgo").value,seccion:seccionValor(),azimut:numTxt($("azimut").value),refTopo:$("refTopo").value.trim(),
-    coordX:coordAnt.x,coordY:coordAnt.y,coordZ:coordAnt.z,ph:phValor(),
+    coordX:numTxt($("coordX").value),coordY:numTxt($("coordY").value),coordZ:numTxt($("coordZ").value),ph:phValor(),
+    tipoEval:$("tipoEval").value,
     params,buzamiento:$("buzamiento").value,rumbo:$("rumbo").value,sentido:$("sentido").value,
     ajusteCategoria:calc.orientation.cat,ajuste:calc.orientation.adj,trazabilidad:calc.orientation.trace,
     rmrBasico:calc.basic,rmrTotal:calc.total,tipoRoca:calc.rock,
@@ -1221,7 +1230,7 @@ async function showHistoryDetail(id){
     $("detailTotal").textContent=x.rmrTotal??"—";
     $("detailRock").textContent=x.tipoRoca||"—";
     applyRockColor("detailRockCard",x.rmrTotal);
-    $("detailIdentification").innerHTML=`<strong>Labor:</strong> ${esc(x.labor||"—")}<br><strong>Nivel:</strong> ${esc(x.nivel||"—")} · <strong>Block:</strong> ${esc(x.block||"—")}<br><strong>Turno:</strong> ${esc(x.turno||"—")} · <strong>Tipo de labor:</strong> ${esc(TIPOS_LABOR[x.condicionLabor]||x.condicionLabor||"—")}<br><strong>Supervisor / Geomecánico:</strong> ${esc(x.supervisor||"—")}<br><strong>Formato:</strong> ${esc((window.ebrPerfilNombre&&window.ebrPerfilNombre(x.empresa))||"Brocal (SMEB)")}${x.litologia?`<br><strong>Litología:</strong> ${esc(x.litologia)}`:""}${x.riesgo?`<br><strong>Nivel de riesgo:</strong> ${esc(x.riesgo)}`:""}${x.seccion?`<br><strong>Sección:</strong> ${esc(x.seccion)}`:""}${x.azimut?` · <strong>Azimut:</strong> ${esc(x.azimut)}°`:""}${x.refTopo?`<br><strong>Referencia topográfica:</strong> ${esc(x.refTopo)}`:""}${(x.coordX||x.coordY||x.coordZ)?`<br><strong>Coordenadas UTM:</strong> X ${esc(x.coordX||"—")} · Y ${esc(x.coordY||"—")} · Z ${esc(x.coordZ||"—")}`:""}${x.ph!==null&&x.ph!==undefined?`<br><strong>pH:</strong> ${esc(x.ph)}${x.ph<=5?" · aguas ácidas":""}`:""}<br><strong>Fecha y hora de guardado:</strong> ${esc(formatSavedAt(x.createdAt))}${x.updatedAt?`<br><strong>Última actualización:</strong> ${esc(formatSavedAt(x.updatedAt))}`:""}`;
+    $("detailIdentification").innerHTML=`<strong>Labor:</strong> ${esc(x.labor||"—")}<br><strong>Nivel:</strong> ${esc(x.nivel||"—")} · <strong>Block:</strong> ${esc(x.block||"—")}<br><strong>Turno:</strong> ${esc(x.turno||"—")} · <strong>Tipo de labor:</strong> ${esc(TIPOS_LABOR[x.condicionLabor]||x.condicionLabor||"—")}<br><strong>Supervisor / Geomecánico:</strong> ${esc(x.supervisor||"—")}<br><strong>Tipo de evaluación:</strong> ${esc(x.tipoEval||"Indicación Geomecánica")}<br><strong>Formato:</strong> ${esc((window.ebrPerfilNombre&&window.ebrPerfilNombre(x.empresa))||"Brocal (SMEB)")}${x.litologia?`<br><strong>Litología:</strong> ${esc(x.litologia)}`:""}${x.riesgo?`<br><strong>Nivel de riesgo:</strong> ${esc(x.riesgo)}`:""}${x.seccion?`<br><strong>Sección:</strong> ${esc(x.seccion)}`:""}${x.azimut?` · <strong>Azimut:</strong> ${esc(x.azimut)}°`:""}${x.refTopo?`<br><strong>Referencia topográfica:</strong> ${esc(x.refTopo)}`:""}${(x.coordX||x.coordY||x.coordZ)?`<br><strong>Coordenadas UTM:</strong> X ${esc(x.coordX||"—")} · Y ${esc(x.coordY||"—")} · Z ${esc(x.coordZ||"—")}`:""}${x.ph!==null&&x.ph!==undefined?`<br><strong>pH:</strong> ${esc(x.ph)}${x.ph<=5?" · aguas ácidas":""}`:""}<br><strong>Fecha y hora de guardado:</strong> ${esc(formatSavedAt(x.createdAt))}${x.updatedAt?`<br><strong>Última actualización:</strong> ${esc(formatSavedAt(x.updatedAt))}`:""}`;
     $("detailGsi").innerHTML=(x.gsi===null||x.gsi===undefined)?"Sin GSI calculado (evaluación anterior a esta función o datos incompletos).":`<strong>GSI ${esc(x.gsi)}</strong> · JCond89 = ${esc(x.jcond89)} · RQD = ${esc(x.gsiRqd)} %${x.rqdMedido!==null&&x.rqdMedido!==undefined?" (medido)":" (punto medio del rango)"}`;
     { const c=cartillaFor(x.rmrTotal,x.condicionLabor,x.params?.agua?.score);
       if(x.sostPrincipal!==undefined||x.sostRestriccion!==undefined){ c.principal=x.sostPrincipal||""; c.sacrificio=x.sostSacrificio||""; c.restriccion=x.sostRestriccion||""; if(c.estado==="ok"||c.estado==="sin-dato") c.estado=(c.principal||c.restriccion)?"ok":c.estado; }
@@ -1249,7 +1258,7 @@ $("editHistoryBtn").onclick=async()=>{
   rmrIds.forEach(id=>{$(id).value=x.params?.[id]?.score===null||x.params?.[id]?.score===undefined?"":String(x.params[id].score);});
   $("buzamiento").value=x.buzamiento||""; orientation(); $("rumbo").value=x.rumbo||""; orientation(); $("sentido").value=x.sentido||"";
   $("observaciones").value=x.observaciones||"";
-  $("litologia").value=x.litologia||""; $("riesgo").value=x.riesgo||""; seccionPoner(x.seccion); $("azimut").value=x.azimut||""; $("refTopo").value=x.refTopo||""; coordAnt={x:x.coordX||"",y:x.coordY||"",z:x.coordZ||""}; geoPoner(x.supervisor);
+  $("litologia").value=x.litologia||""; $("riesgo").value=x.riesgo||""; seccionPoner(x.seccion); $("azimut").value=x.azimut||""; $("refTopo").value=x.refTopo||""; $("coordX").value=x.coordX||""; $("coordY").value=x.coordY||""; $("coordZ").value=x.coordZ||""; geoPoner(x.supervisor); if(x.tipoEval) $("tipoEval").value=x.tipoEval;
   $("ph").value=x.ph===null||x.ph===undefined?"":String(x.ph);
   if(x.indicaciones!==undefined&&x.indicaciones!==null){ $("indCartilla").checked=x.indCartilla!==false; $("indicaciones").value=x.indicaciones; indAuto=null; }
   else{ $("indCartilla").checked=true; $("indicaciones").value=""; indAuto=""; }
@@ -1335,7 +1344,7 @@ function rmrTable(a){
   // Mismo orden que el formulario: identificación, parámetros RMR, orientación, resultado, sostenimiento, observaciones y fotos
   const maxFotos=Math.max(0,...a.map(x=>(x.photos||[]).length));
   const fotoHeaders=Array.from({length:maxFotos},(_,i)=>`Foto ${i+1}`);
-  const headers=["Fecha","Turno","Nivel","Block","Labor","Tipo de labor","Supervisor / Geomecánico","Formato","Litología","Nivel de riesgo","Sección","Azimut de la labor","Referencia topográfica","X (UTM Este)","Y (UTM Norte)","Z (cota)",
+  const headers=["Fecha","Turno","Nivel","Block","Labor","Tipo de labor","Supervisor / Geomecánico","Tipo de evaluación","Formato","Litología","Nivel de riesgo","Sección","Azimut de la labor","Referencia topográfica","X (UTM Este)","Y (UTM Norte)","Z (cota)",
     "Resistencia de la roca intacta","RQD","Espaciamiento","Apertura","Rugosidad","Relleno","Persistencia","Alteración","Agua subterránea","pH","RMR básico",
     "Rango de buzamiento","Rumbo respecto al eje","Sentido de excavación","Categoría ajuste","Ajuste orientación","RMR total","Tipo de roca","GSI estimado",
     "Sostenimiento","Sostenimiento de sacrificio","Restricción","Nota por agua","Indicaciones de estabilidad",
@@ -1350,7 +1359,7 @@ function rmrTable(a){
     const nombres=[];
     fotos.forEach((src,i)=>{ const ext=/^data:image\/png/i.test(src)?"png":"jpg", name=`${id8}_${i+1}.${ext}`; nombres.push(name); files.push({name,src}); });
     const nv=v=>{const t=String(v??"").trim();return /^-?\d+(\.\d+)?$/.test(t)?Number(t):t;};
-    return [x.fecha,x.turno,x.nivel,x.block,x.labor,TIPOS_LABOR[x.condicionLabor]||x.condicionLabor||"",x.supervisor,
+    return [x.fecha,x.turno,x.nivel,x.block,x.labor,TIPOS_LABOR[x.condicionLabor]||x.condicionLabor||"",x.supervisor,x.tipoEval||"Indicación Geomecánica",
       (window.ebrPerfilNombre&&window.ebrPerfilNombre(x.empresa))||"Brocal (SMEB)",x.litologia||"",x.riesgo||"",x.seccion||"",nv(x.azimut),x.refTopo||"",nv(x.coordX),nv(x.coordY),nv(x.coordZ),
       L("resistencia"),L("rqd"),L("espaciamiento"),L("apertura"),L("rugosidad"),L("relleno"),L("persistencia"),L("alteracion"),L("agua"),x.ph??"",x.rmrBasico,
       x.buzamiento,x.rumbo,x.sentido,x.ajusteCategoria,x.ajuste,x.rmrTotal,x.tipoRoca,x.gsi??"",
@@ -1361,8 +1370,8 @@ function rmrTable(a){
 }
 $("deleteAllBtn").onclick=async()=>{if(confirm("¿Borrar todo el historial local de este dispositivo?")){await dbDeleteAll();renderHistory();}};
 function clearForm(){
- ["turno","nivel","block","labor","condicionLabor","supervisor","resistencia","rqd","espaciamiento","apertura","rugosidad","relleno","persistencia","alteracion","agua","buzamiento","rumbo","sentido","observaciones","rqdMedido","litologia","riesgo","geoSel","seccionSel","seccion","azimut","refTopo","ph","indicaciones"].forEach(id=>$(id).value="");
- $("indCartilla").checked=true; indAuto=""; $("seccion").classList.add("hidden"); $("supervisor").classList.add("hidden"); coordAnt={x:"",y:"",z:""};
+ ["turno","nivel","block","labor","condicionLabor","supervisor","resistencia","rqd","espaciamiento","apertura","rugosidad","relleno","persistencia","alteracion","agua","buzamiento","rumbo","sentido","observaciones","rqdMedido","litologia","riesgo","seccionSel","coordX","coordY","coordZ","seccion","azimut","refTopo","ph","indicaciones"].forEach(id=>$(id).value="");
+ $("indCartilla").checked=true; indAuto=""; $("seccion").classList.add("hidden"); 
  $("fecha").value=today(); currentPhotos=[]; renderPhotoPreview(); window.rmrStructs?.clear(); window.sketches?.clear(); recalc();
 }
 $("clearBtn").onclick=clearForm;
@@ -1706,7 +1715,7 @@ function crearEditorEstructuras(px,seccion){
     if(!items.length){ $("historyList").innerHTML=`<div class="small" style="padding:14px 0">No hay registros guardados${filtro==="todos"?"":" de este tipo"}.</div>`; return; }
     $("historyList").innerHTML=items.map(({k,x})=>{
       if(k==="rmr") return `<div class="history-item" role="button" tabindex="0" data-id="${esc(x.id)}" style="cursor:pointer">
-        <span class="kind rmr">Evaluación RMR</span>
+        <span class="kind rmr">${esc(x.tipoEval||"Indicación Geomecánica")}</span>
         <div class="history-top"><div><b>${esc(x.labor||"Sin labor")}</b><div class="small">${esc(x.fecha)} · ${esc(x.nivel||"Sin nivel")} · ${esc(x.supervisor||"Sin supervisor")}</div><div class="saved-at">Guardado: ${esc(formatSavedAt(x.createdAt))}${x.updatedAt?` · Actualizado: ${esc(formatSavedAt(x.updatedAt))}`:""}</div>${x.imported?`<span class="import-badge">📥 Importado</span>`:""}${x.photos&&x.photos.length?`<span class="photo-badge">📷 ${x.photos.length} foto${x.photos.length===1?"":"s"}</span>`:""}${x.estructuras&&x.estructuras.length?`<span class="estr-badge">🧭 ${x.estructuras.length} estructura${x.estructuras.length===1?"":"s"}</span>`:""}${x.enviadoAt?`<span class="sent-badge">✓ Exportado</span>`:""}</div>
         <span class="pill"><span class="rock-dot" style="background:${rockColor(x.rmrTotal)||"#fff"}"></span>RMR ${x.rmrTotal??"—"} · ${esc(x.tipoRoca||"")}</span></div>
         <div class="small" style="margin-top:7px">Toca para ver el detalle</div></div>`;
@@ -2970,6 +2979,9 @@ window.indicacionPDF={generar,vistaPrevia,areas:areas(),norteSrc:"data:image/jpe
   modal.querySelectorAll(".emp-opt").forEach(b=>b.onclick=()=>{ actual=b.dataset.emp; try{ localStorage.setItem(KEY,actual); }catch(_){} pintar(); cerrar(); });
   modal.addEventListener("click",e=>{ if(e.target===modal&&actual) cerrar(); });
   $("empresaBtn").onclick=abrir;
+  // Tipo de evaluación: se recuerda la última elección en este equipo y se guarda en cada evaluación
+  try{ const t=localStorage.getItem("ebr-tipo-eval"); if(t&&[...$("tipoEval").options].some(o=>o.value===t)) $("tipoEval").value=t; }catch(_){}
+  $("tipoEval").addEventListener("change",()=>{ try{ localStorage.setItem("ebr-tipo-eval",$("tipoEval").value); }catch(_){} });
   pintar();
   if(!actual) abrir();
 })();
