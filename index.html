@@ -151,6 +151,15 @@ html[data-theme="dark"] .sk-state{color:#9fb2bd}
 .clino-box label{display:block;margin-top:10px;font-weight:700;font-size:.85rem}
 .clino-box input{width:100%}
 .clino-box .actions{display:flex;gap:8px;margin-top:12px}.clino-box .actions .btn{flex:1}
+.dictar-fab{position:fixed;right:18px;bottom:22px;z-index:60;border:0;border-radius:999px;padding:14px 20px;font-weight:800;font-size:1rem;background:var(--brand);color:#fff;box-shadow:0 8px 24px rgba(0,0,0,.3);cursor:pointer}
+.dic-box{max-width:560px;max-height:86vh;display:flex;flex-direction:column}
+.dic-lista{overflow:auto;margin:10px 0;border:1px solid var(--line);border-radius:12px}
+.dic-lista label{display:flex;gap:10px;align-items:flex-start;padding:8px 10px;border-bottom:1px solid var(--line);font-size:.9rem}
+.dic-lista label:last-child{border-bottom:0}
+.dic-lista input{margin-top:3px;width:18px;height:18px;flex:none}
+.dic-lista b{display:block;font-size:.78rem;color:var(--muted)}
+.dic-falta{font-size:.85rem;color:var(--warn);font-weight:700}
+.dic-box .actions{display:flex;gap:8px;margin-top:10px}.dic-box .actions .btn{flex:1}
 .grid.grid3{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
 .grid.grid3 label{font-size:.8rem}
 .ind-box{border:1px solid var(--line);border-radius:12px;padding:12px 13px;margin:0 0 12px}
@@ -3266,6 +3275,69 @@ window.indicacionPDF={generar,vistaPrevia,areas:areas(),norteSrc:"data:image/jpe
   $("eClinoBtn").addEventListener("click",abrir);
   ["eDip","eDipDir"].forEach(id=>$(id).addEventListener("input",()=>delete $("eDip").dataset.fuente));
   window.ebrClino={normal,planoDesdeNormal,abrir,estado:est};
+})();
+</script>
+<script>
+/* Dictado asistido: la app nativa de iPad transcribe la voz y la interpreta con el modelo de Apple dentro del iPad;
+   aquí se muestra lo entendido para confirmarlo y se llenan los campos. Sin la app nativa este módulo no se muestra. */
+(function(){
+  const $=id=>document.getElementById(id);
+  const CAMPOS=[["turno","Turno"],["supervisor","Geomecánico"],["nivel","Nivel"],["block","Block"],["labor","Labor"],["condicionLabor","Tipo de labor"],
+    ["litologia","Litología"],["seccion","Sección de la labor"],["azimut","Azimut de la labor (°)"],["refTopo","Referencia topográfica"],
+    ["anchoReal","Ancho (m)"],["altoReal","Alto (m)"],["largoL","L (m)"],["coordX","X (Este)"],["coordY","Y (Norte)"],["coordZ","Z (cota)"],["factores","Factores influyentes"],
+    ["resistencia","Resistencia de la roca intacta"],["rqd","RQD"],["espaciamiento","Espaciamiento"],["apertura","Apertura"],["rugosidad","Rugosidad"],["relleno","Relleno"],
+    ["persistencia","Persistencia"],["alteracion","Alteración"],["agua","Agua subterránea"],["ph","pH del agua"],["riesgo","Nivel de riesgo"],
+    ["observaciones","Observaciones geomecánicas"],["indicaciones","Indicaciones de estabilidad"]];
+  const NOMBRE=Object.fromEntries(CAMPOS), AGREGAR=new Set(["factores","observaciones","indicaciones"]);
+  const PARAMS=["resistencia","rqd","espaciamiento","apertura","rugosidad","relleno","persistencia","alteracion","agua"];
+  const opcion=(id,v)=>{const el=$(id); return el&&el.tagName==="SELECT"?[...el.options].find(o=>o.value===String(v)&&o.value!==""):null;};
+  const textoDe=(id,v)=>{const o=opcion(id,v); return o?o.text.replace(/\s*—\s*\d+\s*pts?\.?$/,""):String(v);};
+  function valido(id,v){ if(v===null||v===undefined||String(v).trim()==="") return false; const el=id==="seccion"?$("seccionSel"):$(id); if(!el) return false;
+    return el.tagName==="SELECT"&&id!=="seccion"?!!opcion(id,v):true; }
+  function disparar(el){ el.dispatchEvent(new Event("input",{bubbles:true})); el.dispatchEvent(new Event("change",{bubbles:true})); }
+  function poner(id,v){
+    v=String(v).trim();
+    if(id==="seccion"){ seccionPoner(v); disparar($("seccionSel")); return; }
+    if(id==="supervisor"){ geoPoner(v); disparar($("supervisor")); return; }
+    const el=$(id); if(AGREGAR.has(id)&&el.value.trim()&&!el.value.includes(v)) v=el.value.trim()+(/[.;]$/.test(el.value.trim())?" ":". ")+v;
+    el.value=v; disparar(el);
+  }
+  function lecturas(L,fuente){
+    if(!L.length) return;
+    const tipo=L.find(l=>l.tipo)?.tipo; if(tipo&&!$("eTipo").value&&opcion("eTipo",tipo)){ $("eTipo").value=tipo; disparar($("eTipo")); }
+    L.forEach(l=>{ $("eDip").value=l.dip; $("eDipDir").value=l.dipDir; $("eDip").dataset.fuente=fuente; $("eAddLectBtn").click(); });
+  }
+  let modal=null;
+  function recibir(d){
+    d=d||{}; const items=CAMPOS.filter(([id])=>valido(id,d[id])).map(([id])=>({id,v:d[id]}));
+    const L=(Array.isArray(d.lecturas)?d.lecturas:[]).map(l=>({dip:Math.round(+l.dip),dipDir:Math.round(+l.dipDir)%360,tipo:l.tipo||""}))
+      .filter(l=>Number.isFinite(l.dip)&&l.dip>=0&&l.dip<=90&&Number.isFinite(l.dipDir)&&l.dipDir>=0);
+    if(!modal){ modal=document.createElement("div"); modal.className="emp-modal hidden"; modal.id="dictadoModal"; document.body.appendChild(modal); }
+    if(!items.length&&!L.length){
+      modal.innerHTML=`<div class="emp-box dic-box"><h2>Dictado</h2><div>No se reconoció ningún dato del formulario. Intenta de nuevo nombrando el campo, por ejemplo «RQD 50 a 75».</div>
+        ${d.transcripcion?`<div class="help">Se escuchó: «${esc(d.transcripcion)}»</div>`:""}<div class="actions"><button type="button" class="btn" id="dicCerrar">Cerrar</button></div></div>`;
+      modal.classList.remove("hidden"); $("dicCerrar").onclick=()=>modal.classList.add("hidden"); return;
+    }
+    const faltan=PARAMS.filter(id=>!$(id).value&&!items.some(i=>i.id===id)).map(id=>NOMBRE[id]);
+    modal.innerHTML=`<div class="emp-box dic-box" role="dialog" aria-modal="true"><h2>Revisa lo que se entendió</h2>
+      <div class="small">Desmarca lo que no corresponda. Solo se llena lo marcado; ${items.some(i=>AGREGAR.has(i.id))?"los textos se agregan a lo ya escrito.":"lo demás no cambia."}</div>
+      <div class="dic-lista">${items.map((it,k)=>`<label><input type="checkbox" checked data-k="${k}"><span><b>${esc(NOMBRE[it.id])}${$(it.id==="seccion"?"seccionSel":it.id).value&&!AGREGAR.has(it.id)?" · reemplaza el valor actual":""}</b>${esc(textoDe(it.id,it.v))}</span></label>`).join("")}
+        ${L.map((l,k)=>`<label><input type="checkbox" checked data-l="${k}"><span><b>Lectura en el mapeo estructural${l.tipo?` (${esc(l.tipo)})`:""}</b>Dip ${l.dip}° / Dip Direction ${String(l.dipDir).padStart(3,"0")}°</span></label>`).join("")}</div>
+      ${faltan.length?`<div class="dic-falta">Parámetros RMR que quedarán pendientes: ${esc(faltan.join(", "))}.</div>`:""}
+      <div class="actions"><button type="button" class="btn ok" id="dicAplicar">Llenar formulario</button><button type="button" class="btn" id="dicDescartar">Descartar</button></div></div>`;
+    modal.classList.remove("hidden");
+    $("dicDescartar").onclick=()=>modal.classList.add("hidden");
+    $("dicAplicar").onclick=()=>{
+      modal.querySelectorAll("input[data-k]:checked").forEach(c=>{const it=items[+c.dataset.k]; poner(it.id,it.v);});
+      lecturas([...modal.querySelectorAll("input[data-l]:checked")].map(c=>L[+c.dataset.l]),"Dictado");
+      modal.classList.add("hidden");
+    };
+  }
+  window.ebrDictado={recibir};
+  if(window.ebrNativo&&typeof window.ebrNativo.dictar==="function"){
+    const b=document.createElement("button"); b.type="button"; b.className="dictar-fab"; b.id="dictarBtn"; b.textContent="🎙 Dictar";
+    b.onclick=()=>window.ebrNativo.dictar(); document.body.appendChild(b);
+  }
 })();
 </script>
 <script>if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));}</script></body>
