@@ -3411,7 +3411,9 @@ window.indicacionPDF={generar,vistaPrevia,areas:areas(),norteSrc:"data:image/jpe
   const sinTilde=t=>String(t||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"");
   // Convierte secuencias de números en palabras a cifras: «setenta y cinco ciento noventa» → «75 190»; «cuatro punto cinco» → «4.5»
   function numeros(texto){
-    const tk=sinTilde(texto).replace(/[,;:¿?¡!]/g," $& ").split(/\s+/).filter(Boolean), out=[];
+    // decimales con coma («4,5») → punto; «×» → «x»; «4.5x4.5» → «4.5 x 4.5»; «y medio» → .5
+    const tk=sinTilde(texto).replace(/(\d),(\d)/g,"$1.$2").replace(/×/g," x ").replace(/(\d)\s*x\s*(\d)/g,"$1 x $2").replace(/(\d)\s*m\b/g,"$1 m")
+      .replace(/[,;:¿?¡!]/g," $& ").split(/\s+/).filter(Boolean), out=[];
     let n=null, mil=0, h=0, t=0, u=0, dec=null;
     const hay=()=>n!==null;
     function cerrar(){ if(!hay()) return; let v=String(mil+h+t+u); if(dec!==null) v+="."+dec; out.push(v); n=null; mil=h=t=u=0; dec=null; }
@@ -3431,7 +3433,7 @@ window.indicacionPDF={generar,vistaPrevia,areas:areas(),norteSrc:"data:image/jpe
       cerrar(); out.push(w);
     }
     cerrar();
-    return out.join(" ").replace(/\s+([,;:])/g,"$1");
+    return out.join(" ").replace(/\s+([,;:])/g,"$1").replace(/\b(\d+) y medio\b/g,"$1.5");
   }
   // «RQ de», «R Q D», «erre cu de» → «rqd»
   function normalizar(texto){
@@ -3595,7 +3597,7 @@ Entendido: ${entendido(r.texto)}`;
       leer:t=>tiene(t,/interse/)?(tiene(t,/tempor/)?"Interseccion temporal":tiene(t,/perman/)?"Interseccion permanente":null):tiene(t,/explot|tajo/)?"Explotacion":tiene(t,/tempor/)?"Temporal":tiene(t,/perman/)?"Permanente":null},
     {id:"litologia",nom:"litología",p:"¿Litología? Dime el código.",leer:t=>{ const c=codigo(t); return c||null; }},
     {id:"seccion",nom:"sección",p:"¿Sección de la labor? Por ejemplo, cuatro punto cinco por cuatro punto cinco.",
-      leer:t=>{ const m=/(\d+(?:\.\d+)?)\s*(?:m|metros)?\s*(?:por|x|equis)\s*(\d+(?:\.\d+)?)/.exec(N(t)); return m?`${m[1]} x ${m[2]}`:null; }},
+      leer:t=>{ const m=/(\d+(?:\.\d+)?)\s*(?:m|mts?|metros)?\s*(?:por|x|equis|\*)\s*(\d+(?:\.\d+)?)/.exec(N(t)); return m?`${m[1]} x ${m[2]}`:null; }},
     {id:"azimut",nom:"azimut",p:"¿Azimut de la labor, en grados?",leer:t=>{ const n=num(t); return n!==null&&n>=0&&n<=360?String(n):null; },decir:v=>v+" grados"},
     {id:"resistencia",nom:"resistencia",p:"¿Resistencia de la roca? R1 a R6, o en megapascales.",ops:"R6 más de 250 megapascales, R5 de 100 a 250, R4 de 50 a 100, R3 de 25 a 50, R2 de 5 a 25, R1 de 1 a 5",
       leer:t=>{ const n=N(t), r=/\br\s*([1-6])\b/.exec(n); if(r) return {"6":"15","5":"12","4":"7","3":"4","2":"2","1":"1"}[r[1]];
