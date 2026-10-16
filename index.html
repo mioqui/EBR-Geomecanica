@@ -194,7 +194,7 @@ html[data-theme="dark"] .voz-res{background:rgba(255,255,255,.05)}
 .conv-ok{min-height:1.3em;font-weight:800;color:var(--ok);margin-top:2px}
 .conv-ok.mal{color:var(--danger)}
 .conv-btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
-.conv-btns .btn{width:auto;flex:1 1 110px}
+.conv-btns .btn{width:auto;flex:1 1 110px;white-space:nowrap}
 .conv-mic{flex:2 1 180px!important}
 .conv-mic.escuchando{background:var(--danger)!important;border-color:var(--danger)!important;color:#fff!important}
 .conv-foco{outline:3px solid var(--bnv-lima,#adc74d)!important;outline-offset:3px;border-radius:10px;transition:outline-color .3s}
@@ -3626,7 +3626,7 @@ Entendido: ${entendido(r.texto)}`;
     const f=el.closest(".field")||el; f.classList.add("conv-foco"); try{ f.scrollIntoView({behavior:"smooth",block:"center"}); }catch(_){}
   }
   // ---------- voz ----------
-  let panel=null, idx=-1, activo=false, rec=null, fallos=0, escuchandoYa=false, fase="pregunta", ultimaFrase="";
+  let hist=[], panel=null, idx=-1, activo=false, rec=null, fallos=0, escuchandoYa=false, fase="pregunta", ultimaFrase="";
   function voz(){ let V=[]; try{ V=speechSynthesis.getVoices().filter(v=>/^es/i.test(v.lang)); }catch(_){} let g=""; try{ g=localStorage.getItem("ebr-voz")||""; }catch(_){}
     return V.find(v=>v.voiceURI===g)||V.find(v=>v.localService&&/(mejorad|enhanced|premium)/i.test(v.name))||V.find(v=>v.localService)||V[0]||null; }
   // Para la voz: «50–100 MPa» → «50 a 100 megapascales», «(-5)» → «menos 5»
@@ -3662,7 +3662,7 @@ Entendido: ${entendido(r.texto)}`;
   function siguiente(desde){
     let i=desde; while(i<Q.length&&lleno(Q[i])&&Q[i].id!=="_lecturas") i++;
     if(i>=Q.length){ resumen(); return; }
-    idx=i; fase="pregunta"; fallos=0; const q=Q[i]; foco(q);
+    idx=i; fase="pregunta"; fallos=0; const q=Q[i]; foco(q); if(hist[hist.length-1]!==i) hist.push(i);
     $("cvQ").textContent=q.p; $("cvOir").textContent=""; $("cvProg").textContent=`Pregunta ${i+1} de ${Q.length}`;
     hablar(q.p,escuchar);
   }
@@ -3670,10 +3670,30 @@ Entendido: ${entendido(r.texto)}`;
     [/^(repite|repetir|otra vez|como|que dijiste)\b/,()=>hablar(ultimaFrase,escuchar)],
     [/^(opciones|que opciones|cuales son)\b/,()=>{ const q=Q[idx]; hablar(q&&q.ops?"Opciones: "+q.ops+".":"Dime el valor.",escuchar); }],
     [/^(omitir|omite|siguiente|paso|no se|saltar|salta)\b/,()=>{ estado("Omitido: "+(Q[idx]?Q[idx].nom:"")); siguiente(idx+1); }],
-    [/^(atras|anterior|regresa|volver)\b/,()=>{ const i=Math.max(0,idx-1); irA(i); }],
+    [/^(atras|anterior|regresa|volver|repite (la )?anterior)\b/,()=>anterior()],
+    [/^(nuevo rmr|nueva evaluacion|nuevo registro|empezar de nuevo)\b/,()=>nuevo()],
     [/^(terminar|termina|salir|pausa|detener|cancelar)\b/,()=>cerrar("Conversación terminada. Puedes seguir en el formulario.")]
   ];
-  function irA(i){ idx=i; const q=Q[i]; fase="pregunta"; foco(q); $("cvQ").textContent=q.p; $("cvProg").textContent=`Pregunta ${i+1} de ${Q.length}`; hablar(q.p,escuchar); }
+  function irA(i){ idx=i; fallos=0; const q=Q[i]; fase="pregunta"; foco(q); if(hist[hist.length-1]!==i) hist.push(i); $("cvQ").textContent=q.p; $("cvProg").textContent=`Pregunta ${i+1} de ${Q.length}`; hablar(q.p,escuchar); }
+  // Vuelve a la pregunta anterior (la que se hizo antes, aunque ya esté respondida) para repetirla o corregirla
+  function anterior(){
+    if(fase!=="pregunta"&&hist.length){ irA(hist[hist.length-1]); return; }
+    if(hist.length>=2){ hist.pop(); irA(hist.pop()); return; }
+    irA(Math.max(0,idx));
+  }
+  // Empieza un RMR nuevo: limpia el formulario (pide confirmación si hay datos) y la conversación arranca desde la primera pregunta
+  function nuevo(){
+    parar(); try{ speechSynthesis.cancel(); }catch(_){}
+    const ids=["supervisor","nivel","block","labor","resistencia","rqd","espaciamiento","apertura","rugosidad","relleno","persistencia","alteracion","agua","observaciones"];
+    const hay=ids.some(id=>$(id)&&String($(id).value).trim())||(window.rmrStructs&&window.rmrStructs.lecturas().length);
+    if(hay&&!confirm("¿Empezar un nuevo RMR?\n\nSe borran los datos del formulario que no hayas guardado.")){ if(activo) hablar(ultimaFrase,escuchar); return; }
+    const ce=$("cancelEditBtn"); if(ce&&!ce.classList.contains("hidden")) ce.click(); else clearForm();
+    hist=[]; idx=-1; estado("✓ Formulario nuevo");
+    if(!panel) crear(); activo=true; panel.classList.remove("hidden"); document.body.classList.add("conv-on");
+    document.querySelectorAll(".panel").forEach(p=>p.classList.toggle("active",p.id==="evaluacion")); document.querySelectorAll(".tab").forEach(t=>t.classList.toggle("active",t.dataset.tab==="evaluacion"));
+    try{ window.scrollTo({top:0,behavior:"smooth"}); }catch(_){}
+    hablar("Nuevo RMR.",()=>siguiente(0));
+  }
   function procesar(t){
     const s=sinT(N(t)).trim();
     if(fase==="ajuste"||fase==="guardar"){ const si=/\b(si|claro|correcto|dale|ok|okay|guarda|guardar|aplica|de acuerdo)\b/.test(s), no=/^\s*no\b/.test(s);
@@ -3714,19 +3734,21 @@ Entendido: ${entendido(r.texto)}`;
   }
   function crear(){
     panel=document.createElement("div"); panel.className="conv-panel hidden"; panel.id="convPanel"; panel.setAttribute("role","region"); panel.setAttribute("aria-label","Modo conversación");
-    panel.innerHTML=`<div class="conv-in"><div class="conv-top"><span>🗣 Modo conversación · <span id="cvProg"></span></span><span>Di «repite», «opciones», «omitir», «atrás», «corrige …» o «terminar»</span></div>
+    panel.innerHTML=`<div class="conv-in"><div class="conv-top"><span>🗣 Modo conversación · <span id="cvProg"></span></span><span>Di «repite», «anterior», «opciones», «omitir», «corrige …», «nuevo RMR» o «terminar»</span></div>
       <div class="conv-q" id="cvQ"></div><div class="conv-oir" id="cvOir"></div><div class="conv-ok" id="cvOk"></div>
-      <div class="conv-btns"><button type="button" class="btn ok conv-mic" id="cvMic">🎙 Responder</button><button type="button" class="btn" id="cvRep">🔁 Repetir</button><button type="button" class="btn" id="cvOmit">⏭ Omitir</button><button type="button" class="btn danger" id="cvFin">Terminar</button></div></div>`;
+      <div class="conv-btns"><button type="button" class="btn ok conv-mic" id="cvMic">🎙 Responder</button><button type="button" class="btn" id="cvAnt">⏮ Anterior</button><button type="button" class="btn" id="cvRep">🔁 Repetir</button><button type="button" class="btn" id="cvOmit">⏭ Omitir</button><button type="button" class="btn" id="cvNuevo">＋ Nuevo RMR</button><button type="button" class="btn danger" id="cvFin">Terminar</button></div></div>`;
     document.body.appendChild(panel);
     $("cvMic").onclick=()=>{ if(escuchandoYa&&rec){ try{ rec.stop(); }catch(_){} return; } try{ speechSynthesis.cancel(); }catch(_){} escuchar(); };
     $("cvRep").onclick=()=>hablar(ultimaFrase,escuchar);
     $("cvOmit").onclick=()=>{ if(fase!=="pregunta") return; estado("Omitido: "+(Q[idx]?Q[idx].nom:"")); siguiente(idx+1); };
     $("cvFin").onclick=()=>cerrar();
+    $("cvAnt").onclick=()=>{ try{ speechSynthesis.cancel(); }catch(_){} anterior(); };
+    $("cvNuevo").onclick=()=>nuevo();
   }
   function cerrar(msg){ activo=false; parar(); try{ speechSynthesis.cancel(); }catch(_){} if(msg){ try{ const u=new SpeechSynthesisUtterance(msg); const v=voz(); if(v){u.voice=v;u.lang=v.lang;} speechSynthesis.speak(u); }catch(_){} }
     document.querySelectorAll(".conv-foco").forEach(e=>e.classList.remove("conv-foco")); if(panel) panel.classList.add("hidden"); document.body.classList.remove("conv-on"); }
   $("convBtn").addEventListener("click",()=>{
-    if(!panel) crear(); activo=true; panel.classList.remove("hidden"); document.body.classList.add("conv-on"); estado("");
+    if(!panel) crear(); activo=true; hist=[]; panel.classList.remove("hidden"); document.body.classList.add("conv-on"); estado("");
     document.querySelectorAll(".panel").forEach(p=>p.classList.toggle("active",p.id==="evaluacion")); document.querySelectorAll(".tab").forEach(t=>t.classList.toggle("active",t.dataset.tab==="evaluacion"));
     const i=Q.findIndex(q=>!lleno(q)||q.id==="_lecturas");
     hablar("Empecemos. Responde cada pregunta; puedes decir opciones o repite en cualquier momento.",()=>siguiente(Math.max(0,i)));
