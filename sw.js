@@ -1,4 +1,4 @@
-const CACHE='ebr-rmr-v1-49-atras-limpia';
+const CACHE='ebr-rmr-v1-50-anterior-nivel';
 const ASSETS=['./','./index.html','./manifest.webmanifest','./icons/icon-180.png','./icons/icon-192.png'];
 // Con señal débil o intermitente (interior mina), la app no espera más de este tiempo a GitHub:
 // abre la versión guardada y la actualización se descarga en segundo plano para la próxima apertura.
