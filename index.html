@@ -178,6 +178,9 @@ html[data-theme="dark"] .sk-state{color:#9fb2bd}
 .voz-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .voz-row select{flex:1 1 200px}
 .voz-txt{min-height:52px;margin-top:8px;padding:8px 10px;border-radius:10px;background:rgba(66,126,113,.08);font-size:1.05rem;white-space:pre-wrap}
+.voz-paso .btn.sel{background:var(--ok);color:#fff;border-color:var(--ok)}
+.voz-paso .btn.sel.no{background:var(--danger);border-color:var(--danger)}
+.voz-row input[type=range]{flex:1 1 160px}
 .voz-ok{color:var(--ok);font-weight:800}.voz-mal{color:var(--danger);font-weight:800}.voz-gris{color:var(--muted)}
 .voz-res{font-family:ui-monospace,Menlo,monospace;font-size:.78rem;white-space:pre-wrap;background:rgba(0,0,0,.04);border-radius:10px;padding:8px 10px;margin-top:8px}
 html[data-theme="dark"] .voz-res{background:rgba(255,255,255,.05)}
@@ -3379,9 +3382,11 @@ window.indicacionPDF={generar,vistaPrevia,areas:areas(),norteSrc:"data:image/jpe
   function vocesEs(){ try{ return (speechSynthesis.getVoices()||[]).filter(v=>/^es/i.test(v.lang)); }catch(_){ return []; } }
   function pintarVoces(){
     const sel=$("vzVoz"); if(!sel) return; const V=vocesEs(), prev=sel.value;
-    sel.innerHTML=V.length?V.map((v,i)=>`<option value="${i}">${esc(v.name)} · ${esc(v.lang)}${v.localService?" · en el equipo":" · en línea"}</option>`).join(""):`<option value="">(sin voces en español)</option>`;
-    if(prev&&sel.querySelector(`option[value="${prev}"]`)) sel.value=prev;
-    else{ const k=V.findIndex(v=>v.localService&&/es[-_](PE|419|MX|US)/i.test(v.lang)); const k2=k>=0?k:V.findIndex(v=>v.localService); if(k2>=0) sel.value=String(k2); }
+    let guardada=""; try{ guardada=localStorage.getItem("ebr-voz")||""; }catch(_){}
+    sel.innerHTML=V.length?V.map(v=>`<option value="${esc(v.voiceURI)}">${esc(v.name)} · ${esc(v.lang)}${v.localService?" · en el equipo":" · en línea"}</option>`).join(""):`<option value="">(sin voces en español)</option>`;
+    const hay=u=>u&&V.some(v=>v.voiceURI===u);
+    if(hay(prev)) sel.value=prev; else if(hay(guardada)) sel.value=guardada;
+    else{ const v=V.find(v=>v.localService&&/(mejorad|enhanced|premium)/i.test(v.name))||V.find(v=>v.localService&&/es[-_](PE|419|MX|US)/i.test(v.lang))||V.find(v=>v.localService); if(v) sel.value=v.voiceURI; }
   }
   function resumen(){
     const ua=navigator.userAgent, pwa=(window.matchMedia&&matchMedia("(display-mode: standalone)").matches)||navigator.standalone;
@@ -3400,7 +3405,8 @@ Texto reconocido: ${r.texto||"—"}`;
       <div id="vzRed" style="margin-top:8px"></div>
       <div class="voz-paso"><h3>1. La app habla</h3>
         <div class="voz-row"><select id="vzVoz" aria-label="Voz"></select><button type="button" class="btn" id="vzHablar">🔊 Escuchar</button></div>
-        <div class="help">Las voces marcadas «en el equipo» funcionan sin internet. Para más voces: Ajustes &gt; Accesibilidad &gt; Contenido leído &gt; Voces &gt; Español.</div>
+        <div class="voz-row" style="margin-top:8px"><span class="small">Velocidad</span><input type="range" id="vzVel" min="0.8" max="1.2" step="0.05" value="1" aria-label="Velocidad de la voz"><span class="small" id="vzVelTxt">1.00</span></div>
+        <div class="help">Las voces marcadas «en el equipo» funcionan sin internet. Para voces más naturales descarga una «Mejorada» o «Premium» en Ajustes &gt; Accesibilidad &gt; Contenido leído &gt; Voces &gt; Español, y vuelve a abrir la app. Las voces de Siri no están disponibles para las apps.</div>
         <div class="voz-row" style="margin-top:6px"><span class="small">¿Se escuchó?</span><button type="button" class="btn" data-h="sí">Sí</button><button type="button" class="btn" data-h="no">No</button></div>
       </div>
       <div class="voz-paso"><h3>2. La app escucha</h3>
@@ -3418,12 +3424,17 @@ Texto reconocido: ${r.texto||"—"}`;
     if(!("speechSynthesis" in window)){ $("vzHablar").disabled=true; r.hablar="no disponible"; }
     else{ pintarVoces(); try{ speechSynthesis.addEventListener("voiceschanged",pintarVoces); }catch(_){} }
     $("vzHablar").onclick=()=>{
-      try{ speechSynthesis.cancel(); const V=vocesEs(), v=V[+$("vzVoz").value];
+      try{ speechSynthesis.cancel(); const V=vocesEs(), v=V.find(x=>x.voiceURI===$("vzVoz").value);
         const u=new SpeechSynthesisUtterance("Hola. Soy el asistente de geomecánica. ¿Cuál es el R Q D de la labor?");
         if(v){ u.voice=v; u.lang=v.lang; r.vozLocal=`${v.name} (${v.localService?"en el equipo":"en línea"})`; } else u.lang="es-ES";
-        u.rate=1; r.red=red(); speechSynthesis.speak(u); r.hablar="probando…"; pintarRes(); }catch(e){ r.hablar="error: "+e.message; pintarRes(); }
+        u.rate=Number($("vzVel").value)||1; r.red=red(); speechSynthesis.speak(u); r.hablar="probando…"; pintarRes(); }catch(e){ r.hablar="error: "+e.message; pintarRes(); }
     };
-    modal.querySelectorAll("[data-h]").forEach(b=>b.onclick=()=>{ r.hablar=b.dataset.h==="sí"?"✓ se escuchó":"✗ no se escuchó"; r.red=red(); pintarRes(); });
+    modal.querySelectorAll("[data-h]").forEach(b=>b.onclick=()=>{ r.hablar=b.dataset.h==="sí"?"✓ se escuchó":"✗ no se escuchó"; r.red=red();
+      modal.querySelectorAll("[data-h]").forEach(x=>x.classList.toggle("sel",x===b)); b.classList.toggle("no",b.dataset.h==="no"); pintarRes(); });
+    $("vzVoz").addEventListener("change",()=>{ try{ localStorage.setItem("ebr-voz",$("vzVoz").value); }catch(_){} });
+    try{ const g=localStorage.getItem("ebr-voz-vel"); if(g) $("vzVel").value=g; }catch(_){}
+    $("vzVelTxt").textContent=Number($("vzVel").value).toFixed(2);
+    $("vzVel").addEventListener("input",()=>{ $("vzVelTxt").textContent=Number($("vzVel").value).toFixed(2); try{ localStorage.setItem("ebr-voz-vel",$("vzVel").value); }catch(_){} });
     $("vzEsc").onclick=()=>{
       if(rec){ try{rec.stop();}catch(_){} return; }
       r.red=red(); r.error=""; r.texto=""; $("vzTxt").textContent="";
