@@ -184,6 +184,21 @@ html[data-theme="dark"] .sk-state{color:#9fb2bd}
 .voz-ok{color:var(--ok);font-weight:800}.voz-mal{color:var(--danger);font-weight:800}.voz-gris{color:var(--muted)}
 .voz-res{font-family:ui-monospace,Menlo,monospace;font-size:.78rem;white-space:pre-wrap;background:rgba(0,0,0,.04);border-radius:10px;padding:8px 10px;margin-top:8px}
 html[data-theme="dark"] .voz-res{background:rgba(255,255,255,.05)}
+.conv-panel{position:fixed;left:0;right:0;bottom:0;z-index:70;background:var(--card);border-top:4px solid var(--bnv-verde,#427e71);
+  box-shadow:0 -10px 30px rgba(0,0,0,.25);padding:12px 16px calc(12px + env(safe-area-inset-bottom))}
+.conv-panel.hidden{display:none}
+.conv-in{width:min(980px,100%);margin:0 auto}
+.conv-top{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:.8rem;color:var(--muted);font-weight:700}
+.conv-q{font-size:1.25rem;font-weight:800;margin:6px 0 4px}
+.conv-oir{min-height:1.4em;font-size:1rem;color:var(--muted);font-style:italic}
+.conv-ok{min-height:1.3em;font-weight:800;color:var(--ok);margin-top:2px}
+.conv-ok.mal{color:var(--danger)}
+.conv-btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.conv-btns .btn{width:auto;flex:1 1 110px}
+.conv-mic{flex:2 1 180px!important}
+.conv-mic.escuchando{background:var(--danger)!important;border-color:var(--danger)!important;color:#fff!important}
+.conv-foco{outline:3px solid var(--bnv-lima,#adc74d)!important;outline-offset:3px;border-radius:10px;transition:outline-color .3s}
+body.conv-on .app{padding-bottom:calc(260px + env(safe-area-inset-bottom))}
 .grid.grid3{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
 .grid.grid3 label{font-size:.8rem}
 .ind-box{border:1px solid var(--line);border-radius:12px;padding:12px 13px;margin:0 0 12px}
@@ -427,6 +442,7 @@ html[data-theme="dark"] .kind.map{background:#3a2e12;color:#f0d9a4}
   <div class="hdr-row">
      <button type="button" class="empresa-chip" id="empresaBtn" aria-label="Cambiar formato de la indicación">Formato: …</button>
      <button type="button" class="empresa-chip" id="tipoEvalBtn" aria-label="Cambiar tipo de evaluación">Tipo de evaluación: …</button>
+     <button type="button" class="empresa-chip hidden" id="convBtn" aria-label="Llenar la evaluación conversando">🗣 Conversación</button>
      <button type="button" class="empresa-chip" id="vozTestBtn" aria-label="Probar voz sin internet">🎙 Probar voz</button>
      <select id="tipoEval" class="hidden" aria-hidden="true" tabindex="-1"><option>Indicación Geomecánica</option><option>Indicación de Tajo</option><option>Rehabilitación</option></select>
    </div>
@@ -3521,7 +3537,7 @@ Entendido: ${entendido(r.texto)}`;
     }
     $("vzEsc").onclick=()=>{
       if(seguir||rec){ seguir=false; try{ rec&&rec.stop(); }catch(_){} return; }
-      r.red=red(); r.error=""; r.texto=""; base=""; $("vzTxt").textContent=""; seguir=true; inicio=Date.now(); probarRed().then(()=>{ r.red=red(); pintarRes(); });
+      try{ localStorage.setItem("ebr-voz-idioma",$("vzLang").value); }catch(_){} r.red=red(); r.error=""; r.texto=""; base=""; $("vzTxt").textContent=""; seguir=true; inicio=Date.now(); probarRed().then(()=>{ r.red=red(); pintarRes(); });
       try{ arrancar(); }catch(e){ seguir=false; rec=null; r.escuchar="✗ falló"; r.error=e.message; $("vzEst").innerHTML=`<span class="voz-mal">${esc(e.message)}</span>`; pintarRes(); }
     };
     $("vzCopiar").onclick=async()=>{ const t=resumen(); try{ await navigator.clipboard.writeText(t); $("vzCopiar").textContent="✓ Copiado"; }catch(_){ prompt("Copia el resultado:",t); } };
@@ -3530,6 +3546,192 @@ Entendido: ${entendido(r.texto)}`;
   }
   $("vozTestBtn").addEventListener("click",()=>{ if(!modal) crear(); modal.classList.remove("hidden"); pintarVoces(); enLinea=null; pintarRes(); probarRed();
     clearInterval(timerRed); timerRed=setInterval(probarRed,5000); });
+})();
+</script>
+<script>
+/* Modo conversación (app web, sin internet): la app pregunta en voz alta, escucha la respuesta con el reconocimiento de voz
+   del equipo, la interpreta con reglas (sin IA) y llena el campo. El RMR, el tipo de roca y el sostenimiento los calcula la app. */
+(function(){
+  const $=id=>document.getElementById(id);
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR||!("speechSynthesis" in window)||!window.ebrVozReglas) return;
+  $("convBtn").classList.remove("hidden");
+  const R=window.ebrVozReglas, sinT=t=>String(t||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"");
+  const N=t=>R.normalizar(t);
+  const num=t=>{ const m=/-?\d+(?:\.\d+)?/.exec(N(t)); return m?Number(m[0]):null; };
+  const nums=t=>(N(t).match(/\d+(?:\.\d+)?/g)||[]).map(Number);
+  const tiene=(t,re)=>re.test(sinT(t));
+  // letras dichas: «erre pe novecientos noventa norte» → RP990N
+  const LETRAS={a:"A",be:"B",ce:"C",de:"D",e:"E",efe:"F",ge:"G",hache:"H",i:"I",jota:"J",ka:"K",ele:"L",eme:"M",ene:"N",o:"O",pe:"P",cu:"Q",erre:"R",ere:"R",ese:"S",te:"T",u:"U",ve:"V",uve:"V",equis:"X",ye:"Y",zeta:"Z",norte:"N",sur:"S",este:"E",oeste:"W"};
+  const RELLENO=/^(la|el|labor|es|block|bloque|nivel|litologia|codigo|de|del|en|seria|numero)$/;
+  function codigo(t){ return N(t).split(/\s+/).filter(w=>w&&!RELLENO.test(w)).map(w=>LETRAS[w]||w).join("").replace(/[^0-9a-z.]/gi,"").toUpperCase(); }
+  const rango=(v,tabla)=>{ const f=tabla.find(([m])=>v>=m); return f?f[1]:null; };
+  const medio=a=>a.length>1?(a[0]+a[1])/2:a[0];
+  function menos(t){ return tiene(t,/\b(menos|menor|debajo)\b/); }
+  function mas(t){ return tiene(t,/\b(mas|mayor|encima|sobre)\b/); }
+  // ---------- preguntas (orden del formulario) ----------
+  const Q=[
+    {id:"supervisor",nom:"geomecánico",p:"¿Nombre del geomecánico?",leer:t=>{ const v=String(t).trim().replace(/^(soy|es|el|la)\s+/i,""); return v.length>1?v:null; },decir:v=>v},
+    {id:"turno",nom:"turno",p:"¿Turno día o noche?",ops:"día o noche",leer:t=>tiene(t,/\bdia\b/)?"Día":tiene(t,/\bnoche\b/)?"Noche":null},
+    {id:"nivel",nom:"nivel",p:"¿Nivel?",leer:t=>{ const n=num(t); return n!==null?String(n):null; }},
+    {id:"block",nom:"block",p:"¿Block?",leer:t=>{ const c=codigo(t); return c||null; }},
+    {id:"labor",nom:"labor",p:"¿Código de la labor?",leer:t=>{ const c=codigo(t); return c||null; }},
+    {id:"condicionLabor",nom:"tipo de labor",p:"¿Tipo de labor? Avance permanente, avance temporal, intersección o explotación.",ops:"avance permanente, avance temporal, intersección permanente, intersección temporal o explotación",
+      leer:t=>tiene(t,/interse/)?(tiene(t,/tempor/)?"Interseccion temporal":tiene(t,/perman/)?"Interseccion permanente":null):tiene(t,/explot|tajo/)?"Explotacion":tiene(t,/tempor/)?"Temporal":tiene(t,/perman/)?"Permanente":null},
+    {id:"litologia",nom:"litología",p:"¿Litología? Dime el código.",leer:t=>{ const c=codigo(t); return c||null; }},
+    {id:"seccion",nom:"sección",p:"¿Sección de la labor? Por ejemplo, cuatro punto cinco por cuatro punto cinco.",
+      leer:t=>{ const m=/(\d+(?:\.\d+)?)\s*(?:m|metros)?\s*(?:por|x|equis)\s*(\d+(?:\.\d+)?)/.exec(N(t)); return m?`${m[1]} x ${m[2]}`:null; }},
+    {id:"azimut",nom:"azimut",p:"¿Azimut de la labor, en grados?",leer:t=>{ const n=num(t); return n!==null&&n>=0&&n<=360?String(n):null; },decir:v=>v+" grados"},
+    {id:"resistencia",nom:"resistencia",p:"¿Resistencia de la roca? R1 a R6, o en megapascales.",ops:"R6 más de 250 megapascales, R5 de 100 a 250, R4 de 50 a 100, R3 de 25 a 50, R2 de 5 a 25, R1 de 1 a 5",
+      leer:t=>{ const n=N(t), r=/\br\s*([1-6])\b/.exec(n); if(r) return {"6":"15","5":"12","4":"7","3":"4","2":"2","1":"1"}[r[1]];
+        const a=nums(t); if(!a.length) return null; let v=medio(a); if(menos(t)) v-=0.1; return rango(v,[[250,"15"],[100,"12"],[50,"7"],[25,"4"],[5,"2"],[-1,"1"]]); }},
+    {id:"rqd",nom:"RQD",p:"¿RQD?",ops:"90 a 100, 75 a 90, 50 a 75, 25 a 50, o menos de 25 por ciento",
+      leer:t=>{ const a=nums(t); if(!a.length||a.some(x=>x>100)) return null; let v=medio(a); if(menos(t)) v=a[0]-0.1; return R.rqdDe(v).valor; }},
+    {id:"espaciamiento",nom:"espaciamiento",p:"¿Espaciamiento de las discontinuidades?",ops:"más de 2 metros, 0.6 a 2 metros, 0.2 a 0.6 metros, 60 a 200 milímetros, o menos de 60 milímetros",
+      leer:t=>{ const a=nums(t); if(!a.length) return null; let v=medio(a); const mm=tiene(t,/mil[ií]?metro|\bmm\b|centimetro|\bcm\b/)||v>=20; if(tiene(t,/centimetro|\bcm\b/)) v=v/100; else if(mm) v=v/1000;
+        if(menos(t)) v-=0.0001; return rango(v,[[2,"20"],[0.6,"15"],[0.2,"10"],[0.06,"8"],[-1,"5"]]); }},
+    {id:"apertura",nom:"apertura",p:"¿Apertura?",ops:"cerrada, menos de 0.1 milímetros, 0.1 a 1, 1 a 5, o más de 5 milímetros",
+      leer:t=>{ if(tiene(t,/cerrad/)) return "6"; const a=nums(t); if(!a.length) return null; let v=medio(a); if(menos(t)) v-=0.0001; return rango(v,[[5,"0"],[1,"1"],[0.1,"4"],[-1,"5"]]); }},
+    {id:"rugosidad",nom:"rugosidad",p:"¿Rugosidad?",ops:"muy rugosa, rugosa, ligeramente rugosa, lisa, o espejo de falla",
+      leer:t=>tiene(t,/espejo/)?"0":tiene(t,/muy rugos/)?"6":tiene(t,/ligera\w*\s*rugos|poco rugos/)?"3":tiene(t,/rugos/)?"5":tiene(t,/\blis/)?"1":null},
+    {id:"relleno",nom:"relleno",p:"¿Relleno?",ops:"ninguno, duro menor a 5 milímetros, duro mayor a 5, blando menor a 5, o blando mayor a 5",
+      leer:t=>{ if(tiene(t,/ningun|sin relleno|limpi|no tiene|no hay/)) return "6"; const d=tiene(t,/dur/), b=tiene(t,/bland|suave/); if(!d&&!b) return null;
+        const may=mas(t), men=menos(t)||(nums(t)[0]!==undefined&&nums(t)[0]<5); if(!may&&!men) return null; return d?(may?"2":"4"):(may?"0":"1"); },
+      falta:"Dime también si es mayor o menor a 5 milímetros."},
+    {id:"persistencia",nom:"persistencia",p:"¿Persistencia, en metros?",ops:"menos de 1 metro, 1 a 3, 3 a 10, 10 a 20, o más de 20 metros",
+      leer:t=>{ const a=nums(t); if(!a.length) return null; let v=medio(a); if(menos(t)) v-=0.01; return rango(v,[[20,"0"],[10,"1"],[3,"2"],[1,"4"],[-1,"6"]]); }},
+    {id:"alteracion",nom:"alteración",p:"¿Alteración?",ops:"sana, ligera, moderada, muy intemperizada, o descompuesta",
+      leer:t=>tiene(t,/descompu/)?"0":tiene(t,/muy (intemper|altera|meteoriz)/)?"1":tiene(t,/moderad/)?"3":tiene(t,/liger|leve|poco/)?"5":tiene(t,/\bsana|fresca|inalterad/)?"6":null},
+    {id:"agua",nom:"agua subterránea",p:"¿Agua subterránea?",ops:"seco, húmedo, mojado, goteo, o flujo",
+      leer:t=>tiene(t,/flujo|chorro/)?"0":tiene(t,/goteo|gotea/)?"4":tiene(t,/mojad/)?"7":tiene(t,/humed/)?"10":tiene(t,/\bsec[oa]/)?"15":null},
+    {id:"ph",nom:"pH",p:"¿pH del agua? Si no se midió, di omitir.",opcional:true,leer:t=>{ const n=num(t); return n!==null&&n>=0&&n<=14?String(n):null; }},
+    {id:"riesgo",nom:"nivel de riesgo",p:"¿Nivel de riesgo? Bajo, medio o alto.",ops:"bajo, medio o alto",leer:t=>tiene(t,/\bbajo/)?"BAJO":tiene(t,/\bmedio/)?"MEDIO":tiene(t,/\balto/)?"ALTO":null},
+    {id:"_lecturas",nom:"lecturas",p:"¿Lecturas de dip y dirección de buzamiento? Por ejemplo, setenta y cinco barra ciento noventa. Si no hay, di ninguna.",opcional:true,
+      vacio:()=>true,leer:t=>{ if(tiene(t,/ningun|no hay/)) return []; const L=R.interpretar(t).lecturas; if(L.length) return L;
+        const a=nums(t); return a.length===2&&a[0]<=90&&a[1]<=360?[{dip:a[0],dipDir:a[1]}]:null; },
+      decir:L=>L.length?L.map(l=>`${l.dip} barra ${l.dipDir}`).join(", "):"sin lecturas"},
+    {id:"observaciones",nom:"observaciones",p:"¿Observaciones geomecánicas? Si no hay, di ninguna.",opcional:true,leer:t=>{ if(tiene(t,/^\s*(ninguna|no|nada)\s*\.?$/)) return ""; const v=String(t).trim(); return v.charAt(0).toUpperCase()+v.slice(1)+(/[.!?]$/.test(v)?"":"."); },decir:v=>v?"anotado":"sin observaciones"}
+  ];
+  const textoOpcion=(id,v)=>{ const el=$(id); const o=el&&el.tagName==="SELECT"?[...el.options].find(o=>o.value===String(v)):null; return o?o.text.replace(/\s*—\s*\d+\s*pts?\.?$/,"").replace(/\s*\([^)]*\)\s*$/,"").replace(/\s{2,}/g," "):String(v); };
+  function lleno(q){ if(q.vacio) return !q.vacio(); if(q.id==="seccion") return !!seccionValor(); const el=$(q.id); return !!(el&&String(el.value).trim()); }
+  function poner(q,v){
+    if(q.id==="_lecturas"){ v.forEach(l=>{ $("eDip").value=l.dip; $("eDipDir").value=l.dipDir; $("eDip").dataset.fuente="Voz"; $("eAddLectBtn").click(); }); return; }
+    if(q.id==="seccion"){ seccionPoner(v); $("seccionSel").dispatchEvent(new Event("change",{bubbles:true})); return; }
+    if(q.id==="supervisor"){ geoPoner(v); $("supervisor").dispatchEvent(new Event("input",{bubbles:true})); return; }
+    const el=$(q.id); el.value=v; el.dispatchEvent(new Event("input",{bubbles:true})); el.dispatchEvent(new Event("change",{bubbles:true}));
+  }
+  function foco(q){
+    document.querySelectorAll(".conv-foco").forEach(e=>e.classList.remove("conv-foco"));
+    const el=q.id==="_lecturas"?$("eDip"):q.id==="seccion"?$("seccionSel"):$(q.id); if(!el) return;
+    const f=el.closest(".field")||el; f.classList.add("conv-foco"); try{ f.scrollIntoView({behavior:"smooth",block:"center"}); }catch(_){}
+  }
+  // ---------- voz ----------
+  let panel=null, idx=-1, activo=false, rec=null, fallos=0, escuchandoYa=false, fase="pregunta", ultimaFrase="";
+  function voz(){ let V=[]; try{ V=speechSynthesis.getVoices().filter(v=>/^es/i.test(v.lang)); }catch(_){} let g=""; try{ g=localStorage.getItem("ebr-voz")||""; }catch(_){}
+    return V.find(v=>v.voiceURI===g)||V.find(v=>v.localService&&/(mejorad|enhanced|premium)/i.test(v.name))||V.find(v=>v.localService)||V[0]||null; }
+  // Para la voz: «50–100 MPa» → «50 a 100 megapascales», «(-5)» → «menos 5»
+  function oral(t){ return String(t).replace(/(\d)\s*[–-]\s*(\d)/g,"$1 a $2").replace(/\(\s*-\s*(\d+)\s*\)/g,"menos $1").replace(/\(\s*0\s*\)/g,"cero")
+    .replace(/\bMPa\b/g,"megapascales").replace(/\s*%/g," por ciento").replace(/(\d)\s*mm\b/g,"$1 milímetros").replace(/(\d)\s*m\b/g,"$1 metros")
+    .replace(/>\s*/g,"más de ").replace(/<\s*/g,"menos de ").replace(/Cal\s*#\s*/gi,"calibre ").replace(/#\s*/g,"número ").replace(/(\d)\s*"/g,"$1 pulgadas").replace(/(\d)\s*ft\b/g,"$1 pies")
+    .replace(/@\s*=?\s*/g,"cada ").replace(/\bL\s*=\s*/g,"de ").replace(/\s*\+\s*/g,", más ").replace(/\.{2,}/g,".").replace(/\s+·\s+/g,", ").replace(/\s{2,}/g," "); }
+  function hablar(texto,luego){
+    ultimaFrase=texto; texto=oral(texto); parar(); try{ speechSynthesis.cancel(); }catch(_){}
+    const u=new SpeechSynthesisUtterance(texto), v=voz(); if(v){ u.voice=v; u.lang=v.lang; } else u.lang="es-ES";
+    let vel=1; try{ vel=Number(localStorage.getItem("ebr-voz-vel"))||1; }catch(_){} u.rate=vel;
+    let hecho=false; const fin=()=>{ if(hecho) return; hecho=true; if(activo&&luego) setTimeout(luego,250); };
+    u.onend=fin; u.onerror=fin; setTimeout(fin,Math.min(30000,2500+texto.length*110/vel)); // por si el equipo no avisa el final
+    try{ speechSynthesis.speak(u); }catch(_){ fin(); }
+  }
+  function parar(){ escuchandoYa=false; if(rec){ try{ rec.onend=null; rec.abort(); }catch(_){} rec=null; } micUI(false); }
+  function micUI(on){ const b=$("cvMic"); if(!b) return; b.classList.toggle("escuchando",on); b.textContent=on?"⏹ Escuchando… toca para terminar":"🎙 Responder"; }
+  function escuchar(){
+    if(!activo) return; parar();
+    let idioma="es-PE"; try{ idioma=localStorage.getItem("ebr-voz-idioma")||"es-PE"; }catch(_){}
+    const r=new SR(); rec=r; r.lang=idioma; r.interimResults=true; r.continuous=false; r.maxAlternatives=1;
+    try{ if("processLocally" in r) r.processLocally=true; }catch(_){}
+    let texto="", final="";
+    r.onstart=()=>{ escuchandoYa=true; micUI(true); };
+    r.onresult=e=>{ texto=""; final=""; for(const x of e.results){ texto+=x[0].transcript; if(x.isFinal) final+=x[0].transcript; } $("cvOir").textContent="«"+texto+"»"; };
+    r.onerror=e=>{ if(e.error==="not-allowed"||e.error==="service-not-allowed"){ estado("Permite el micrófono para responder.",true); } };
+    r.onend=()=>{ rec=null; escuchandoYa=false; micUI(false); const t=(final||texto).trim(); if(!activo) return;
+      if(t) procesar(t); else { $("cvOir").textContent="(no te escuché: toca 🎙 Responder)"; } };
+    try{ r.start(); }catch(_){ micUI(false); $("cvOir").textContent="Toca 🎙 Responder para contestar."; }
+  }
+  function estado(t,mal){ const e=$("cvOk"); e.textContent=t||""; e.classList.toggle("mal",!!mal); }
+  // ---------- flujo ----------
+  function siguiente(desde){
+    let i=desde; while(i<Q.length&&lleno(Q[i])&&Q[i].id!=="_lecturas") i++;
+    if(i>=Q.length){ resumen(); return; }
+    idx=i; fase="pregunta"; fallos=0; const q=Q[i]; foco(q);
+    $("cvQ").textContent=q.p; $("cvOir").textContent=""; $("cvProg").textContent=`Pregunta ${i+1} de ${Q.length}`;
+    hablar(q.p,escuchar);
+  }
+  const COMANDOS=[
+    [/^(repite|repetir|otra vez|como|que dijiste)\b/,()=>hablar(ultimaFrase,escuchar)],
+    [/^(opciones|que opciones|cuales son)\b/,()=>{ const q=Q[idx]; hablar(q&&q.ops?"Opciones: "+q.ops+".":"Dime el valor.",escuchar); }],
+    [/^(omitir|omite|siguiente|paso|no se|saltar|salta)\b/,()=>{ estado("Omitido: "+(Q[idx]?Q[idx].nom:"")); siguiente(idx+1); }],
+    [/^(atras|anterior|regresa|volver)\b/,()=>{ const i=Math.max(0,idx-1); irA(i); }],
+    [/^(terminar|termina|salir|pausa|detener|cancelar)\b/,()=>cerrar("Conversación terminada. Puedes seguir en el formulario.")]
+  ];
+  function irA(i){ idx=i; const q=Q[i]; fase="pregunta"; foco(q); $("cvQ").textContent=q.p; $("cvProg").textContent=`Pregunta ${i+1} de ${Q.length}`; hablar(q.p,escuchar); }
+  function procesar(t){
+    const s=sinT(N(t)).trim();
+    if(fase==="ajuste"||fase==="guardar"){ const si=/\b(si|claro|correcto|dale|ok|okay|guarda|guardar|aplica|de acuerdo)\b/.test(s), no=/^\s*no\b/.test(s);
+      if(fase==="ajuste"){ if(si){ const b=$("ajSugBtn"); if(b) b.click(); estado("✓ Ajuste aplicado"); } else if(!no){ hablar("Di sí o no.",escuchar); return; } return final(); }
+      if(si){ estado("Guardando…"); cerrar(); $("saveEvalBtn").click(); return; } if(no) return cerrar("Listo. Revisa el formulario y guarda cuando quieras."); hablar("Di sí o no.",escuchar); return; }
+    for(const [re,fn] of COMANDOS) if(re.test(s)){ fn(); return; }
+    // «corrige el RQD», «cambia la rugosidad»
+    const c=/^(corrige|corregir|cambia|cambiar|modifica)\s+(el|la|los|las)?\s*(.+)$/.exec(s);
+    if(c){ const k=Q.findIndex(q=>sinT(c[3]).includes(sinT(q.nom).split(" ")[0])); if(k>=0){ irA(k); return; } }
+    const q=Q[idx]; if(!q) return;
+    const v=q.leer(t);
+    if(v===null||v===undefined||(typeof v==="string"&&v===""&&!q.opcional)){
+      fallos++; estado("No entendí: «"+t+"»",true);
+      const extra=q.falta&&fallos===1?q.falta:(q.ops?"Opciones: "+q.ops+".":"Dime el valor otra vez.");
+      hablar(fallos>=3?"Lo dejo pendiente. "+q.nom+".":"No entendí. "+extra,fallos>=3?()=>siguiente(idx+1):escuchar); if(fallos>=3) estado("Pendiente: "+q.nom,true); return; }
+    if(v!==""&&!(Array.isArray(v)&&!v.length)) poner(q,v);
+    const dicho=q.decir?q.decir(v):(Array.isArray(v)?"":textoOpcion(q.id,v));
+    estado("✓ "+q.nom.charAt(0).toUpperCase()+q.nom.slice(1)+": "+dicho);
+    hablar(q.nom+", "+dicho+".",()=>siguiente(idx+1));
+  }
+  function resumen(){
+    document.querySelectorAll(".conv-foco").forEach(e=>e.classList.remove("conv-foco"));
+    const sug=$("ajSugBtn");
+    if(sug){ fase="ajuste"; const txt=($("ajSug").querySelector(".aj-t")||{}).textContent||"";
+      $("cvQ").textContent="¿Aplico el ajuste por orientación sugerido?"; $("cvProg").textContent="Ajuste";
+      hablar(txt.replace("Ajuste sugerido desde el mapeo:","El ajuste sugerido según las lecturas es")+". ¿Lo aplico?",escuchar); return; }
+    final();
+  }
+  function final(){
+    const total=$("totalOrientLive").textContent.trim(), roca=$("rockOrientLive").textContent.trim(), basico=$("basicLive").textContent.trim();
+    const faltan=["resistencia","rqd","espaciamiento","apertura","rugosidad","relleno","persistencia","alteracion","agua"].filter(id=>!$(id).value).map(id=>Q.find(q=>q.id===id).nom);
+    let t;
+    if(faltan.length) t=`Faltan ${faltan.length} parámetros: ${faltan.join(", ")}. Puedes decir corrige y el nombre del parámetro.`;
+    else if(total&&total!=="—"){ const st=$("sostBox").querySelector(".sost-text"), sost=st?st.textContent.trim().replace(/\.+$/,""):""; t=`RMR básico ${basico}. RMR total ${total}, ${roca.replace(/^[IVX-]+[AB]?\d?\s*·\s*/,"")}.${sost?" Sostenimiento: "+sost+".":""} ¿Guardo la evaluación?`; }
+    else t=`RMR básico ${basico}. Falta definir el ajuste por orientación en el bloque 3. ¿Guardo la evaluación de todas formas?`;
+    fase=faltan.length?"pregunta":"guardar"; $("cvQ").textContent=t; $("cvProg").textContent="Resumen";
+    if(faltan.length){ idx=Q.findIndex(q=>q.nom===faltan[0]); hablar(t,()=>irA(idx)); } else hablar(t,escuchar);
+  }
+  function crear(){
+    panel=document.createElement("div"); panel.className="conv-panel hidden"; panel.id="convPanel"; panel.setAttribute("role","region"); panel.setAttribute("aria-label","Modo conversación");
+    panel.innerHTML=`<div class="conv-in"><div class="conv-top"><span>🗣 Modo conversación · <span id="cvProg"></span></span><span>Di «repite», «opciones», «omitir», «atrás», «corrige …» o «terminar»</span></div>
+      <div class="conv-q" id="cvQ"></div><div class="conv-oir" id="cvOir"></div><div class="conv-ok" id="cvOk"></div>
+      <div class="conv-btns"><button type="button" class="btn ok conv-mic" id="cvMic">🎙 Responder</button><button type="button" class="btn" id="cvRep">🔁 Repetir</button><button type="button" class="btn" id="cvOmit">⏭ Omitir</button><button type="button" class="btn danger" id="cvFin">Terminar</button></div></div>`;
+    document.body.appendChild(panel);
+    $("cvMic").onclick=()=>{ if(escuchandoYa&&rec){ try{ rec.stop(); }catch(_){} return; } try{ speechSynthesis.cancel(); }catch(_){} escuchar(); };
+    $("cvRep").onclick=()=>hablar(ultimaFrase,escuchar);
+    $("cvOmit").onclick=()=>{ if(fase!=="pregunta") return; estado("Omitido: "+(Q[idx]?Q[idx].nom:"")); siguiente(idx+1); };
+    $("cvFin").onclick=()=>cerrar();
+  }
+  function cerrar(msg){ activo=false; parar(); try{ speechSynthesis.cancel(); }catch(_){} if(msg){ try{ const u=new SpeechSynthesisUtterance(msg); const v=voz(); if(v){u.voice=v;u.lang=v.lang;} speechSynthesis.speak(u); }catch(_){} }
+    document.querySelectorAll(".conv-foco").forEach(e=>e.classList.remove("conv-foco")); if(panel) panel.classList.add("hidden"); document.body.classList.remove("conv-on"); }
+  $("convBtn").addEventListener("click",()=>{
+    if(!panel) crear(); activo=true; panel.classList.remove("hidden"); document.body.classList.add("conv-on"); estado("");
+    document.querySelectorAll(".panel").forEach(p=>p.classList.toggle("active",p.id==="evaluacion")); document.querySelectorAll(".tab").forEach(t=>t.classList.toggle("active",t.dataset.tab==="evaluacion"));
+    const i=Q.findIndex(q=>!lleno(q)||q.id==="_lecturas");
+    hablar("Empecemos. Responde cada pregunta; puedes decir opciones o repite en cualquier momento.",()=>siguiente(Math.max(0,i)));
+  });
+  window.ebrConversacion={Q,procesar:t=>procesar(t),estado:()=>({idx,fase,activo})};
 })();
 </script>
 <script>if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));}</script></body>
