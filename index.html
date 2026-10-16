@@ -171,6 +171,16 @@ html[data-theme="dark"] .sk-state{color:#9fb2bd}
 .dic-lista b{display:block;font-size:.78rem;color:var(--muted)}
 .dic-falta{font-size:.85rem;color:var(--warn);font-weight:700}
 .dic-box .actions{display:flex;gap:8px;margin-top:10px}.dic-box .actions .btn{flex:1}
+.voz-box{max-width:560px;max-height:90vh;overflow:auto}
+.voz-paso{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-top:10px}
+.voz-paso h3{margin:0 0 6px;font-size:1rem}
+.voz-paso .btn{width:auto}
+.voz-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.voz-row select{flex:1 1 200px}
+.voz-txt{min-height:52px;margin-top:8px;padding:8px 10px;border-radius:10px;background:rgba(66,126,113,.08);font-size:1.05rem;white-space:pre-wrap}
+.voz-ok{color:var(--ok);font-weight:800}.voz-mal{color:var(--danger);font-weight:800}.voz-gris{color:var(--muted)}
+.voz-res{font-family:ui-monospace,Menlo,monospace;font-size:.78rem;white-space:pre-wrap;background:rgba(0,0,0,.04);border-radius:10px;padding:8px 10px;margin-top:8px}
+html[data-theme="dark"] .voz-res{background:rgba(255,255,255,.05)}
 .grid.grid3{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
 .grid.grid3 label{font-size:.8rem}
 .ind-box{border:1px solid var(--line);border-radius:12px;padding:12px 13px;margin:0 0 12px}
@@ -414,6 +424,7 @@ html[data-theme="dark"] .kind.map{background:#3a2e12;color:#f0d9a4}
   <div class="hdr-row">
      <button type="button" class="empresa-chip" id="empresaBtn" aria-label="Cambiar formato de la indicación">Formato: …</button>
      <button type="button" class="empresa-chip" id="tipoEvalBtn" aria-label="Cambiar tipo de evaluación">Tipo de evaluación: …</button>
+     <button type="button" class="empresa-chip" id="vozTestBtn" aria-label="Probar voz sin internet">🎙 Probar voz</button>
      <select id="tipoEval" class="hidden" aria-hidden="true" tabindex="-1"><option>Indicación Geomecánica</option><option>Indicación de Tajo</option><option>Rehabilitación</option></select>
    </div>
  </div>
@@ -3354,6 +3365,89 @@ window.indicacionPDF={generar,vistaPrevia,areas:areas(),norteSrc:"data:image/jpe
     const b=document.createElement("button"); b.type="button"; b.className="dictar-fab"; b.id="dictarBtn"; b.textContent="🎙 Dictar";
     b.onclick=()=>window.ebrNativo.dictar(); document.body.appendChild(b);
   }
+})();
+</script>
+<script>
+/* Prueba de voz: comprueba si el equipo puede hablar (síntesis) y escuchar (reconocimiento) sin internet,
+   antes de construir el modo conversación de la app web. */
+(function(){
+  const $=id=>document.getElementById(id);
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  const r={red:"",hablar:"pendiente",vozLocal:"",escuchar:"pendiente",texto:"",error:""};
+  let modal=null, rec=null;
+  const red=()=>navigator.onLine?"con internet":"SIN internet";
+  function vocesEs(){ try{ return (speechSynthesis.getVoices()||[]).filter(v=>/^es/i.test(v.lang)); }catch(_){ return []; } }
+  function pintarVoces(){
+    const sel=$("vzVoz"); if(!sel) return; const V=vocesEs(), prev=sel.value;
+    sel.innerHTML=V.length?V.map((v,i)=>`<option value="${i}">${esc(v.name)} · ${esc(v.lang)}${v.localService?" · en el equipo":" · en línea"}</option>`).join(""):`<option value="">(sin voces en español)</option>`;
+    if(prev&&sel.querySelector(`option[value="${prev}"]`)) sel.value=prev;
+    else{ const k=V.findIndex(v=>v.localService&&/es[-_](PE|419|MX|US)/i.test(v.lang)); const k2=k>=0?k:V.findIndex(v=>v.localService); if(k2>=0) sel.value=String(k2); }
+  }
+  function resumen(){
+    const ua=navigator.userAgent, pwa=(window.matchMedia&&matchMedia("(display-mode: standalone)").matches)||navigator.standalone;
+    return `Prueba de voz · ${new Date().toLocaleString("es-PE")}
+Equipo: ${/iPad|Macintosh/.test(ua)&&navigator.maxTouchPoints>1?"iPad":/iPhone/.test(ua)?"iPhone":/Android/.test(ua)?"Android":"Otro"} · ${pwa?"app instalada (pantalla de inicio)":"navegador"}
+Conexión al probar: ${r.red||red()}
+Hablar (voz de la app): ${r.hablar}${r.vozLocal?" · "+r.vozLocal:""}
+Escuchar (reconocimiento): ${SR?r.escuchar:"no disponible en este navegador"}${r.error?" · error: "+r.error:""}
+Texto reconocido: ${r.texto||"—"}`;
+  }
+  function pintarRes(){ const el=$("vzRes"); if(el) el.textContent=resumen(); const n=$("vzRed"); if(n){ n.textContent=navigator.onLine?"Con internet: activa el modo avión para la prueba real.":"✓ Sin internet: estás en la condición de interior mina."; n.className=navigator.onLine?"voz-mal":"voz-ok"; } }
+  function crear(){
+    modal=document.createElement("div"); modal.className="emp-modal hidden"; modal.id="vozModal";
+    modal.innerHTML=`<div class="emp-box voz-box" role="dialog" aria-modal="true" aria-labelledby="vzTit"><h2 id="vzTit">Probar voz sin internet</h2>
+      <div class="small">Activa el <b>modo avión</b> y haz los dos pasos. Repite la prueba en Safari y en la app instalada en la pantalla de inicio.</div>
+      <div id="vzRed" style="margin-top:8px"></div>
+      <div class="voz-paso"><h3>1. La app habla</h3>
+        <div class="voz-row"><select id="vzVoz" aria-label="Voz"></select><button type="button" class="btn" id="vzHablar">🔊 Escuchar</button></div>
+        <div class="help">Las voces marcadas «en el equipo» funcionan sin internet. Para más voces: Ajustes &gt; Accesibilidad &gt; Contenido leído &gt; Voces &gt; Español.</div>
+        <div class="voz-row" style="margin-top:6px"><span class="small">¿Se escuchó?</span><button type="button" class="btn" data-h="sí">Sí</button><button type="button" class="btn" data-h="no">No</button></div>
+      </div>
+      <div class="voz-paso"><h3>2. La app escucha</h3>
+        <div class="voz-row"><select id="vzLang" aria-label="Idioma"><option value="es-PE">Español (Perú)</option><option value="es-MX">Español (México)</option><option value="es-ES">Español (España)</option><option value="es-US">Español (EE. UU.)</option></select>
+          <button type="button" class="btn ok" id="vzEsc">🎙 Hablar</button></div>
+        <div class="help">Toca «Hablar» y di, por ejemplo: «RQD cincuenta a setenta y cinco, dip setenta y cinco dirección ciento noventa».</div>
+        <div class="voz-txt" id="vzTxt"><span class="voz-gris">El texto aparecerá aquí…</span></div>
+        <div id="vzEst" class="small" style="margin-top:6px"></div>
+      </div>
+      <div class="voz-paso"><h3>Resultado</h3><div class="voz-res" id="vzRes"></div>
+        <div class="voz-row" style="margin-top:8px"><button type="button" class="btn" id="vzCopiar">Copiar resultado</button></div></div>
+      <div class="actions" style="margin-top:12px"><button type="button" class="btn" id="vzCerrar" style="width:100%">Cerrar</button></div></div>`;
+    document.body.appendChild(modal);
+    if(!SR){ $("vzEsc").disabled=true; $("vzEst").innerHTML=`<span class="voz-mal">Este navegador no tiene reconocimiento de voz.</span> Se necesitaría el plan B (modelo de voz dentro del navegador).`; }
+    if(!("speechSynthesis" in window)){ $("vzHablar").disabled=true; r.hablar="no disponible"; }
+    else{ pintarVoces(); try{ speechSynthesis.addEventListener("voiceschanged",pintarVoces); }catch(_){} }
+    $("vzHablar").onclick=()=>{
+      try{ speechSynthesis.cancel(); const V=vocesEs(), v=V[+$("vzVoz").value];
+        const u=new SpeechSynthesisUtterance("Hola. Soy el asistente de geomecánica. ¿Cuál es el R Q D de la labor?");
+        if(v){ u.voice=v; u.lang=v.lang; r.vozLocal=`${v.name} (${v.localService?"en el equipo":"en línea"})`; } else u.lang="es-ES";
+        u.rate=1; r.red=red(); speechSynthesis.speak(u); r.hablar="probando…"; pintarRes(); }catch(e){ r.hablar="error: "+e.message; pintarRes(); }
+    };
+    modal.querySelectorAll("[data-h]").forEach(b=>b.onclick=()=>{ r.hablar=b.dataset.h==="sí"?"✓ se escuchó":"✗ no se escuchó"; r.red=red(); pintarRes(); });
+    $("vzEsc").onclick=()=>{
+      if(rec){ try{rec.stop();}catch(_){} return; }
+      r.red=red(); r.error=""; r.texto=""; $("vzTxt").textContent="";
+      try{
+        rec=new SR(); rec.lang=$("vzLang").value; rec.interimResults=true; rec.continuous=false; rec.maxAlternatives=1;
+        try{ if("processLocally" in rec) rec.processLocally=true; }catch(_){}
+        rec.onstart=()=>{ $("vzEsc").textContent="⏹ Detener"; $("vzEst").innerHTML=`<span class="voz-gris">Escuchando…</span>`; r.escuchar="escuchando…"; pintarRes(); };
+        rec.onresult=e=>{ let t=""; for(const res of e.results) t+=res[0].transcript; $("vzTxt").textContent=t; r.texto=t;
+          if(e.results[e.results.length-1].isFinal){ r.escuchar="✓ reconoció la voz"; } pintarRes(); };
+        rec.onerror=e=>{ r.error=e.error||"desconocido"; r.escuchar="✗ falló";
+          const M={"network":"Necesita internet: el reconocimiento de este navegador no funciona sin conexión.","not-allowed":"Permiso de micrófono negado. Revisa Ajustes > Safari > Micrófono.","service-not-allowed":"El reconocimiento de voz no está permitido aquí (revisa que Siri y Dictado estén activados).","no-speech":"No se detectó voz. Intenta de nuevo hablando más cerca.","language-not-supported":"Ese idioma no está disponible; prueba otra variante de español.","audio-capture":"No se encontró micrófono."};
+          $("vzEst").innerHTML=`<span class="voz-mal">${esc(M[r.error]||("Error: "+r.error))}</span>`; pintarRes(); };
+        rec.onend=()=>{ rec=null; $("vzEsc").textContent="🎙 Hablar";
+          if(r.escuchar==="escuchando…") r.escuchar=r.texto?"✓ reconoció la voz":"✗ terminó sin texto";
+          if(!r.error) $("vzEst").innerHTML=r.texto?`<span class="voz-ok">✓ Reconoció la voz ${navigator.onLine?"(con internet)":"sin internet"}.</span>`:`<span class="voz-mal">No se obtuvo texto.</span>`;
+          pintarRes(); };
+        rec.start();
+      }catch(e){ rec=null; r.escuchar="✗ falló"; r.error=e.message; $("vzEst").innerHTML=`<span class="voz-mal">${esc(e.message)}</span>`; pintarRes(); }
+    };
+    $("vzCopiar").onclick=async()=>{ const t=resumen(); try{ await navigator.clipboard.writeText(t); $("vzCopiar").textContent="✓ Copiado"; }catch(_){ prompt("Copia el resultado:",t); } };
+    $("vzCerrar").onclick=()=>{ try{ rec&&rec.abort(); speechSynthesis.cancel(); }catch(_){} modal.classList.add("hidden"); };
+    window.addEventListener("online",pintarRes); window.addEventListener("offline",pintarRes);
+  }
+  $("vozTestBtn").addEventListener("click",()=>{ if(!modal) crear(); modal.classList.remove("hidden"); pintarVoces(); pintarRes(); });
 })();
 </script>
 <script>if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));}</script></body>
