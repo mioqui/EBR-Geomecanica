@@ -50,6 +50,8 @@ html[data-theme="dark"]{--bnv-tinta:#e6edf1;--bnv-gris:#93a4ae;--bnv-fondo:#121d
 .tab.active{background:var(--brand);color:#fff;border-color:var(--brand);box-shadow:0 3px 10px rgba(18,61,90,.16)}
 .panel{display:none}.panel.active{display:block}
 .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:14px;margin:0 0 12px;box-shadow:var(--shadow);overflow:hidden}
+/* Bloques de la evaluación: franja verde arriba (inicio del bloque) y línea verde abajo (fin del bloque), colores de la cabecera BNV */
+#evaluacion>.card{border-top:5px solid var(--bnv-verde,#427e71);border-bottom:2px solid var(--bnv-verde,#427e71)}
 .card h2{font-size:1.05rem;margin:0 0 12px}.card h3{font-size:.98rem;margin:14px 0 8px}
 .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;width:100%}
 .field{min-width:0}.field.full{grid-column:1/-1}
@@ -442,6 +444,7 @@ html[data-theme="dark"] .kind.map{background:#3a2e12;color:#f0d9a4}
   <div class="hdr-row">
      <button type="button" class="empresa-chip" id="empresaBtn" aria-label="Cambiar formato de la indicación">Formato: …</button>
      <button type="button" class="empresa-chip" id="tipoEvalBtn" aria-label="Cambiar tipo de evaluación">Tipo de evaluación: …</button>
+     <button type="button" class="empresa-chip" id="nuevoRmrBtn" aria-label="Empezar un nuevo RMR">＋ Nuevo RMR</button>
      <button type="button" class="empresa-chip hidden" id="convBtn" aria-label="Llenar la evaluación conversando">🗣 Conversación</button>
      <button type="button" class="empresa-chip" id="vozTestBtn" aria-label="Probar voz sin internet">🎙 Probar voz</button>
      <select id="tipoEval" class="hidden" aria-hidden="true" tabindex="-1"><option>Indicación Geomecánica</option><option>Indicación de Tajo</option><option>Rehabilitación</option></select>
@@ -1475,6 +1478,17 @@ function clearForm(){
  $("fecha").value=today(); currentPhotos=[]; renderPhotoPreview(); window.rmrStructs?.clear(); window.sketches?.clear(); recalc();
 }
 $("clearBtn").onclick=clearForm;
+// Nuevo RMR: formulario limpio (pide confirmación si hay datos sin guardar; si se estaba editando, sale de la edición sin cambiarla)
+function nuevoRMR(){
+  const ids=["supervisor","nivel","block","labor","litologia","azimut","resistencia","rqd","espaciamiento","apertura","rugosidad","relleno","persistencia","alteracion","agua","observaciones","factores"];
+  const hay=ids.some(id=>$(id)&&String($(id).value).trim())||(window.rmrStructs&&window.rmrStructs.lecturas().length)||currentPhotos.length;
+  if(hay&&!confirm(editingId?"¿Salir de la edición y empezar un nuevo RMR?\n\nLa evaluación guardada no se modifica.":"¿Empezar un nuevo RMR?\n\nSe borran los datos del formulario que no hayas guardado.")) return false;
+  if(editingId) $("cancelEditBtn").click(); else clearForm();
+  openTab("evaluacion"); try{ window.scrollTo({top:0,behavior:"smooth"}); }catch(_){}
+  return true;
+}
+window.nuevoRMR=nuevoRMR;
+$("nuevoRmrBtn").addEventListener("click",nuevoRMR);
 
 
 recalc();renderHistory();
@@ -3684,14 +3698,9 @@ Entendido: ${entendido(r.texto)}`;
   // Empieza un RMR nuevo: limpia el formulario (pide confirmación si hay datos) y la conversación arranca desde la primera pregunta
   function nuevo(){
     parar(); try{ speechSynthesis.cancel(); }catch(_){}
-    const ids=["supervisor","nivel","block","labor","resistencia","rqd","espaciamiento","apertura","rugosidad","relleno","persistencia","alteracion","agua","observaciones"];
-    const hay=ids.some(id=>$(id)&&String($(id).value).trim())||(window.rmrStructs&&window.rmrStructs.lecturas().length);
-    if(hay&&!confirm("¿Empezar un nuevo RMR?\n\nSe borran los datos del formulario que no hayas guardado.")){ if(activo) hablar(ultimaFrase,escuchar); return; }
-    const ce=$("cancelEditBtn"); if(ce&&!ce.classList.contains("hidden")) ce.click(); else clearForm();
+    if(!window.nuevoRMR()){ if(activo) hablar(ultimaFrase,escuchar); return; }
     hist=[]; idx=-1; estado("✓ Formulario nuevo");
     if(!panel) crear(); activo=true; panel.classList.remove("hidden"); document.body.classList.add("conv-on");
-    document.querySelectorAll(".panel").forEach(p=>p.classList.toggle("active",p.id==="evaluacion")); document.querySelectorAll(".tab").forEach(t=>t.classList.toggle("active",t.dataset.tab==="evaluacion"));
-    try{ window.scrollTo({top:0,behavior:"smooth"}); }catch(_){}
     hablar("Nuevo RMR.",()=>siguiente(0));
   }
   function procesar(t){
