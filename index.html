@@ -3414,18 +3414,19 @@ window.indicacionPDF={generar,vistaPrevia,areas:areas(),norteSrc:"data:image/jpe
     // decimales con coma («4,5») → punto; «×» → «x»; «4.5x4.5» → «4.5 x 4.5»; «y medio» → .5
     const tk=sinTilde(texto).replace(/(\d),(\d)/g,"$1.$2").replace(/×/g," x ").replace(/(\d)\s*x\s*(\d)/g,"$1 x $2").replace(/(\d)\s*m\b/g,"$1 m")
       .replace(/[,;:¿?¡!]/g," $& ").split(/\s+/).filter(Boolean), out=[];
-    let n=null, mil=0, h=0, t=0, u=0, dec=null;
+    let n=null, mill=0, mil=0, h=0, t=0, u=0, dec=null;
     const hay=()=>n!==null;
-    function cerrar(){ if(!hay()) return; let v=String(mil+h+t+u); if(dec!==null) v+="."+dec; out.push(v); n=null; mil=h=t=u=0; dec=null; }
+    function cerrar(){ if(!hay()) return; let v=String(mill+mil+h+t+u); if(dec!==null) v+="."+dec; out.push(v); n=null; mill=mil=h=t=u=0; dec=null; }
     for(let i=0;i<tk.length;i++){
       const w=tk[i];
       if(w in H){ if(hay()&&(h||t||u)) cerrar(); n=1; h=H[w]; continue; }
       if(w in T){ if(hay()&&(t||u)) cerrar(); n=1; t=T[w]; continue; }
       if(w in U){ if(hay()&&(u||(U[w]>=10&&t))) cerrar(); n=1; if(U[w]>=10&&!t) t=U[w]; else u=U[w]; continue; }
+      if((w==="millon"||w==="millones")&&hay()){ mill=(h+t+u||1)*1000000; h=t=u=0; continue; }
       if(w==="mil"&&hay()){ mil=(h+t+u||1)*1000; h=t=u=0; continue; }
       if(w==="mil"){ n=1; mil=1000; continue; }
       if(w==="y"&&hay()&&t&&!u&&(tk[i+1] in U)&&U[tk[i+1]]<10) continue;
-      if((w==="punto"||w==="coma")&&hay()&&!(mil||h)&&(tk[i+1] in U||tk[i+1] in T)){
+      if((w==="punto"||w==="coma")&&hay()&&(tk[i+1] in U||tk[i+1] in T)){
         // decimales: «punto cinco» → .5; «punto setenta» → .70; «punto cero dos» → .02
         let j=i+1, d=""; while(j<tk.length&&(tk[j] in U||tk[j] in T||tk[j]==="y")){ if(tk[j]!=="y") d+=String(tk[j] in T?T[tk[j]]:U[tk[j]]); else if(!(tk[j+1] in U)) break; j++; }
         // «setenta y cinco» después de «punto» queda como 705 → corregir a 75
@@ -3581,6 +3582,17 @@ Entendido: ${entendido(r.texto)}`;
   const LETRAS={a:"A",be:"B",ce:"C",de:"D",e:"E",efe:"F",ge:"G",hache:"H",i:"I",jota:"J",ka:"K",ele:"L",eme:"M",ene:"N",o:"O",pe:"P",cu:"Q",erre:"R",ere:"R",ese:"S",te:"T",u:"U",ve:"V",uve:"V",equis:"X",ye:"Y",zeta:"Z",norte:"N",sur:"S",este:"E",oeste:"W"};
   const RELLENO=/^(la|el|labor|es|block|bloque|nivel|litologia|codigo|de|del|en|seria|numero)$/;
   function codigo(t){ return N(t).split(/\s+/).filter(w=>w&&!RELLENO.test(w)).map(w=>LETRAS[w]||w).join("").replace(/[^0-9a-z.]/gi,"").toUpperCase(); }
+  // «cuatro ochenta» → 4.80; «cuatro punto ocho» → 4.8; «tres» → 3
+  function dimension(t){ const g=N(t).match(/\d+(?:\.\d+)?/g); if(!g) return null;
+    if(g.length>=2&&!g[0].includes(".")&&+g[0]<20&&/^\d{1,2}$/.test(g[1])) return g[0]+"."+g[1].padStart(2,"0").replace(/^(\d)$/,"$10");
+    const v=+g[0]; return v>0&&v<100?g[0]:null; }
+  // Coordenadas dichas por partes: «trescientos sesenta y dos ciento cincuenta punto cinco» → 362150.5; si faltan dígitos espera el resto
+  function coord(t,digitos){ const g=N(t).match(/\d+(?:\.\d+)?/g); if(!g) return null; const v=g.join("").replace(/\.(?=.*\.)/g,"");
+    const ent=v.split(".")[0]; return ent.length<digitos?{parcial:v}:v; }
+  // «ce treinta y dos más cinco metros» → C32 + 5m
+  function refTopo(t){ const tk=N(t).replace(/\bmas\b/g," + ").replace(/\s*\bmetros?\b/g,"m").split(/\s+/).filter(Boolean); const out=[];
+    for(let i=0;i<tk.length;i++){ const w=tk[i]; if(LETRAS[w]&&/^\d/.test(tk[i+1]||"")){ out.push(LETRAS[w]+tk[i+1]); i++; } else if(/^[a-z]$/.test(w)&&/^\d/.test(tk[i+1]||"")){ out.push(w.toUpperCase()+tk[i+1]); i++; } else out.push(/^[a-z]\d/.test(w)?w.toUpperCase():w); }
+    const v=out.join(" ").replace(/\s*\+\s*/g," + ").replace(/(\d)\s+m\b/g,"$1m").trim(); return v||null; }
   const rango=(v,tabla)=>{ const f=tabla.find(([m])=>v>=m); return f?f[1]:null; };
   const medio=a=>a.length>1?(a[0]+a[1])/2:a[0];
   function menos(t){ return tiene(t,/\b(menos|menor|debajo)\b/); }
@@ -3595,10 +3607,19 @@ Entendido: ${entendido(r.texto)}`;
     {id:"labor",nom:"labor",p:"¿Código de la labor?",leer:t=>{ const c=codigo(t); return c||null; }},
     {id:"condicionLabor",nom:"tipo de labor",p:"¿Tipo de labor? Avance permanente, avance temporal, intersección o explotación.",ops:"avance permanente, avance temporal, intersección permanente, intersección temporal o explotación",
       leer:t=>tiene(t,/interse/)?(tiene(t,/tempor/)?"Interseccion temporal":tiene(t,/perman/)?"Interseccion permanente":null):tiene(t,/explot|tajo/)?"Explotacion":tiene(t,/tempor/)?"Temporal":tiene(t,/perman/)?"Permanente":null},
-    {id:"litologia",nom:"litología",p:"¿Litología? Dime el código.",leer:t=>{ const c=codigo(t); return c||null; }},
+    {id:"litologia",nom:"litología",p:"¿Litología?",leer:t=>{ const w=String(t).trim().replace(/[.]+$/,"").replace(/^(la\s+)?litolog[ií]a\s+(es\s+)?/i,"").trim(); if(!w) return null;
+        return /\s/.test(w)?w.charAt(0).toUpperCase()+w.slice(1).toLowerCase():w.toUpperCase(); }},
     {id:"seccion",nom:"sección",p:"¿Sección de la labor? Por ejemplo, cuatro punto cinco por cuatro punto cinco.",
       leer:t=>{ const m=/(\d+(?:\.\d+)?)\s*(?:m|mts?|metros)?\s*(?:por|x|equis|\*)\s*(\d+(?:\.\d+)?)/.exec(N(t)); return m?`${m[1]} x ${m[2]}`:null; }},
     {id:"azimut",nom:"azimut",p:"¿Azimut de la labor, en grados?",leer:t=>{ const n=num(t); return n!==null&&n>=0&&n<=360?String(n):null; },decir:v=>v+" grados"},
+    {id:"refTopo",nom:"referencia topográfica",p:"¿Referencia topográfica? Por ejemplo, ce treinta y dos más cinco metros.",leer:refTopo},
+    {id:"anchoReal",nom:"ancho",p:"¿Ancho real de la labor, en metros?",leer:t=>dimension(t),decir:v=>v+" metros"},
+    {id:"altoReal",nom:"alto",p:"¿Alto real, en metros?",leer:t=>dimension(t),decir:v=>v+" metros"},
+    {id:"largoL",nom:"longitud",p:"¿Longitud L, en metros?",leer:t=>dimension(t),decir:v=>v+" metros"},
+    {id:"coordX",nom:"coordenada este",p:"¿Coordenada X, este?",leer:t=>coord(t,6),decir:v=>v},
+    {id:"coordY",nom:"coordenada norte",p:"¿Coordenada Y, norte?",leer:t=>coord(t,7),decir:v=>v},
+    {id:"coordZ",nom:"cota",p:"¿Cota Z?",leer:t=>coord(t,4),decir:v=>v},
+    {id:"factores",nom:"factores influyentes",p:"¿Factores influyentes? Si no hay, di ninguno.",opcional:true,leer:t=>{ if(tiene(t,/^\s*(ninguno|ninguna|no|nada)\s*\.?$/)) return ""; const v=String(t).trim(); return v.charAt(0).toUpperCase()+v.slice(1)+(/[.!?]$/.test(v)?"":"."); },decir:v=>v?"anotado":"sin factores"},
     {id:"resistencia",nom:"resistencia",p:"¿Resistencia de la roca? R1 a R6, o en megapascales.",ops:"R6 más de 250 megapascales, R5 de 100 a 250, R4 de 50 a 100, R3 de 25 a 50, R2 de 5 a 25, R1 de 1 a 5",
       leer:t=>{ const n=N(t), r=/\br\s*([1-6])\b/.exec(n); if(r) return {"6":"15","5":"12","4":"7","3":"4","2":"2","1":"1"}[r[1]];
         const a=nums(t); if(!a.length) return null; let v=medio(a); if(menos(t)) v-=0.1; return rango(v,[[250,"15"],[100,"12"],[50,"7"],[25,"4"],[5,"2"],[-1,"1"]]); }},
@@ -3643,7 +3664,7 @@ Entendido: ${entendido(r.texto)}`;
     const f=el.closest(".field")||el; f.classList.add("conv-foco"); try{ f.scrollIntoView({behavior:"smooth",block:"center"}); }catch(_){}
   }
   // ---------- voz ----------
-  let tSilencio=null, tMax=null, pendiente="", hist=[], panel=null, idx=-1, activo=false, rec=null, fallos=0, escuchandoYa=false, fase="pregunta", ultimaFrase="";
+  let pausado=false, tSilencio=null, tMax=null, pendiente="", hist=[], panel=null, idx=-1, activo=false, rec=null, fallos=0, escuchandoYa=false, fase="pregunta", ultimaFrase="";
   function voz(){ let V=[]; try{ V=speechSynthesis.getVoices().filter(v=>/^es/i.test(v.lang)); }catch(_){} let g=""; try{ g=localStorage.getItem("ebr-voz")||""; }catch(_){}
     return V.find(v=>v.voiceURI===g)||V.find(v=>v.localService&&/(mejorad|enhanced|premium)/i.test(v.name))||V.find(v=>v.localService)||V[0]||null; }
   // Para la voz: «50–100 MPa» → «50 a 100 megapascales», «(-5)» → «menos 5»
@@ -3655,14 +3676,14 @@ Entendido: ${entendido(r.texto)}`;
     ultimaFrase=texto; texto=oral(texto); parar(); try{ speechSynthesis.cancel(); }catch(_){}
     const u=new SpeechSynthesisUtterance(texto), v=voz(); if(v){ u.voice=v; u.lang=v.lang; } else u.lang="es-ES";
     let vel=1; try{ vel=Number(localStorage.getItem("ebr-voz-vel"))||1; }catch(_){} u.rate=vel;
-    let hecho=false; const fin=()=>{ if(hecho) return; hecho=true; if(activo&&luego) setTimeout(luego,250); };
+    let hecho=false; const fin=()=>{ if(hecho) return; hecho=true; if(activo&&!pausado&&luego) setTimeout(()=>{ if(activo&&!pausado) luego(); },250); };
     u.onend=fin; u.onerror=fin; setTimeout(fin,Math.min(30000,2500+texto.length*110/vel)); // por si el equipo no avisa el final
     try{ speechSynthesis.speak(u); }catch(_){ fin(); }
   }
   function parar(){ clearTimeout(tSilencio); clearTimeout(tMax); escuchandoYa=false; if(rec){ try{ rec.onend=null; rec.abort(); }catch(_){} rec=null; } micUI(false); }
   function micUI(on){ const b=$("cvMic"); if(!b) return; b.classList.toggle("escuchando",on); b.textContent=on?"⏹ Escuchando… toca para terminar":"🎙 Responder"; }
   function escuchar(){
-    if(!activo) return; parar();
+    if(!activo||pausado) return; parar();
     let idioma="es-PE"; try{ idioma=localStorage.getItem("ebr-voz-idioma")||"es-PE"; }catch(_){}
     // Escucha continua: termina tras 1.8 s de silencio después de hablar (así no corta entre «treinta y nueve» y «veintidós»)
     const r=new SR(); rec=r; r.lang=idioma; r.interimResults=true; r.continuous=true; r.maxAlternatives=1;
@@ -3693,10 +3714,14 @@ Entendido: ${entendido(r.texto)}`;
     [/^(omitir|omite|siguiente|paso|no se|saltar|salta)\b/,()=>{ estado("Omitido: "+(Q[idx]?Q[idx].nom:"")); siguiente(idx+1); }],
     [/^(atras|anterior|regresa|volver|repite (la )?anterior)\b/,()=>anterior()],
     [/^(nuevo rmr|nueva evaluacion|nuevo registro|empezar de nuevo)\b/,()=>nuevo()],
-    [/^(terminar|termina|salir|pausa|detener|cancelar)\b/,()=>cerrar("Conversación terminada. Puedes seguir en el formulario.")]
+    [/^(pausa|pausar|espera|un momento)\b/,()=>pausar()],
+    [/^(terminar|termina|salir|detener|cancelar)\b/,()=>cerrar("Conversación terminada. Puedes seguir en el formulario.")]
   ];
   function irA(i){ idx=i; fallos=0; pendiente=""; const q=Q[i]; fase="pregunta"; foco(q); if(hist[hist.length-1]!==i) hist.push(i); $("cvQ").textContent=q.p; $("cvProg").textContent=`Pregunta ${i+1} de ${Q.length}`; hablar(q.p,escuchar); }
   // Vuelve a la pregunta anterior (la que se hizo antes, aunque ya esté respondida) para repetirla o corregirla
+  // Pausa: deja de hablar y de escuchar sin cerrar la conversación; «Continuar» repite la pregunta pendiente
+  function pausar(){ pausado=true; parar(); try{ speechSynthesis.cancel(); }catch(_){} const b=$("cvPausa"); if(b) b.textContent="▶ Continuar"; estado("⏸ En pausa. Toca «Continuar» para seguir."); $("cvOir").textContent=""; }
+  function continuar(){ pausado=false; const b=$("cvPausa"); if(b) b.textContent="⏸ Pausa"; estado(""); if(fase==="pregunta"&&Q[idx]) irA(idx); else hablar(ultimaFrase,escuchar); }
   function anterior(){
     if(fase!=="pregunta"&&hist.length){ irA(hist[hist.length-1]); return; }
     if(hist.length>=2){ hist.pop(); irA(hist.pop()); return; }
@@ -3706,7 +3731,7 @@ Entendido: ${entendido(r.texto)}`;
   function nuevo(){
     parar(); try{ speechSynthesis.cancel(); }catch(_){}
     if(!window.nuevoRMR()){ if(activo) hablar(ultimaFrase,escuchar); return; }
-    hist=[]; idx=-1; estado("✓ Formulario nuevo");
+    hist=[]; idx=-1; pausado=false; estado("✓ Formulario nuevo");
     if(!panel) crear(); activo=true; panel.classList.remove("hidden"); document.body.classList.add("conv-on");
     hablar("Nuevo RMR.",()=>siguiente(0));
   }
@@ -3718,7 +3743,7 @@ Entendido: ${entendido(r.texto)}`;
     for(const [re,fn] of COMANDOS) if(re.test(s)){ fn(); return; }
     // «corrige el RQD», «cambia la rugosidad»
     const c=/^(corrige|corregir|cambia|cambiar|modifica)\s+(el|la|los|las)?\s*(.+)$/.exec(s);
-    if(c){ const k=Q.findIndex(q=>sinT(c[3]).includes(sinT(q.nom).split(" ")[0])); if(k>=0){ irA(k); return; } }
+    if(c){ let k=Q.findIndex(q=>sinT(c[3]).includes(sinT(q.nom))); if(k<0) k=Q.findIndex(q=>sinT(c[3]).includes(sinT(q.nom).split(" ")[0])); if(k>=0){ irA(k); return; } }
     const q=Q[idx]; if(!q) return;
     const unido=!!pendiente; if(pendiente){ t=pendiente+" "+t; pendiente=""; }
     let v=q.leer(t);
@@ -3755,21 +3780,21 @@ Entendido: ${entendido(r.texto)}`;
   }
   function crear(){
     panel=document.createElement("div"); panel.className="conv-panel hidden"; panel.id="convPanel"; panel.setAttribute("role","region"); panel.setAttribute("aria-label","Modo conversación");
-    panel.innerHTML=`<div class="conv-in"><div class="conv-top"><span>🗣 Modo conversación · <span id="cvProg"></span></span><span>Di «repite», «anterior», «opciones», «omitir», «corrige …», «nuevo RMR» o «terminar»</span></div>
+    panel.innerHTML=`<div class="conv-in"><div class="conv-top"><span>🗣 Modo conversación · <span id="cvProg"></span></span><span>Di «repite», «anterior», «opciones», «omitir», «corrige …», «pausa», «nuevo RMR» o «terminar»</span></div>
       <div class="conv-q" id="cvQ"></div><div class="conv-oir" id="cvOir"></div><div class="conv-ok" id="cvOk"></div>
-      <div class="conv-btns"><button type="button" class="btn ok conv-mic" id="cvMic">🎙 Responder</button><button type="button" class="btn" id="cvAnt">⏮ Anterior</button><button type="button" class="btn" id="cvRep">🔁 Repetir</button><button type="button" class="btn" id="cvOmit">⏭ Omitir</button><button type="button" class="btn" id="cvNuevo">＋ Nuevo RMR</button><button type="button" class="btn danger" id="cvFin">Terminar</button></div></div>`;
+      <div class="conv-btns"><button type="button" class="btn ok conv-mic" id="cvMic">🎙 Responder</button><button type="button" class="btn" id="cvAnt">⏮ Anterior</button><button type="button" class="btn" id="cvRep">🔁 Repetir</button><button type="button" class="btn" id="cvOmit">⏭ Omitir</button><button type="button" class="btn" id="cvPausa">⏸ Pausa</button><button type="button" class="btn danger" id="cvFin">Terminar</button></div></div>`;
     document.body.appendChild(panel);
-    $("cvMic").onclick=()=>{ if(escuchandoYa&&rec){ try{ rec.stop(); }catch(_){} return; } try{ speechSynthesis.cancel(); }catch(_){} escuchar(); };
-    $("cvRep").onclick=()=>hablar(ultimaFrase,escuchar);
+    $("cvMic").onclick=()=>{ if(pausado){ continuar(); return; } if(escuchandoYa&&rec){ try{ rec.stop(); }catch(_){} return; } try{ speechSynthesis.cancel(); }catch(_){} escuchar(); };
+    $("cvRep").onclick=()=>{ if(pausado){ continuar(); return; } hablar(ultimaFrase,escuchar); };
     $("cvOmit").onclick=()=>{ if(fase!=="pregunta") return; estado("Omitido: "+(Q[idx]?Q[idx].nom:"")); siguiente(idx+1); };
     $("cvFin").onclick=()=>cerrar();
-    $("cvAnt").onclick=()=>{ try{ speechSynthesis.cancel(); }catch(_){} anterior(); };
-    $("cvNuevo").onclick=()=>nuevo();
+    $("cvAnt").onclick=()=>{ try{ speechSynthesis.cancel(); }catch(_){} if(pausado){ pausado=false; $("cvPausa").textContent="⏸ Pausa"; estado(""); } anterior(); };
+    $("cvPausa").onclick=()=>{ pausado?continuar():pausar(); };
   }
   function cerrar(msg){ activo=false; parar(); try{ speechSynthesis.cancel(); }catch(_){} if(msg){ try{ const u=new SpeechSynthesisUtterance(msg); const v=voz(); if(v){u.voice=v;u.lang=v.lang;} speechSynthesis.speak(u); }catch(_){} }
     document.querySelectorAll(".conv-foco").forEach(e=>e.classList.remove("conv-foco")); if(panel) panel.classList.add("hidden"); document.body.classList.remove("conv-on"); }
   $("convBtn").addEventListener("click",()=>{
-    if(!panel) crear(); activo=true; hist=[]; panel.classList.remove("hidden"); document.body.classList.add("conv-on"); estado("");
+    if(!panel) crear(); activo=true; pausado=false; $("cvPausa").textContent="⏸ Pausa"; hist=[]; panel.classList.remove("hidden"); document.body.classList.add("conv-on"); estado("");
     document.querySelectorAll(".panel").forEach(p=>p.classList.toggle("active",p.id==="evaluacion")); document.querySelectorAll(".tab").forEach(t=>t.classList.toggle("active",t.dataset.tab==="evaluacion"));
     const i=Q.findIndex(q=>!lleno(q)||q.id==="_lecturas");
     hablar("Empecemos. Responde cada pregunta; puedes decir opciones o repite en cualquier momento.",()=>siguiente(Math.max(0,i)));
