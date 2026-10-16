@@ -3412,7 +3412,7 @@ window.indicacionPDF={generar,vistaPrevia,areas:areas(),norteSrc:"data:image/jpe
   // Convierte secuencias de números en palabras a cifras: «setenta y cinco ciento noventa» → «75 190»; «cuatro punto cinco» → «4.5»
   function numeros(texto){
     // decimales con coma («4,5») → punto; «×» → «x»; «4.5x4.5» → «4.5 x 4.5»; «y medio» → .5
-    const tk=sinTilde(texto).replace(/(\d),(\d)/g,"$1.$2").replace(/×/g," x ").replace(/(\d)\s*x\s*(\d)/g,"$1 x $2").replace(/(\d)\s*m\b/g,"$1 m")
+    const tk=sinTilde(texto).replace(/\bpor\s*ciento\b/g," % ").replace(/(\d),(\d)/g,"$1.$2").replace(/×/g," x ").replace(/(\d)\s*x\s*(\d)/g,"$1 x $2").replace(/(\d)\s*m\b/g,"$1 m")
       .replace(/[,;:¿?¡!]/g," $& ").split(/\s+/).filter(Boolean), out=[];
     let n=null, mill=0, mil=0, h=0, t=0, u=0, dec=null;
     const hay=()=>n!==null;
@@ -3812,7 +3812,7 @@ Entendido: ${entendido(r.texto)}`;
       hablar(fallos>=3?"Lo dejo pendiente. "+q.nom+".":"No entendí. "+extra,fallos>=3?()=>siguiente(idx+1):escuchar); if(fallos>=3) estado("Pendiente: "+q.nom,true); return; }
     if(v!==""&&!(Array.isArray(v)&&!v.length)) poner(q,v); respaldo=null;
     const dicho=q.decir?q.decir(v):(Array.isArray(v)?"":textoOpcion(q.id,v));
-    estado("✓ "+q.nom.charAt(0).toUpperCase()+q.nom.slice(1)+": "+dicho);
+    estado("✓ "+q.nom.charAt(0).toUpperCase()+q.nom.slice(1)+": "+dicho+"  ·  escuché «"+String(t).trim()+"»");
     hablar(q.nom+", "+dicho+".",()=>siguiente(idx+1));
   }
   function resumen(){
@@ -3835,7 +3835,7 @@ Entendido: ${entendido(r.texto)}`;
   }
   function crear(){
     panel=document.createElement("div"); panel.className="conv-panel hidden"; panel.id="convPanel"; panel.setAttribute("role","region"); panel.setAttribute("aria-label","Modo conversación");
-    panel.innerHTML=`<div class="conv-in"><div class="conv-top"><span>🗣 Modo conversación · <span id="cvProg"></span> <span style="opacity:.6">· versión 50</span></span><span>Di «repite», «anterior», «opciones», «omitir», «ir a …», «corrige …», «pausa», «nuevo RMR» o «terminar»</span></div>
+    panel.innerHTML=`<div class="conv-in"><div class="conv-top"><span>🗣 Modo conversación · <span id="cvProg"></span> <span style="opacity:.6">· versión 51</span></span><span>Di «repite», «anterior», «opciones», «omitir», «ir a …», «corrige …», «pausa», «nuevo RMR» o «terminar»</span></div>
       <div class="conv-q" id="cvQ"></div><div class="conv-oir" id="cvOir"></div><div class="conv-ok" id="cvOk"></div>
       <div class="conv-btns"><button type="button" class="btn ok conv-mic" id="cvMic">🎙 Responder</button><button type="button" class="btn" id="cvAnt">⏮ Anterior</button><button type="button" class="btn" id="cvRep">🔁 Repetir</button><button type="button" class="btn" id="cvOmit">⏭ Omitir</button><button type="button" class="btn" id="cvPausa">⏸ Pausa</button><button type="button" class="btn danger" id="cvFin">Terminar</button></div></div>`;
     document.body.appendChild(panel);
