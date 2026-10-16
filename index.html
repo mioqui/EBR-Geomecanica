@@ -3582,6 +3582,22 @@ Entendido: ${entendido(r.texto)}`;
   const LETRAS={a:"A",be:"B",ce:"C",de:"D",e:"E",efe:"F",ge:"G",hache:"H",i:"I",jota:"J",ka:"K",ele:"L",eme:"M",ene:"N",o:"O",pe:"P",cu:"Q",erre:"R",ere:"R",ese:"S",te:"T",u:"U",ve:"V",uve:"V",equis:"X",ye:"Y",zeta:"Z",norte:"N",sur:"S",este:"E",oeste:"W"};
   const RELLENO=/^(la|el|labor|es|block|bloque|nivel|litologia|codigo|de|del|en|seria|numero)$/;
   function codigo(t){ return N(t).split(/\s+/).filter(w=>w&&!RELLENO.test(w)).map(w=>LETRAS[w]||w).join("").replace(/[^0-9a-z.]/gi,"").toUpperCase(); }
+  // Código de labor según el estándar de codificación SMEB (MU Codificación de labores v1) y la práctica de la BD de Geomecánica:
+  // tipo + coordenada + ala (+ gradiente en rampas). «Rampa 9 90 norte» → RP990N; «galería mil quinientos dieciocho norte» → GL1518N
+  const TIPOS_LABOR=[[/rampa operativa/,"RO"],[/raise ?borer|rice ?borer/,"RB"],[/by ?pass|baipas|bai pas|bypass/,"BP"],[/rampa/,"RP"],[/acceso/,"AC"],
+    [/galeria/,"GL"],[/crucero/,"CX"],[/chimenea/,"CH"],[/ventana/,"VN"],[/camara/,"CA"],[/sub ?nivel/,"SN"],[/tajo/,"TJ"],[/slot/,"ST"],[/pique/,"PQ"],[/desquinche/,"DQ"]];
+  const ALAS={norte:"N",sur:"S",este:"E",oeste:"W",n:"N",s:"S",e:"E",w:"W"};
+  function laborCodigo(t){
+    let n=N(t).replace(/^(la\s+)?labor\s+(es\s+)?/,"").trim(); if(!n) return null;
+    const tipo=TIPOS_LABOR.find(([re])=>re.test(n));
+    if(!tipo){ const c=codigo(t); return c||null; } // dicho como letras: «erre pe 990 norte», «RP 990 N»
+    const resto=n.replace(tipo[0],"").trim(), tk=resto.split(/\s+/).filter(Boolean);
+    const num=(resto.match(/\d+/g)||[]).join("");
+    let ala="", grad="";
+    tk.forEach(w=>{ if(ALAS[w]&&!ala) ala=ALAS[w]; if(/^(positiv[oa]|mas|\+)$/.test(w)) grad="(+)"; if(/^(negativ[oa]|menos|-)$/.test(w)) grad="(-)"; });
+    if(!num) return null;
+    return tipo[1]+num+ala+grad;
+  }
   // «cuatro ochenta» → 4.80; «cuatro punto ocho» → 4.8; «tres» → 3
   function dimension(t){ const g=N(t).match(/\d+(?:\.\d+)?/g); if(!g) return null;
     if(g.length>=2&&!g[0].includes(".")&&+g[0]<20&&/^\d{1,2}$/.test(g[1])) return g[0]+"."+g[1].padStart(2,"0").replace(/^(\d)$/,"$10");
@@ -3604,7 +3620,9 @@ Entendido: ${entendido(r.texto)}`;
     // Nivel y block se dicen en pares: «treinta y nueve veintidós» → 39 22 → 3922. Si llega solo «39», espera la otra mitad.
     {id:"nivel",nom:"nivel",p:"¿Nivel?",leer:t=>{ const g=N(t).match(/\d+/g); if(!g) return null; const v=g.join(""); return v.length<4?{parcial:v}:v; }},
     {id:"block",nom:"block",p:"¿Block?",leer:t=>{ const c=codigo(t); if(!c) return null; return /^\d{1,3}$/.test(c)?{parcial:c}:c; }},
-    {id:"labor",nom:"labor",p:"¿Código de la labor?",leer:t=>{ const c=codigo(t); return c||null; }},
+    {id:"labor",nom:"labor",p:"¿Labor?",leer:t=>laborCodigo(t),
+      decir:v=>{ const m=/^([A-Z]+)(\d*)([NSEW]?)(\([+-]\))?$/.exec(v); if(!m) return v; const A={N:"norte",S:"sur",E:"este",W:"oeste"};
+        return [m[1].split("").join(" "),m[2],A[m[3]]||"",m[4]?(m[4]==="(+)"?"positiva":"negativa"):""].filter(Boolean).join(" "); }},
     {id:"condicionLabor",nom:"tipo de labor",p:"¿Tipo de labor? Avance permanente, avance temporal, intersección o explotación.",ops:"avance permanente, avance temporal, intersección permanente, intersección temporal o explotación",
       leer:t=>tiene(t,/interse/)?(tiene(t,/tempor/)?"Interseccion temporal":tiene(t,/perman/)?"Interseccion permanente":null):tiene(t,/explot|tajo/)?"Explotacion":tiene(t,/tempor/)?"Temporal":tiene(t,/perman/)?"Permanente":null},
     {id:"litologia",nom:"litología",p:"¿Litología?",leer:t=>{ const w=String(t).trim().replace(/[.]+$/,"").replace(/^(la\s+)?litolog[ií]a\s+(es\s+)?/i,"").trim(); if(!w) return null;
@@ -3735,15 +3753,34 @@ Entendido: ${entendido(r.texto)}`;
     if(!panel) crear(); activo=true; panel.classList.remove("hidden"); document.body.classList.add("conv-on");
     hablar("Nuevo RMR.",()=>siguiente(0));
   }
+  // Campo mencionado por su nombre (el más largo que coincida: «tipo de labor» antes que «labor»)
+  const ALIAS={coordX:["x","este","coordenada x"],coordY:["y","coordenada y"],coordZ:["z","cota","coordenada z"],largoL:["l","largo","longitud"],
+    supervisor:["geomecanico","nombre"],seccion:["seccion"],_lecturas:["lecturas","dip","lectura"],refTopo:["referencia"],agua:["agua"],resistencia:["resistencia"]};
+  const BLOQUES={"1":"supervisor","uno":"supervisor","2":"resistencia","dos":"resistencia","4":"_lecturas","cuatro":"_lecturas","5":"observaciones","cinco":"observaciones"};
+  const LIBRE=new Set(["supervisor","observaciones","factores","litologia","refTopo"]);
+  function campo(texto,libre){
+    const t=sinT(texto).replace(/[.,]/g," ").replace(/\s+/g," ").trim();
+    const b=/^bloque\s+(\w+)/.exec(t); if(b&&BLOQUES[b[1]]) return Q.findIndex(q=>q.id===BLOQUES[b[1]]);
+    let mejor=-1, largo=0;
+    Q.forEach((q,i)=>[sinT(q.nom),...(ALIAS[q.id]||[])].forEach(nm=>{ const ok=libre?(t===nm||t.startsWith(nm+" ")||t.includes(" "+nm)):(t.startsWith(nm+" ")&&nm.length>2);
+      if(ok&&nm.length>largo){ mejor=i; largo=nm.length; } }));
+    return mejor;
+  }
   function procesar(t){
     const s=sinT(N(t)).trim();
     if(fase==="ajuste"||fase==="guardar"){ const si=/\b(si|claro|correcto|dale|ok|okay|guarda|guardar|aplica|de acuerdo)\b/.test(s), no=/^\s*no\b/.test(s);
       if(fase==="ajuste"){ if(si){ const b=$("ajSugBtn"); if(b) b.click(); estado("✓ Ajuste aplicado"); } else if(!no){ hablar("Di sí o no.",escuchar); return; } return final(); }
       if(si){ estado("Guardando…"); cerrar(); $("saveEvalBtn").click(); return; } if(no) return cerrar("Listo. Revisa el formulario y guarda cuando quieras."); hablar("Di sí o no.",escuchar); return; }
     for(const [re,fn] of COMANDOS) if(re.test(s)){ fn(); return; }
-    // «corrige el RQD», «cambia la rugosidad»
-    const c=/^(corrige|corregir|cambia|cambiar|modifica)\s+(el|la|los|las)?\s*(.+)$/.exec(s);
-    if(c){ let k=Q.findIndex(q=>sinT(c[3]).includes(sinT(q.nom))); if(k<0) k=Q.findIndex(q=>sinT(c[3]).includes(sinT(q.nom).split(" ")[0])); if(k>=0){ irA(k); return; } }
+    // «ir a labor», «ve al bloque 2», «corrige el RQD», «cambia la rugosidad»
+    const c=/^(ir|ve|vamos|anda|pasa|regresa|vuelve|corrige|corregir|cambia|cambiar|modifica)\s+(?:a\s+|al\s+|a la\s+)?(?:el\s+|la\s+|los\s+|las\s+)?(.+)$/.exec(s);
+    if(c){ const k=campo(c[2],true); if(k>=0){ irA(k); return; } }
+    // Respuesta con el nombre de otro campo delante: «labor rampa 990 norte» estando en otra pregunta → llena ese campo y vuelve
+    if(Q[idx]&&!LIBRE.has(Q[idx].id)){ const k=campo(s,false);
+      if(k>=0&&k!==idx){ const q2=Q[k], resto=t.replace(new RegExp("^\\s*(el |la )?"+q2.nom.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+"\\s*(es\\s*)?","i"),"");
+        let v2=resto.trim()?q2.leer(resto):null; if(v2&&typeof v2==="object"&&!Array.isArray(v2)&&"parcial" in v2) v2=v2.parcial;
+        if(v2!==null&&v2!==undefined&&v2!==""){ poner(q2,v2); const d2=q2.decir?q2.decir(v2):(Array.isArray(v2)?"":textoOpcion(q2.id,v2));
+          estado("✓ "+q2.nom.charAt(0).toUpperCase()+q2.nom.slice(1)+": "+d2); hablar(q2.nom+", "+d2+". "+Q[idx].p,escuchar); return; } } }
     const q=Q[idx]; if(!q) return;
     const unido=!!pendiente; if(pendiente){ t=pendiente+" "+t; pendiente=""; }
     let v=q.leer(t);
@@ -3780,7 +3817,7 @@ Entendido: ${entendido(r.texto)}`;
   }
   function crear(){
     panel=document.createElement("div"); panel.className="conv-panel hidden"; panel.id="convPanel"; panel.setAttribute("role","region"); panel.setAttribute("aria-label","Modo conversación");
-    panel.innerHTML=`<div class="conv-in"><div class="conv-top"><span>🗣 Modo conversación · <span id="cvProg"></span></span><span>Di «repite», «anterior», «opciones», «omitir», «corrige …», «pausa», «nuevo RMR» o «terminar»</span></div>
+    panel.innerHTML=`<div class="conv-in"><div class="conv-top"><span>🗣 Modo conversación · <span id="cvProg"></span></span><span>Di «repite», «anterior», «opciones», «omitir», «ir a …», «corrige …», «pausa», «nuevo RMR» o «terminar»</span></div>
       <div class="conv-q" id="cvQ"></div><div class="conv-oir" id="cvOir"></div><div class="conv-ok" id="cvOk"></div>
       <div class="conv-btns"><button type="button" class="btn ok conv-mic" id="cvMic">🎙 Responder</button><button type="button" class="btn" id="cvAnt">⏮ Anterior</button><button type="button" class="btn" id="cvRep">🔁 Repetir</button><button type="button" class="btn" id="cvOmit">⏭ Omitir</button><button type="button" class="btn" id="cvPausa">⏸ Pausa</button><button type="button" class="btn danger" id="cvFin">Terminar</button></div></div>`;
     document.body.appendChild(panel);
