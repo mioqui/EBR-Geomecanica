@@ -3799,6 +3799,9 @@ Entendido: ${entendido(r.texto)}`;
     const i=Q.findIndex(q=>!lleno(q)||q.id==="_lecturas");
     hablar("Empecemos. Responde cada pregunta; puedes decir opciones o repite en cualquier momento.",()=>siguiente(Math.max(0,i)));
   });
+  // «＋ Nuevo RMR» de la cabecera: si la conversación está abierta, empieza también la conversación desde la primera pregunta
+  $("nuevoRmrBtn").removeEventListener("click",window.nuevoRMR);
+  $("nuevoRmrBtn").addEventListener("click",()=>{ if(activo) nuevo(); else window.nuevoRMR(); });
   window.ebrConversacion={Q,procesar:t=>procesar(t),estado:()=>({idx,fase,activo})};
 })();
 </script>
