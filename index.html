@@ -3618,7 +3618,10 @@ Entendido: ${entendido(r.texto)}`;
     {id:"supervisor",nom:"geomecánico",p:"¿Nombre del geomecánico?",leer:t=>{ const v=String(t).trim().replace(/^(soy|es|el|la)\s+/i,""); return v.length>1?v:null; },decir:v=>v},
     {id:"turno",nom:"turno",p:"¿Turno día o noche?",ops:"día o noche",leer:t=>tiene(t,/\bdia\b/)?"Día":tiene(t,/\bnoche\b/)?"Noche":null},
     // Nivel y block se dicen en pares: «treinta y nueve veintidós» → 39 22 → 3922. Si llega solo «39», espera la otra mitad.
-    {id:"nivel",nom:"nivel",p:"¿Nivel?",leer:t=>{ const g=N(t).match(/\d+/g); if(!g) return null; const v=g.join(""); return v.length<4?{parcial:v}:v; }},
+    {id:"nivel",nom:"nivel",p:"¿Nivel?",leer:t=>{ const g=N(t).match(/\d+/g); if(!g) return null; let v=g.join("");
+      if(v.length%2===0&&v.slice(0,v.length/2)===v.slice(v.length/2)) v=v.slice(0,v.length/2); // «3922 3922» → 3922
+      if(v.length>4&&/^\d{4}$/.test(g[g.length-1])) v=g[g.length-1];
+      return v.length<4?{parcial:v}:(v.length===4?v:null); }},
     {id:"block",nom:"block",p:"¿Block?",leer:t=>{ const c=codigo(t); if(!c) return null; return /^\d{1,3}$/.test(c)?{parcial:c}:c; }},
     {id:"labor",nom:"labor",p:"¿Labor?",leer:t=>laborCodigo(t),
       decir:v=>{ const m=/^([A-Z]+)(\d*)([NSEW]?)(\([+-]\))?$/.exec(v); if(!m) return v; const A={N:"norte",S:"sur",E:"este",W:"oeste"};
@@ -3699,6 +3702,11 @@ Entendido: ${entendido(r.texto)}`;
     try{ speechSynthesis.speak(u); }catch(_){ fin(); }
   }
   function parar(){ clearTimeout(tSilencio); clearTimeout(tMax); escuchandoYa=false; if(rec){ try{ rec.onend=null; rec.abort(); }catch(_){} rec=null; } micUI(false); }
+  // Une los trozos reconocidos sin repetir: Safari a veces entrega el texto acumulado en cada resultado («39 22» + «39 22»)
+  function unirResultados(L){ let acc="";
+    L.map(x=>String(x||"").trim()).filter(Boolean).forEach(tr=>{ const a=acc.toLowerCase(), b=tr.toLowerCase();
+      if(!acc) acc=tr; else if(b.startsWith(a)) acc=tr; else if(a.endsWith(b)||a.includes(b)) return; else acc+=" "+tr; });
+    return acc; }
   function micUI(on){ const b=$("cvMic"); if(!b) return; b.classList.toggle("escuchando",on); b.textContent=on?"⏹ Escuchando… toca para terminar":"🎙 Responder"; }
   function escuchar(){
     if(!activo||pausado) return; parar();
@@ -3710,7 +3718,7 @@ Entendido: ${entendido(r.texto)}`;
     try{ if("processLocally" in r) r.processLocally=true; }catch(_){}
     let texto="", final="";
     r.onstart=()=>{ escuchandoYa=true; micUI(true); };
-    r.onresult=e=>{ texto=""; final=""; for(const x of e.results){ texto+=x[0].transcript; if(x.isFinal) final+=x[0].transcript; } $("cvOir").textContent="«"+(pendiente?pendiente+" ":"")+texto+"»";
+    r.onresult=e=>{ texto=unirResultados([...e.results].map(x=>x[0].transcript)); final=unirResultados([...e.results].filter(x=>x.isFinal).map(x=>x[0].transcript)); $("cvOir").textContent="«"+(pendiente?pendiente+" ":"")+texto+"»";
       clearTimeout(tSilencio); tSilencio=setTimeout(cortar,1800); };
     r.onerror=e=>{ if(e.error==="not-allowed"||e.error==="service-not-allowed"){ estado("Permite el micrófono para responder.",true); } };
     r.onend=()=>{ clearTimeout(tSilencio); clearTimeout(tMax); rec=null; escuchandoYa=false; micUI(false); const t=(texto||final).trim(); if(!activo) return;
@@ -3720,7 +3728,7 @@ Entendido: ${entendido(r.texto)}`;
   function estado(t,mal){ const e=$("cvOk"); e.textContent=t||""; e.classList.toggle("mal",!!mal); }
   // ---------- flujo ----------
   function siguiente(desde){
-    let i=desde; while(i<Q.length&&lleno(Q[i])&&Q[i].id!=="_lecturas") i++;
+    restaurar(); let i=desde; while(i<Q.length&&lleno(Q[i])&&Q[i].id!=="_lecturas") i++;
     if(i>=Q.length){ resumen(); return; }
     idx=i; fase="pregunta"; fallos=0; pendiente=""; const q=Q[i]; foco(q); if(hist[hist.length-1]!==i) hist.push(i);
     $("cvQ").textContent=q.p; $("cvOir").textContent=""; $("cvProg").textContent=`Pregunta ${i+1} de ${Q.length}`;
@@ -3730,20 +3738,26 @@ Entendido: ${entendido(r.texto)}`;
     [/^(repite|repetir|otra vez|como|que dijiste)\b/,()=>hablar(ultimaFrase,escuchar)],
     [/^(opciones|que opciones|cuales son)\b/,()=>{ const q=Q[idx]; hablar(q&&q.ops?"Opciones: "+q.ops+".":"Dime el valor.",escuchar); }],
     [/^(omitir|omite|siguiente|paso|no se|saltar|salta)\b/,()=>{ estado("Omitido: "+(Q[idx]?Q[idx].nom:"")); siguiente(idx+1); }],
-    [/^(atras|anterior|regresa|volver|repite (la )?anterior)\b/,()=>anterior()],
+    [/^((ir|ve|vamos|volver|vuelve|regresa|regresar|anda|retrocede|retroceder)\s+)?((a|al|hacia|a la)\s+)?(atras|anterior|la anterior|el anterior|pregunta anterior|control anterior)\b|^(regresa|regresar|volver|retrocede|retroceder)$|^repite (la )?anterior\b/,()=>anterior()],
     [/^(nuevo rmr|nueva evaluacion|nuevo registro|empezar de nuevo)\b/,()=>nuevo()],
     [/^(pausa|pausar|espera|un momento)\b/,()=>pausar()],
     [/^(terminar|termina|salir|detener|cancelar)\b/,()=>cerrar("Conversación terminada. Puedes seguir en el formulario.")]
   ];
-  function irA(i){ idx=i; fallos=0; pendiente=""; const q=Q[i]; fase="pregunta"; foco(q); if(hist[hist.length-1]!==i) hist.push(i); $("cvQ").textContent=q.p; $("cvProg").textContent=`Pregunta ${i+1} de ${Q.length}`; hablar(q.p,escuchar); }
+  let respaldo=null; // {q, v}: valor que tenía el control al volver a él
+  function valorDe(q){ if(q.id==="_lecturas") return null; if(q.id==="seccion") return seccionValor(); const el=$(q.id); return el?el.value:""; }
+  function vaciar(q){ if(q.id==="_lecturas") return; if(q.id==="seccion"){ seccionPoner(""); $("seccionSel").dispatchEvent(new Event("change",{bubbles:true})); return; }
+    const el=$(q.id); if(!el) return; el.value=""; el.dispatchEvent(new Event("input",{bubbles:true})); el.dispatchEvent(new Event("change",{bubbles:true})); }
+  function restaurar(){ if(respaldo&&respaldo.v&&!valorDe(respaldo.q)){ if(respaldo.q.id==="supervisor") geoPoner(respaldo.v); else if(respaldo.q.id==="seccion") seccionPoner(respaldo.v); else poner(respaldo.q,respaldo.v); } respaldo=null; }
+  function volverA(i){ restaurar(); const q=Q[i]; const v=valorDe(q); if(v){ respaldo={q,v}; vaciar(q); } irA(i); }
+  function irA(i){ if(respaldo&&respaldo.q!==Q[i]) restaurar(); idx=i; fallos=0; pendiente=""; const q=Q[i]; fase="pregunta"; foco(q); if(hist[hist.length-1]!==i) hist.push(i); $("cvQ").textContent=q.p; $("cvProg").textContent=`Pregunta ${i+1} de ${Q.length}`; hablar(q.p,escuchar); }
   // Vuelve a la pregunta anterior (la que se hizo antes, aunque ya esté respondida) para repetirla o corregirla
   // Pausa: deja de hablar y de escuchar sin cerrar la conversación; «Continuar» repite la pregunta pendiente
   function pausar(){ pausado=true; parar(); try{ speechSynthesis.cancel(); }catch(_){} const b=$("cvPausa"); if(b) b.textContent="▶ Continuar"; estado("⏸ En pausa. Toca «Continuar» para seguir."); $("cvOir").textContent=""; }
   function continuar(){ pausado=false; const b=$("cvPausa"); if(b) b.textContent="⏸ Pausa"; estado(""); if(fase==="pregunta"&&Q[idx]) irA(idx); else hablar(ultimaFrase,escuchar); }
+  // Control anterior en el orden del formulario (aunque ya esté respondido); su valor se borra para la nueva respuesta
   function anterior(){
-    if(fase!=="pregunta"&&hist.length){ irA(hist[hist.length-1]); return; }
-    if(hist.length>=2){ hist.pop(); irA(hist.pop()); return; }
-    irA(Math.max(0,idx));
+    if(fase!=="pregunta"){ volverA(Q.length-1); return; }
+    volverA(Math.max(0,idx-1));
   }
   // Empieza un RMR nuevo: limpia el formulario (pide confirmación si hay datos) y la conversación arranca desde la primera pregunta
   function nuevo(){
@@ -3774,7 +3788,7 @@ Entendido: ${entendido(r.texto)}`;
     for(const [re,fn] of COMANDOS) if(re.test(s)){ fn(); return; }
     // «ir a labor», «ve al bloque 2», «corrige el RQD», «cambia la rugosidad»
     const c=/^(ir|ve|vamos|anda|pasa|regresa|vuelve|corrige|corregir|cambia|cambiar|modifica)\s+(?:a\s+|al\s+|a la\s+)?(?:el\s+|la\s+|los\s+|las\s+)?(.+)$/.exec(s);
-    if(c){ const k=campo(c[2],true); if(k>=0){ irA(k); return; } }
+    if(c){ const k=campo(c[2],true); if(k>=0){ volverA(k); return; } }
     // Respuesta con el nombre de otro campo delante: «labor rampa 990 norte» estando en otra pregunta → llena ese campo y vuelve
     if(Q[idx]&&!LIBRE.has(Q[idx].id)){ const k=campo(s,false);
       if(k>=0&&k!==idx){ const q2=Q[k], resto=t.replace(new RegExp("^\\s*(el |la )?"+q2.nom.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+"\\s*(es\\s*)?","i"),"");
@@ -3782,7 +3796,8 @@ Entendido: ${entendido(r.texto)}`;
         if(v2!==null&&v2!==undefined&&v2!==""){ poner(q2,v2); const d2=q2.decir?q2.decir(v2):(Array.isArray(v2)?"":textoOpcion(q2.id,v2));
           estado("✓ "+q2.nom.charAt(0).toUpperCase()+q2.nom.slice(1)+": "+d2); hablar(q2.nom+", "+d2+". "+Q[idx].p,escuchar); return; } } }
     const q=Q[idx]; if(!q) return;
-    const unido=!!pendiente; if(pendiente){ t=pendiente+" "+t; pendiente=""; }
+    const unido=!!pendiente;
+    if(pendiente){ const dp=N(pendiente).replace(/\D/g,""), dt=N(t).replace(/\D/g,""); t=(dp&&dt.startsWith(dp))?t:pendiente+" "+t; pendiente=""; }
     let v=q.leer(t);
     if(v&&typeof v==="object"&&!Array.isArray(v)&&"parcial" in v){
       if(!unido){ pendiente=t; $("cvOir").textContent="«"+v.parcial+"…» continúa"; estado(""); escuchar(); return; }
@@ -3792,7 +3807,7 @@ Entendido: ${entendido(r.texto)}`;
       fallos++; estado("No entendí: «"+t+"»",true);
       const extra=q.falta&&fallos===1?q.falta:(q.ops?"Opciones: "+q.ops+".":"Dime el valor otra vez.");
       hablar(fallos>=3?"Lo dejo pendiente. "+q.nom+".":"No entendí. "+extra,fallos>=3?()=>siguiente(idx+1):escuchar); if(fallos>=3) estado("Pendiente: "+q.nom,true); return; }
-    if(v!==""&&!(Array.isArray(v)&&!v.length)) poner(q,v);
+    if(v!==""&&!(Array.isArray(v)&&!v.length)) poner(q,v); respaldo=null;
     const dicho=q.decir?q.decir(v):(Array.isArray(v)?"":textoOpcion(q.id,v));
     estado("✓ "+q.nom.charAt(0).toUpperCase()+q.nom.slice(1)+": "+dicho);
     hablar(q.nom+", "+dicho+".",()=>siguiente(idx+1));
@@ -3828,7 +3843,7 @@ Entendido: ${entendido(r.texto)}`;
     $("cvAnt").onclick=()=>{ try{ speechSynthesis.cancel(); }catch(_){} if(pausado){ pausado=false; $("cvPausa").textContent="⏸ Pausa"; estado(""); } anterior(); };
     $("cvPausa").onclick=()=>{ pausado?continuar():pausar(); };
   }
-  function cerrar(msg){ activo=false; parar(); try{ speechSynthesis.cancel(); }catch(_){} if(msg){ try{ const u=new SpeechSynthesisUtterance(msg); const v=voz(); if(v){u.voice=v;u.lang=v.lang;} speechSynthesis.speak(u); }catch(_){} }
+  function cerrar(msg){ restaurar(); activo=false; parar(); try{ speechSynthesis.cancel(); }catch(_){} if(msg){ try{ const u=new SpeechSynthesisUtterance(msg); const v=voz(); if(v){u.voice=v;u.lang=v.lang;} speechSynthesis.speak(u); }catch(_){} }
     document.querySelectorAll(".conv-foco").forEach(e=>e.classList.remove("conv-foco")); if(panel) panel.classList.add("hidden"); document.body.classList.remove("conv-on"); }
   $("convBtn").addEventListener("click",()=>{
     if(!panel) crear(); activo=true; pausado=false; $("cvPausa").textContent="⏸ Pausa"; hist=[]; panel.classList.remove("hidden"); document.body.classList.add("conv-on"); estado("");
