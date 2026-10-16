@@ -136,6 +136,21 @@ html[data-theme="dark"] .sk-state{color:#9fb2bd}
 .emp-opt .emp-logos{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .emp-opt img{height:30px;width:auto;max-width:110px;object-fit:contain}
 .emp-opt small{display:block;font-weight:600;color:#55656f;font-size:.78rem}
+.aj-sug{margin-top:10px;border:1px solid var(--line);border-left:4px solid var(--brand2);border-radius:12px;padding:10px 12px;font-size:.9rem}
+.aj-sug:empty{display:none}
+.aj-sug .aj-t{font-weight:800;margin-bottom:4px}
+.aj-sug ul{margin:6px 0 0;padding-left:18px;font-size:.8rem;color:var(--muted)}
+.aj-sug .btn{width:auto;margin-top:8px}
+.aj-sug .aj-ok{color:var(--ok);font-weight:800}
+.clino-read{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0}
+.clino-read div{border:1px solid var(--line);border-radius:12px;padding:10px;text-align:center}
+.clino-read span{display:block;font-size:.8rem;color:var(--muted);font-weight:700}
+.clino-read b{font-size:2.2rem;font-variant-numeric:tabular-nums}
+.clino-estado{font-weight:800;padding:8px 10px;border-radius:10px;background:rgba(184,120,22,.12);color:var(--warn)}
+.clino-estado.ok{background:rgba(38,122,99,.14);color:var(--ok)}
+.clino-box label{display:block;margin-top:10px;font-weight:700;font-size:.85rem}
+.clino-box input{width:100%}
+.clino-box .actions{display:flex;gap:8px;margin-top:12px}.clino-box .actions .btn{flex:1}
 .grid.grid3{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
 .grid.grid3 label{font-size:.8rem}
 .ind-box{border:1px solid var(--line);border-radius:12px;padding:12px 13px;margin:0 0 12px}
@@ -507,6 +522,7 @@ html[data-theme="dark"] .kind.map{background:#3a2e12;color:#f0d9a4}
   <div class="card">
     <h2>3. Ajuste por orientación</h2>
     <div class="section-note">El sistema registra cada decisión para reconstruir cómo se obtuvo el ajuste.</div>
+    <div id="ajSug" class="aj-sug" aria-live="polite"></div>
     <div class="grid" style="margin-top:12px">
       <div class="field full"><label>Rango de buzamiento</label>
         <select id="buzamiento">
@@ -569,7 +585,7 @@ html[data-theme="dark"] .kind.map{background:#3a2e12;color:#f0d9a4}
         <div class="field"><label for="eDip">Buzamiento · Dip (0–90°)</label><input id="eDip" type="number" inputmode="numeric" min="0" max="90" step="1" placeholder="Ej. 65"></div>
         <div class="field"><label for="eDipDir">Dirección de buzamiento · Dip Direction (0–360°)</label><input id="eDipDir" type="number" inputmode="numeric" min="0" max="360" step="1" placeholder="Ej. 245"></div>
       </div>
-      <div class="actions" style="margin-top:6px"><button class="btn" id="eAddLectBtn" type="button">＋ Agregar lectura</button></div>
+      <div class="actions" style="margin-top:6px"><button class="btn" id="eClinoBtn" type="button">📐 Medir con el iPad</button><button class="btn" id="eAddLectBtn" type="button">＋ Agregar lectura</button></div>
       <h3>Condición de la estructura</h3>
       <div class="grid">
         <div class="field"><label for="ePers">Persistencia</label><select id="ePers"></select></div>
@@ -1582,8 +1598,9 @@ function crearEditorEstructuras(px,seccion){
   const lecturasDe=x=>{const L=(x.lecturas&&x.lecturas.length)?x.lecturas:((x.dip!==undefined&&x.dip!==null)?[{dip:x.dip,dipDir:x.dipDir}]:[]);
     return L.map(l=>(vacio(l.x)&&vacio(l.y)&&vacio(l.z)&&(!vacio(x.x)||!vacio(x.y)||!vacio(x.z)))?{...l,x:x.x||"",y:x.y||"",z:x.z||""}:l);};
   const fmtC=l=>(!vacio(l.x)||!vacio(l.y)||!vacio(l.z))?`X ${vacio(l.x)?"—":l.x} · Y ${vacio(l.y)?"—":l.y} · Z ${vacio(l.z)?"—":l.z}`:"sin coordenada";
-  const fmtL=l=>`${l.dip}° / ${pad3(l.dipDir)}° (${fmtC(l)})`;
-  function pintarLects(){
+  const fmtL=l=>`${l.dip}° / ${pad3(l.dipDir)}° (${fmtC(l)})${l.fuente?" · "+l.fuente:""}`;
+  const avisar=()=>setTimeout(()=>document.dispatchEvent(new CustomEvent("ebr-estructuras",{detail:px})),0);
+  function pintarLects(){ avisar();
     $e("Lecturas").innerHTML=lects.length?lects.map((l,i)=>`<span class="lect-chip">${i+1}) ${fmtL(l)}<button type="button" aria-label="Quitar lectura ${i+1}" data-ldel="${i}">✕</button></span>`).join(""):`<span class="small">Sin lecturas aún.</span>`;
     $e("Lecturas").querySelectorAll("[data-ldel]").forEach(b=>b.onclick=()=>{lects.splice(+b.dataset.ldel,1);pintarLects();});
   }
@@ -1597,7 +1614,8 @@ function crearEditorEstructuras(px,seccion){
   const hayLecturaEscrita=()=>["Dip","DipDir","X","Y","Z"].some(n=>$e(n).value.trim()!=="");
   function agregarLectura(){
     const err=validarLectura(); $e("Error").textContent=err; if(err) return false;
-    lects.push({x:coord("X"),y:coord("Y"),z:coord("Z"),dip:Math.round(num("eDip")),dipDir:Math.round(num("eDipDir"))});
+    const fu=$e("Dip").dataset.fuente; lects.push({x:coord("X"),y:coord("Y"),z:coord("Z"),dip:Math.round(num("eDip")),dipDir:Math.round(num("eDipDir")),...(fu?{fuente:fu}:{})});
+    delete $e("Dip").dataset.fuente;
     ["X","Y","Z","Dip","DipDir"].forEach(n=>$e(n).value=""); pintarLects(); return true;
   }
   [["Pers","persistencia"],["Rug","rugosidad"],["Rell","relleno"]].forEach(([to,from])=>{
@@ -1646,7 +1664,7 @@ function crearEditorEstructuras(px,seccion){
     if(!arr||!arr.length) return editable?"":`<div class="small">Sin estructuras registradas en esta evaluación.</div>`;
     return arr.map((x,i)=>itemHtml(x,i,editable)).join("");
   }
-  function pintar(){
+  function pintar(){ avisar();
     $e("List").innerHTML=html(lista,true);
     $e("List").querySelectorAll("[data-eedit]").forEach(b=>b.onclick=()=>editar(+b.dataset.eedit));
     $e("List").querySelectorAll("[data-edel]").forEach(b=>b.onclick=()=>{
@@ -1675,6 +1693,8 @@ function crearEditorEstructuras(px,seccion){
   $e("ClearBtn").addEventListener("click",limpiarForm);
   const api={
     get:()=>lista.map(x=>({...x})),
+    // todas las lecturas (estructuras agregadas + la que se está registrando) para sugerir el ajuste por orientación
+    lecturas:()=>[...lista.flatMap((x,i)=>lecturasDe(x).map((l,j)=>({...l,tipo:x.tipo,n:`${i+1}.${j+1}`}))),...lects.map((l,j)=>({...l,tipo:$e("Tipo").value,n:`${lista.length+1}.${j+1}`}))],
     set:arr=>{lista=(arr||[]).map(x=>({...x})); limpiarForm(); pintar();},
     clear:()=>{lista=[]; limpiarForm(); pintar();},
     html,
@@ -1717,11 +1737,11 @@ function crearEditorEstructuras(px,seccion){
   // Hoja «Mapeo estructural»: estructuras registradas dentro de evaluaciones RMR + mapeos independientes, en orden de registro
   function table(a,rmrs){
     // Una fila por lectura Dip / Dip Direction (lista para AutoCAD y DIPS)
-    const headers=["Origen","Fecha","Turno","Nivel","Block","Labor","Geomecánico","Litología","N° estructura","Tipo de estructura","Tipo de estructura (nombre)","Otros (detalle)","N° lectura","Lecturas de la estructura","X (UTM Este)","Y (UTM Norte)","Z (cota)","Buzamiento (Dip)","Dirección de buzamiento (Dip Direction)","Persistencia","Rugosidad","Relleno","Observaciones","RMR total de la evaluación","Tipo de roca de la evaluación","Guardado","ID evaluación RMR","ID estructura"];
+    const headers=["Origen","Fecha","Turno","Nivel","Block","Labor","Geomecánico","Litología","N° estructura","Tipo de estructura","Tipo de estructura (nombre)","Otros (detalle)","N° lectura","Lecturas de la estructura","X (UTM Este)","Y (UTM Norte)","Z (cota)","Buzamiento (Dip)","Dirección de buzamiento (Dip Direction)","Medición","Persistencia","Rugosidad","Relleno","Observaciones","RMR total de la evaluación","Tipo de roca de la evaluación","Guardado","ID evaluación RMR","ID estructura"];
     const items=[], tv=v=>{const t=String(v??"").trim().replace(",",".");return /^-?\d+(\.\d+)?$/.test(t)?Number(t):String(v??"").trim();}; // tramo numérico → número en Excel; si es texto (C-58) queda como texto
     let k=0;
-    (rmrs||[]).forEach(r=>(r.estructuras||[]).forEach((x,i)=>{const L=lecturasDe(x);L.forEach((l,j)=>items.push({t:x.createdAt||r.createdAt,k:k++,tr:[x.desde,x.hasta],row:["Evaluación RMR",r.fecha,r.turno,r.nivel,r.block,r.labor,r.supervisor,r.litologia||"",i+1,x.tipo,x.tipoNombre,x.otro,j+1,L.length,tv(l.x),tv(l.y),tv(l.z),l.dip,l.dipDir,x.persistencia,x.rugosidad,x.relleno,x.observaciones,r.rmrTotal,r.tipoRoca,x.createdAt||r.createdAt,r.id,x.id]}));}));
-    a.forEach(x=>{const L=lecturasDe(x);L.forEach((l,j)=>items.push({t:x.createdAt,k:k++,tr:[x.desde,x.hasta],row:["Mapeo independiente",x.fecha,x.turno,x.nivel,x.block,x.labor,x.geomecanico,"","",x.tipo,x.tipoNombre,x.otro,j+1,L.length,tv(l.x),tv(l.y),tv(l.z),l.dip,l.dipDir,x.persistencia,x.rugosidad,x.relleno,x.observaciones,"","",x.createdAt,"",x.id]}));});
+    (rmrs||[]).forEach(r=>(r.estructuras||[]).forEach((x,i)=>{const L=lecturasDe(x);L.forEach((l,j)=>items.push({t:x.createdAt||r.createdAt,k:k++,tr:[x.desde,x.hasta],row:["Evaluación RMR",r.fecha,r.turno,r.nivel,r.block,r.labor,r.supervisor,r.litologia||"",i+1,x.tipo,x.tipoNombre,x.otro,j+1,L.length,tv(l.x),tv(l.y),tv(l.z),l.dip,l.dipDir,l.fuente||"Manual",x.persistencia,x.rugosidad,x.relleno,x.observaciones,r.rmrTotal,r.tipoRoca,x.createdAt||r.createdAt,r.id,x.id]}));}));
+    a.forEach(x=>{const L=lecturasDe(x);L.forEach((l,j)=>items.push({t:x.createdAt,k:k++,tr:[x.desde,x.hasta],row:["Mapeo independiente",x.fecha,x.turno,x.nivel,x.block,x.labor,x.geomecanico,"","",x.tipo,x.tipoNombre,x.otro,j+1,L.length,tv(l.x),tv(l.y),tv(l.z),l.dip,l.dipDir,l.fuente||"Manual",x.persistencia,x.rugosidad,x.relleno,x.observaciones,"","",x.createdAt,"",x.id]}));});
     items.sort((p,q)=>String(p.t||"").localeCompare(String(q.t||""))||p.k-q.k);
     // registros anteriores con «tramo desde / hasta»: se agregan esas columnas solo si existen
     if(items.some(i=>!vacio(i.tr[0])||!vacio(i.tr[1]))){ headers.push("Tramo desde (registro anterior)","Tramo hasta (registro anterior)"); items.forEach(i=>i.row.push(tv(i.tr[0]),tv(i.tr[1]))); }
@@ -3118,6 +3138,134 @@ window.indicacionPDF={generar,vistaPrevia,areas:areas(),norteSrc:"data:image/jpe
   // al iniciar: primero el formato y luego el tipo de evaluación (solo si aún no se eligieron en este equipo)
   if(!actual){ abrir(); modal.querySelectorAll(".emp-opt").forEach(b=>b.addEventListener("click",()=>{ if(!tipoGuardado) abrirTipo(); })); }
   else if(!tipoGuardado) abrirTipo();
+})();
+</script>
+<script>
+/* Clinómetro digital (sensores de orientación del iPad) y ajuste por orientación sugerido desde el mapeo estructural */
+(function(){
+  const $=id=>document.getElementById(id), R=Math.PI/180, n360=a=>((a%360)+360)%360;
+  /* ---------- Ajuste por orientación sugerido (Bieniawski 1989, misma tabla del bloque 3) ---------- */
+  const B_TXT={"0-20":"0°–20°","20-45":"20°–45°","45-90":"45°–90°"};
+  function evaluarLectura(l,az){
+    const dip=Number(l.dip), dd=Number(l.dipDir);
+    const b=dip<20?"0-20":dip<45?"20-45":"45-90";
+    const d=Math.abs(((dd-az+540)%360)-180); // ángulo entre la dirección de buzamiento y el avance (0–180°)
+    if(b==="0-20") return {b,r:"",s:"",adj:-5,cat:"Regular",d};
+    const r=(d<45||d>135)?"perpendicular":"paralelo";
+    if(r==="paralelo") return b==="20-45"?{b,r,s:"",adj:-5,cat:"Regular",d}:{b,r,s:"",adj:-12,cat:"Muy desfavorable",d};
+    const s=d<=90?"con":"contra";
+    const T={"con|20-45":[-2,"Favorable"],"con|45-90":[0,"Muy favorable"],"contra|20-45":[-10,"Desfavorable"],"contra|45-90":[-5,"Regular"]}[s+"|"+b];
+    return {b,r,s,adj:T[0],cat:T[1],d};
+  }
+  const desc=e=>e.b==="0-20"?"buzamiento 0°–20°":`buzamiento ${B_TXT[e.b]}, rumbo ${e.r} al eje${e.s?`, excavación ${e.s==="con"?"con":"contra"} el buzamiento`:""}`;
+  function pintarSugerencia(){
+    const box=$("ajSug"); if(!box||!window.rmrStructs) return;
+    const L=window.rmrStructs.lecturas().filter(l=>Number.isFinite(Number(l.dip))&&Number.isFinite(Number(l.dipDir)));
+    const azT=String($("azimut").value||"").trim().replace(",","."), az=Number(azT);
+    const poner=h=>{ if(box._html!==h){ box.innerHTML=h; box._html=h; } };
+    if(!L.length){ poner(""); return; }
+    if(azT===""||!Number.isFinite(az)){ poner(`<div class="aj-t">Ajuste sugerido desde el mapeo</div>Ingresa el <b>azimut de la labor</b> (bloque 1, dirección de avance) para sugerir el ajuste con las ${L.length} lectura${L.length===1?"":"s"} del bloque 4.`); return; }
+    const ev=L.map(l=>({l,e:evaluarLectura(l,n360(az))}));
+    const peor=ev.reduce((a,c)=>c.e.adj<a.e.adj?c:a,ev[0]), e=peor.e, p3=v=>String(Math.round(v)).padStart(3,"0");
+    const aplicado=$("buzamiento").value===e.b&&($("rumbo").value||"")===e.r&&($("sentido").value||"")===e.s;
+    const html=`<div class="aj-t">Ajuste sugerido desde el mapeo: ${e.cat} (${e.adj})</div>
+      Lectura más desfavorable ${esc(peor.l.n)}${peor.l.tipo?` (${esc(peor.l.tipo)})`:""}: <b>${peor.l.dip}° / ${p3(peor.l.dipDir)}°</b> con avance a ${p3(n360(az))}° → ${desc(e)}.
+      ${ev.length>1?`<ul>${ev.map(({l,e})=>`<li>${esc(l.n)}${l.tipo?` (${esc(l.tipo)})`:""} ${l.dip}° / ${p3(l.dipDir)}° → ${e.cat} (${e.adj})</li>`).join("")}</ul>`:""}
+      ${aplicado?`<div class="aj-ok">✓ Aplicado en la ruta de abajo</div>`:`<button type="button" class="btn" id="ajSugBtn">Aplicar sugerencia</button>`}
+      <div class="help">Rumbo perpendicular si la dirección de buzamiento forma menos de 45° con el eje de la labor. Revisa y corrige si en campo la condición es otra.</div>`;
+    poner(html); // sin redibujar si no cambió (no perder el toque en el botón)
+    const bt=$("ajSugBtn"); if(bt) bt.onclick=()=>{ $("buzamiento").value=e.b; $("buzamiento").dispatchEvent(new Event("change"));
+      $("rumbo").value=e.r; $("rumbo").dispatchEvent(new Event("change")); $("sentido").value=e.s; $("sentido").dispatchEvent(new Event("change")); pintarSugerencia(); };
+  }
+  document.addEventListener("ebr-estructuras",pintarSugerencia);
+  ["azimut","buzamiento","rumbo","sentido"].forEach(id=>["input","change"].forEach(t=>$(id).addEventListener(t,pintarSugerencia)));
+  window.ebrAjusteSugerido={evaluarLectura,pintar:pintarSugerencia};
+  pintarSugerencia();
+
+  /* ---------- Clinómetro digital ---------- */
+  // Normal de la pantalla en coordenadas Este-Norte-Arriba (W3C: R = Rz(alpha)·Rx(beta)·Ry(gamma))
+  function normal(a,b,g){ const ca=Math.cos(a*R),sa=Math.sin(a*R),cb=Math.cos(b*R),sb=Math.sin(b*R),cg=Math.cos(g*R),sg=Math.sin(g*R);
+    return [ca*sg+sa*sb*cg, sa*sg-ca*sb*cg, cb*cg]; }
+  // Plano apoyado en la parte trasera del iPad: su normal hacia arriba da el Dip y la Dip Direction
+  function planoDesdeNormal(n,decl){ let [x,y,z]=n; if(z<0){x=-x;y=-y;z=-z;} const h=Math.hypot(x,y);
+    return {dip:Math.atan2(h,z)/R, dipDir:n360(Math.atan2(x,y)/R+(decl||0)), h}; }
+  const est={on:false,abs:false,k:null,kT:0,buf:[],ultimo:0,fijo:null};
+  function onOri(ev,absEv){
+    if(ev.beta==null||ev.gamma==null) return;
+    const t=performance.now(); est.ultimo=t; let a=ev.alpha||0;
+    if(absEv||(ev.absolute&&ev.webkitCompassHeading==null)){ est.abs=true; est.k=0; est.kT=t; }
+    else if(typeof ev.webkitCompassHeading==="number"&&ev.webkitCompassHeading>=0){
+      // iOS: alpha tiene referencia arbitraria; el norte se calibra con el iPad casi horizontal (pantalla arriba)
+      const n0=normal(0,ev.beta,ev.gamma);
+      if(n0[2]>0.5){ const k=n360(360-ev.webkitCompassHeading-a);
+        est.k=est.k==null?k:n360(est.k+0.15*(((k-est.k+540)%360)-180)); est.kT=t; }
+    }
+    const n=normal(a+(est.k||0),ev.beta,ev.gamma);
+    est.buf.push({t,n}); while(est.buf.length&&t-est.buf[0].t>1000) est.buf.shift();
+  }
+  const hOri=e=>onOri(e,false), hAbs=e=>onOri(e,true);
+  async function encender(){
+    if(est.on) return true;
+    if(typeof DeviceOrientationEvent==="undefined") return false;
+    if(typeof DeviceOrientationEvent.requestPermission==="function"){
+      try{ if(await DeviceOrientationEvent.requestPermission()!=="granted") return false; }catch(_){ return false; }
+    }
+    if("ondeviceorientationabsolute" in window) window.addEventListener("deviceorientationabsolute",hAbs);
+    window.addEventListener("deviceorientation",hOri); est.on=true; return true;
+  }
+  function lecturaActual(){
+    const B=est.buf; if(B.length<5) return null;
+    let m=[0,0,0]; B.forEach(s=>{let n=s.n; if(n[2]<0) n=n.map(v=>-v); m=m.map((v,i)=>v+n[i]);});
+    const L=Math.hypot(...m); m=m.map(v=>v/L);
+    let dev=0; B.forEach(s=>{let n=s.n; if(n[2]<0) n=n.map(v=>-v); dev=Math.max(dev,Math.acos(Math.min(1,n[0]*m[0]+n[1]*m[1]+n[2]*m[2]))/R);});
+    return {...planoDesdeNormal(m,declinacion()),dev,span:B[B.length-1].t-B[0].t};
+  }
+  const DECL_KEY="ebr-declinacion";
+  function declinacion(){ const v=Number(String(($("clDecl")||{}).value||"").replace(",",".")); return Number.isFinite(v)?v:0; }
+  let modal=null, timer=null;
+  function crearModal(){
+    modal=document.createElement("div"); modal.className="emp-modal hidden"; modal.id="clinoModal";
+    modal.innerHTML=`<div class="emp-box clino-box" role="dialog" aria-modal="true" aria-labelledby="clTit"><h2 id="clTit">Clinómetro digital</h2>
+      <div class="small">Apoya la <b>parte trasera</b> del iPad sobre el plano de la discontinuidad y mantenlo quieto hasta que aparezca «Lectura estable».</div>
+      <div class="clino-read"><div><span>Dip</span><b id="clDip">—</b></div><div><span>Dip Direction</span><b id="clDD">—</b></div></div>
+      <div id="clEstado" class="clino-estado">Esperando sensores…</div>
+      <label for="clDecl">Declinación magnética (°, + al Este, − al Oeste)</label>
+      <input id="clDecl" type="text" inputmode="decimal" autocomplete="off" placeholder="Usa el valor de Topografía">
+      <div class="help">La Dip Direction se corrige con este valor. Valida las lecturas contra la brújula: la malla, los pernos y el mineral pueden desviar la brújula del iPad.</div>
+      <div class="actions"><button type="button" class="btn ok" id="clUsar" disabled>Usar esta lectura</button><button type="button" class="btn" id="clCancel">Cancelar</button></div></div>`;
+    document.body.appendChild(modal);
+    try{ $("clDecl").value=localStorage.getItem(DECL_KEY)||""; }catch(_){}
+    $("clDecl").addEventListener("input",()=>{ try{ localStorage.setItem(DECL_KEY,$("clDecl").value.trim()); }catch(_){} });
+    $("clCancel").onclick=cerrar;
+    $("clUsar").onclick=()=>{ const f=est.fijo; if(!f) return;
+      $("eDip").value=Math.round(f.dip); $("eDipDir").value=Math.round(f.dipDir)%360;
+      $("eDip").dataset.fuente="Clinómetro iPad"; cerrar();
+      $("eAddLectBtn").scrollIntoView({behavior:"smooth",block:"center"}); };
+  }
+  function cerrar(){ modal.classList.add("hidden"); clearInterval(timer); timer=null; }
+  function pintar(){
+    const t=performance.now(), r=lecturaActual(), st=$("clEstado"), ok=$("clUsar");
+    if(!r||t-est.ultimo>1500){ $("clDip").textContent="—"; $("clDD").textContent="—"; st.className="clino-estado";
+      st.textContent=est.on?"Sin datos de los sensores. Mueve el iPad suavemente.":"Este equipo no entrega datos de orientación."; ok.disabled=true; est.fijo=null; return; }
+    const sinNorte=est.k==null;
+    $("clDip").textContent=Math.round(r.dip)+"°";
+    $("clDD").textContent=sinNorte||r.h<0.02?"—":String(Math.round(r.dipDir)%360).padStart(3,"0")+"°";
+    if(sinNorte){ st.className="clino-estado"; st.textContent="Calibra el norte: sostén el iPad casi horizontal (pantalla arriba) unos segundos."; ok.disabled=true; est.fijo=null; return; }
+    if(r.h<0.02){ st.className="clino-estado"; st.textContent="Plano horizontal: la Dip Direction no está definida."; ok.disabled=true; est.fijo=null; return; }
+    const estable=r.dev<1.5&&r.span>700;
+    st.className="clino-estado"+(estable?" ok":""); st.textContent=estable?"✓ Lectura estable":`Mantén el iPad quieto… (variación ${r.dev.toFixed(1)}°)`;
+    if(estable) est.fijo=r; ok.disabled=!est.fijo;
+  }
+  async function abrir(){
+    if(!modal) crearModal();
+    const ok=await encender(); est.buf=[]; est.fijo=null;
+    modal.classList.remove("hidden");
+    if(!ok){ $("clEstado").className="clino-estado"; $("clEstado").textContent="No hay acceso a los sensores de orientación. En el iPad, permite «Movimiento y orientación» cuando Safari lo pida."; $("clUsar").disabled=true; return; }
+    clearInterval(timer); timer=setInterval(pintar,150); pintar();
+  }
+  $("eClinoBtn").addEventListener("click",abrir);
+  ["eDip","eDipDir"].forEach(id=>$(id).addEventListener("input",()=>delete $("eDip").dataset.fuente));
+  window.ebrClino={normal,planoDesdeNormal,abrir,estado:est};
 })();
 </script>
 <script>if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));}</script></body>
