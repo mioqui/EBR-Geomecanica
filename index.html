@@ -3,10 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#123d5a">
+<meta name="theme-color" content="#ffffff">
 <title>EBR Geomecánica RMR v1.0</title>
 <meta name="apple-mobile-web-app-title" content="EBR Geomecánica">
 <meta name="application-name" content="EBR Geomecánica">
+<link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" crossorigin href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500&family=IBM+Plex+Sans:wght@600;700&display=swap">
 <link rel="apple-touch-icon" sizes="180x180" href="./icons/icon-180.png">
 <script>
 (function(){
@@ -27,11 +30,19 @@ html,body{margin:0;padding:0;max-width:100%;overflow-x:hidden;background:var(--b
 button,input,select,textarea{font:inherit}
 button,input,select,textarea{max-width:100%;min-width:0}
 .app{width:min(980px,100%);margin:0 auto;padding:12px 12px calc(120px + env(safe-area-inset-bottom))}
-header{background:linear-gradient(135deg,var(--brand),var(--brand2));color:white;border-radius:18px;padding:18px;
-  box-shadow:var(--shadow);margin-bottom:12px}
-header h1{font-size:min(1.25rem,calc((100vw - 54px) * .058));margin:0 0 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-header h1 .ver{font-size:.6em;font-weight:700;opacity:.85;margin-left:2px;white-space:nowrap}
-header p{margin:0;opacity:.9;font-size:.9rem}
+/* Cabecera estilo visores BNV: insignia del área, antetítulo en mono y doble franja inferior (lima + verde) */
+:root{--bnv-verde:#427e71;--bnv-lima:#adc74d;--bnv-tinta:#283645;--bnv-gris:#6b7680;--bnv-fondo:#ffffff}
+html[data-theme="dark"]{--bnv-tinta:#e6edf1;--bnv-gris:#93a4ae;--bnv-fondo:#121d24}
+.bnv-hdr{background:var(--bnv-fondo);border-bottom:6px solid var(--bnv-verde);box-shadow:inset 0 -6px 0 var(--bnv-lima);
+  padding:max(14px,env(safe-area-inset-top)) 0 calc(14px + 6px)}
+.bnv-in{width:min(980px,100%);margin:0 auto;padding:0 16px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.bnv-badge{flex:none;width:46px;height:46px;border-radius:9px;background:var(--bnv-verde);color:#fff;display:grid;place-items:center;
+  font:700 .95rem "IBM Plex Sans",-apple-system,"Segoe UI",sans-serif;letter-spacing:.02em;box-shadow:0 4px 0 var(--bnv-lima)}
+.bnv-tit{min-width:0;flex:1 1 260px}
+.bnv-eyebrow{font:500 .72rem "IBM Plex Mono",ui-monospace,Menlo,monospace;letter-spacing:.14em;text-transform:uppercase;color:var(--bnv-gris);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bnv-hdr h1{margin:2px 0 0;font:700 clamp(1.15rem,3.4vw,1.55rem)/1.15 "IBM Plex Sans",-apple-system,"Segoe UI",sans-serif;color:var(--bnv-tinta);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bnv-hdr h1 .ver{font-size:.6em;color:var(--bnv-gris);margin-left:2px}
+.bnv-hdr .hdr-row{margin-top:0}
 .tabs{display:flex;gap:8px;overflow-x:auto;padding:2px 0 10px;scrollbar-width:none}
 .tabs::-webkit-scrollbar{display:none}
 .tab{flex:0 0 auto;border:1px solid #b9c8d1;background:#f7fafb;color:#334b5b;border-radius:12px;padding:10px 14px;
@@ -126,7 +137,7 @@ html[data-theme="dark"] .sk-state{color:#9fb2bd}
 .photo-pick{display:flex;gap:8px;flex-wrap:wrap;margin:4px 0 2px}.photo-pick .btn{width:auto;flex:1 1 140px;text-align:center}
 .vh{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;pointer-events:none}
 .hdr-row{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;margin-top:8px}
-.empresa-chip{margin-top:0;border:1px solid rgba(255,255,255,.45);background:rgba(255,255,255,.14);color:#fff;border-radius:999px;padding:5px 12px;font-weight:800;font-size:.8rem;cursor:pointer}
+.empresa-chip{margin-top:0;border:1px solid var(--line);background:transparent;color:var(--bnv-verde);border-radius:999px;padding:5px 12px;font-weight:800;font-size:.8rem;cursor:pointer}
 .emp-modal{position:fixed;inset:0;z-index:80;background:rgba(10,25,35,.72);display:flex;align-items:center;justify-content:center;padding:16px}
 .emp-modal.hidden{display:none}
 .emp-box{background:var(--card,#fff);color:inherit;border-radius:16px;padding:18px;max-width:440px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,.35)}
@@ -243,7 +254,7 @@ html[data-theme="dark"] .ind-pdf{border-color:#2d6b55}
 }
 @media(max-width:390px){
  .scoregrid{grid-template-columns:minmax(0,1fr)}
- header{padding:15px}.tab{padding:9px 11px}.kpi b{font-size:1.18rem}
+ .tab{padding:9px 11px}.kpi b{font-size:1.18rem}
 }
 
 /* Corrección específica para Safari/iOS: el input date puede imponer un ancho intrínseco mayor */
@@ -315,7 +326,7 @@ input[type="date"]::-webkit-calendar-picker-indicator{
 .theme-btn{flex:0 0 auto;margin-left:auto;width:42px;height:42px;border-radius:12px;border:1px solid #b9c8d1;background:#f7fafb;color:#334b5b;font-size:1.15rem;line-height:1;cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
 .theme-btn:focus-visible{outline:3px solid rgba(31,101,134,.35);outline-offset:2px}
 html[data-theme="dark"]{--bg:#0e171d;--card:#16232c;--ink:#e3eaee;--muted:#9fb1bc;--line:#2a3a45;--shadow:0 8px 28px rgba(0,0,0,.35);color-scheme:dark}
-html[data-theme="dark"] header{background:linear-gradient(135deg,#0b2638,#164a64)}
+html[data-theme="dark"] .empresa-chip{color:#8fcbb9;border-color:#2f4552}
 html[data-theme="dark"] .tab,html[data-theme="dark"] .theme-btn{background:#1b2a34;border-color:#34474f;color:#c8d6de}
 html[data-theme="dark"] .tab.active{background:var(--brand2);border-color:var(--brand2);color:#fff;box-shadow:none}
 html[data-theme="dark"] label,html[data-theme="dark"] .score-detail-item .name,html[data-theme="dark"] .gsi-table th,html[data-theme="dark"] .gsi-desc,html[data-theme="dark"] .gsi-calc summary{color:#a9bdc8}
@@ -393,16 +404,21 @@ html[data-theme="dark"] .kind.map{background:#3a2e12;color:#f0d9a4}
 </style>
 <link rel="manifest" href="./manifest.webmanifest"></head>
 <body>
-<div class="app">
-<header>
-  <h1>EBR Geomecánica RMR <span class="ver">v1.0</span></h1>
-  <p>Captura guiada, cálculo automático y trazabilidad del ajuste de orientación.</p>
-  <div class="hdr-row">
-    <button type="button" class="empresa-chip" id="empresaBtn" aria-label="Cambiar formato de la indicación">Formato: …</button>
-    <button type="button" class="empresa-chip" id="tipoEvalBtn" aria-label="Cambiar tipo de evaluación">Tipo de evaluación: …</button>
-    <select id="tipoEval" class="hidden" aria-hidden="true" tabindex="-1"><option>Indicación Geomecánica</option><option>Indicación de Tajo</option><option>Rehabilitación</option></select>
+<header class="bnv-hdr">
+ <div class="bnv-in">
+  <div class="bnv-badge" aria-hidden="true">GEO</div>
+  <div class="bnv-tit">
+   <div class="bnv-eyebrow">EBR · El Brocal · Geomecánica</div>
+   <h1>EBR Geomecánica RMR <span class="ver">v1.0</span></h1>
   </div>
+  <div class="hdr-row">
+     <button type="button" class="empresa-chip" id="empresaBtn" aria-label="Cambiar formato de la indicación">Formato: …</button>
+     <button type="button" class="empresa-chip" id="tipoEvalBtn" aria-label="Cambiar tipo de evaluación">Tipo de evaluación: …</button>
+     <select id="tipoEval" class="hidden" aria-hidden="true" tabindex="-1"><option>Indicación Geomecánica</option><option>Indicación de Tajo</option><option>Rehabilitación</option></select>
+   </div>
+ </div>
 </header>
+<div class="app">
 
 <nav class="tabs" aria-label="Secciones">
   <button class="tab active" data-tab="evaluacion">RMR</button>
@@ -1580,7 +1596,7 @@ recalc();renderHistory();
     btn.textContent=dark?"☀️":"🌙";
     var lbl=dark?"Cambiar a modo claro":"Cambiar a modo oscuro";
     btn.setAttribute("aria-label",lbl); btn.title=lbl;
-    if(meta) meta.setAttribute("content",dark?"#0b2638":"#123d5a");
+    if(meta) meta.setAttribute("content",dark?"#121d24":"#ffffff");
   }
   apply(document.documentElement.getAttribute("data-theme")==="dark"?"dark":"light");
   btn.addEventListener("click",function(){
