@@ -1134,7 +1134,43 @@ const geoCorrections=[
   [/\bsobre malla\b/gi,"sobremalla"],
   [/\bgaleria\b/gi,"galería"],
   [/\bby pass\b/gi,"bypass"],
-  [/\bsub nivel\b/gi,"subnivel"]
+  [/\bsub nivel\b/gi,"subnivel"],
+  // Glosario del Control Operativo (observaciones y sostenimientos reales del área):
+  // tildes y faltas frecuentes del propio archivo
+  [/\bconlomerado\b/gi,"conglomerado"],[/\bconglomerada\b/gi,"conglomerado"],
+  [/\bsw?llex\b/gi,"Swellex"],[/\bs wellex\b/gi,"Swellex"],[/\bswell? ?ex\b/gi,"Swellex"],[/\bsu[eé]l+ex\b/gi,"Swellex"],[/\bsuel ex\b/gi,"Swellex"],
+  [/\bsho?c?k?rete?\b/gi,"shotcrete"],[/\bshot ?cre+t\b/gi,"shotcrete"],[/\bchot ?cre+te?\b/gi,"shotcrete"],[/\bshocrete\b/gi,"shotcrete"],
+  [/\b(?:e?split|esplit) (?:set|sed|ser|seth)\b/gi,"Split Set"],
+  [/\bsostenmineto\b/gi,"sostenimiento"],[/\bsostenimeinto\b/gi,"sostenimiento"],
+  [/\bsacrifico\b/gi,"sacrificio"],
+  [/\belectro ?solo?dada\b/gi,"electrosoldada"],[/\bmall+a\b/gi,"malla"],
+  [/\binterseccion\b/gi,"intersección"],[/\bintersecciones\b/gi,"intersecciones"],
+  [/\bseccion\b/gi,"sección"],[/\bdistribucion\b/gi,"distribución"],
+  [/\brehabilitacion\b/gi,"rehabilitación"],[/\bcondicion\b/gi,"condición"],[/\bestacion\b/gi,"estación"],
+  [/\bcamara\b/gi,"cámara"],[/\bsintetica\b/gi,"sintética"],[/\boxidos?\b/gi,m=>m.length>5?"óxidos":"óxido"],
+  [/\bcorreccion\b/gi,"corrección"],[/\bconexion\b/gi,"conexión"],[/\bcomunicacion\b/gi,"comunicación"],
+  [/\bventilacion\b/gi,"ventilación"],[/\bpreparacion\b/gi,"preparación"],[/\borientacion\b/gi,"orientación"],
+  [/\blitologia\b/gi,"litología"],[/\blitologico\b/gi,"litológico"],[/\bcohesion\b/gi,"cohesión"],
+  [/\bmetalicas\b/gi,"metálicas"],[/\btopografico\b/gi,"topográfico"],[/\bcarguío\b/gi,"carguío"],
+  // cómo suele escribir el dictado los términos técnicos
+  [/\bsobre ?malla\b/gi,"sobremalla"],[/\bbre?a?s?ting\b/gi,"breasting"],[/\bbrestin\b/gi,"breasting"],
+  [/\btolbeo\b/gi,"tolveo"],[/\basti?al\b/gi,"hastial"],[/\bastiales\b/gi,"hastiales"],
+  [/\bdasita\b/gi,"dacita"],[/\bdac[ií]tico\b/gi,"dacítico"],
+  [/\bcaliza (?:barbada|barvada|varbada)\b/gi,"caliza varvada"],[/\bcalizas? (?:barbadas|barvadas|varbadas)\b/gi,"caliza varvadas"],
+  [/\b(?:eslot|es lot|islot)\b/gi,"slot"],[/\bdes ?quinche\b/gi,"desquinche"],[/\bdesquinchar\b/gi,"desquinchar"],
+  [/\bre?ise? ?bor[eé]r?\b/gi,"raise borer"],[/\bcable ?bol?tin?g?\b/gi,"cable bolting"],
+  [/\b(?:escup|escoop|scup|es coop)\b/gi,"scoop"],
+  [/\bsub ?estaci[oó]n\b/gi,"subestación"],[/\bsub ?transversal(es)?\b/gi,(m,e)=>"subtransversal"+(e||"")],
+  [/\bsub ?horizontal\b/gi,"subhorizontal"],[/\bsub ?vertical(es)?\b/gi,(m,e)=>"subvertical"+(e||"")],
+  [/\bpa[nñ]iso\b/gi,"panizo"],[/\bsal ?banda\b/gi,"salbanda"],[/\bsimbra\b/gi,"cimbra"],
+  [/\barcos? noruego(s)?\b/gi,(m,e)=>"arcos noruegos"],
+  // medidas dictadas, escritas como en el formato: 2 pulgadas → 2", 7 pies → 7', malla número 8 → N°8, 4 por 4 → 4"x4"
+  [/\b(\d+(?:[.,]\d+)?) (?:por|x) (\d+(?:[.,]\d+)?) pulgadas?\b/gi,(m,a,b)=>a+'"x'+b+'"'],
+  [/\bcocada (?:de )?(\d) (?:por|x) (\d)\b/gi,(m,a,b)=>"cocada "+a+'"x'+b+'"'],
+  [/\b(\d+(?:[.,]\d+)?) ?pulgadas?\b/gi,(m,a)=>a+'"'],
+  [/\b(\d+(?:[.,]\d+)?) ?pies\b/gi,(m,a)=>a+"'"],
+  [/\bmalla (?:electrosoldada )?(?:n[uú]mero|nro\.?|n°) ?(\d+)\b/gi,(m,a)=>m.replace(/(?:n[uú]mero|nro\.?|n°) ?\d+/i,"N°"+a)],
+  [/\b(\d+) kilos? por metro c[uú]bico\b/gi,(m,a)=>a+" kg/m3"]
 ];
 function matchCase(original,replacement){
   if(original===original.toUpperCase())return replacement.toUpperCase();
@@ -1143,7 +1179,15 @@ function matchCase(original,replacement){
 }
 function correctGeoText(value){
   let out=value;
-  geoCorrections.forEach(([rx,repl])=>{out=out.replace(rx,m=>matchCase(m,repl));});
+  geoCorrections.forEach(([rx,repl])=>{
+    out=out.replace(rx,(...g)=>{
+      const m=g[0], r=typeof repl==="function"?repl(...g):repl;
+      if(!/^[a-záéíóúñ]/i.test(m)||!/^[a-záéíóúñ]/i.test(r)) return r;   // medidas: tal cual
+      if(m===m.toUpperCase()&&m!==m.toLowerCase()) return r.toUpperCase();
+      if(/^[A-Z]/.test(r)) return r;                                          // nombres propios: Swellex, Split Set, RMR
+      return matchCase(m,r);
+    });
+  });
   return out;
 }
 function applyGeoCorrection(){
@@ -1163,6 +1207,7 @@ const obsField=$("observaciones");
 // Las correcciones se aplican únicamente al finalizar/salir del campo.
 obsField.addEventListener("change",applyGeoCorrection);
 obsField.addEventListener("blur",applyGeoCorrection);
+["change","blur"].forEach(ev=>$("indicaciones").addEventListener(ev,()=>{ const el=$("indicaciones"), c=correctGeoText(el.value); if(c!==el.value) el.value=c; }));
 
 // Datos de prueba (fecha del día): se elige el ejemplo en la lista; «Sin datos» deja el formulario en blanco.
 const EJEMPLOS_PRUEBA={
@@ -3789,7 +3834,7 @@ Entendido: ${entendido(r.texto)}`;
   // «agregar algo más»: texto se agrega; «borrar» empieza de nuevo; «no» sigue
   function masTexto(t){ const s0=sinT(N(t)).replace(/[¿?¡!.,]/g," ").trim(); if(/^(borra|borrar|borralo|de nuevo|empezar de nuevo|vuelve a empezar)\b/.test(s0)) return "_borrar";
     const x=siNo(t); if(x==="no") return ""; if(x==="si"&&s0.split(" ").length<=2) return null; const v=String(t).trim(); return v.charAt(0).toUpperCase()+v.slice(1)+(/[.!?]$/.test(v)?"":"."); }
-  function agregarTexto(id,v){ const el=$(id); if(v==="_borrar") el.value=""; else if(v) el.value=(el.value.trim()?el.value.trim()+" ":"")+v; el.dispatchEvent(new Event("input",{bubbles:true})); }
+  function agregarTexto(id,v){ const el=$(id); if(v&&v!=="_borrar"&&typeof correctGeoText==="function") v=correctGeoText(v); if(v==="_borrar") el.value=""; else if(v) el.value=(el.value.trim()?el.value.trim()+" ":"")+v; el.dispatchEvent(new Event("input",{bubbles:true})); }
   const siNo=t=>{ const x=sinT(N(t)).replace(/[¿?¡!.,]/g," ").trim(); return /^(si|claro|correcto|dale|ok|okay|otra|otro|de acuerdo)\b/.test(x)?"si":/^(no|ninguna|ninguno|ya no|listo|terminar)\b/.test(x)?"no":null; };
   // condición de la estructura: la lista del mapeo usa el texto de la opción RMR sin puntaje
   function condicion(eId,rmrId,valor){ const t=textoOpcion(rmrId,valor); const el=$(eId); const o=[...el.options].find(o=>o.value===t||o.text===t); if(o){ el.value=o.value; el.dispatchEvent(new Event("change",{bubbles:true})); } }
@@ -3812,7 +3857,7 @@ Entendido: ${entendido(r.texto)}`;
     return V.find(v=>v.voiceURI===g)||V.find(v=>v.localService&&/(mejorad|enhanced|premium)/i.test(v.name))||V.find(v=>v.localService)||V[0]||null; }
   // Para la voz: «50–100 MPa» → «50 a 100 megapascales», «(-5)» → «menos 5»
   function oral(t){ return String(t).replace(/(\d)°\s*[–-]\s*(\d+)°/g,"$1 a $2 grados").replace(/(\d)\s*[–-]\s*(\d)/g,"$1 a $2").replace(/\(\s*-\s*(\d+)\s*\)/g,"menos $1").replace(/\(\s*0\s*\)/g,"cero")
-    .replace(/\bMPa\b/g,"megapascales").replace(/\s*%/g," por ciento").replace(/(\d)\s*mm\b/g,"$1 milímetros").replace(/(\d)\s*m\b/g,"$1 metros")
+    .replace(/\bMPa\b/g,"megapascales").replace(/\s*%/g," por ciento").replace(/(\d)\s*mm(?![\wáéíóúñ])/g,"$1 milímetros").replace(/(\d)\s*m(?![\wáéíóúñ])/g,"$1 metros")
     .replace(/>\s*/g,"más de ").replace(/<\s*/g,"menos de ").replace(/Cal\s*#\s*/gi,"calibre ").replace(/#\s*/g,"número ").replace(/(\d)\s*"/g,"$1 pulgadas").replace(/(\d)\s*ft\b/g,"$1 pies")
     .replace(/@\s*=?\s*/g,"cada ").replace(/\bL\s*=\s*/g,"de ").replace(/\s*\+\s*/g,", más ").replace(/\.{2,}/g,".").replace(/\s+·\s+/g,", ").replace(/\s{2,}/g," "); }
   let idVoz=0, idEsc=-1, esperaHabla=null, forzado=null, sinIA=false;
@@ -4020,7 +4065,7 @@ Entendido: ${entendido(r.texto)}`;
   }
   function crear(){
     panel=document.createElement("div"); panel.className="conv-panel hidden"; panel.id="convPanel"; panel.setAttribute("role","region"); panel.setAttribute("aria-label","Modo conversación");
-    panel.innerHTML=`<div class="conv-in"><div class="conv-top"><span>🗣 Modo conversación · <span id="cvProg"></span> <span style="opacity:.6">· versión 59${NAT?" · app nativa":""}</span></span><span>Di «repite», «anterior», «opciones», «omitir», «ir a …», «corrige …», «pausa», «nuevo RMR» o «terminar»</span></div>
+    panel.innerHTML=`<div class="conv-in"><div class="conv-top"><span>🗣 Modo conversación · <span id="cvProg"></span> <span style="opacity:.6">· versión 60${NAT?" · app nativa":""}</span></span><span>Di «repite», «anterior», «opciones», «omitir», «ir a …», «corrige …», «pausa», «nuevo RMR» o «terminar»</span></div>
       <div class="conv-q" id="cvQ"></div><div class="conv-oir" id="cvOir"></div><div class="conv-ok" id="cvOk"></div>
       <div class="conv-btns hidden" id="cvExtra"></div>
       <div class="conv-btns"><button type="button" class="btn ok conv-mic" id="cvMic">🎙 Responder</button><button type="button" class="btn" id="cvAnt">⏮ Anterior</button><button type="button" class="btn" id="cvRep">🔁 Repetir</button><button type="button" class="btn" id="cvOmit">⏭ Omitir</button><button type="button" class="btn" id="cvPausa">⏸ Pausa</button><button type="button" class="btn danger" id="cvFin">Terminar</button></div></div>`;
