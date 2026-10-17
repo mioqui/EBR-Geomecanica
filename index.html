@@ -3624,8 +3624,8 @@ Entendido: ${entendido(r.texto)}`;
   function mas(t){ return tiene(t,/\b(mas|mayor|encima|sobre)\b/); }
   // ---------- preguntas (orden del formulario) ----------
   const Q=[
-    {id:"supervisor",nom:"geomecánico",p:"¿Nombre del geomecánico?",leer:t=>{ const v=String(t).trim().replace(/^(soy|es|el|la)\s+/i,""); return v.length>1?v:null; },decir:v=>v},
     {id:"turno",nom:"turno",p:"¿Turno día o noche?",ops:"día o noche",leer:t=>tiene(t,/\bdia\b/)?"Día":tiene(t,/\bnoche\b/)?"Noche":null},
+    {id:"supervisor",nom:"geomecánico",p:"¿Nombre del geomecánico?",leer:t=>{ const v=String(t).trim().replace(/^(soy|es|el|la)\s+/i,""); return v.length>1?v:null; },decir:v=>v},
     // Nivel y block se dicen en pares: «treinta y nueve veintidós» → 39 22 → 3922. Si llega solo «39», espera la otra mitad.
     {id:"nivel",nom:"nivel",p:"¿Nivel?",leer:t=>{ const g=N(t).match(/\d+/g); if(!g) return null; let v=g.join("");
       if(v.length%2===0&&v.slice(0,v.length/2)===v.slice(v.length/2)) v=v.slice(0,v.length/2); // «3922 3922» → 3922
@@ -3686,23 +3686,68 @@ Entendido: ${entendido(r.texto)}`;
       aplica:()=>$("rumbo").value==="perpendicular",
       leer:t=>tiene(t,/contra|en contra|opuest/)?"contra":tiene(t,/\bcon\b|a favor|mismo sentido/)?"con":null},
     {id:"riesgo",nom:"nivel de riesgo",p:"¿Nivel de riesgo? Bajo, medio o alto.",ops:"bajo, medio o alto",leer:t=>tiene(t,/\bbajo/)?"BAJO":tiene(t,/\bmedio/)?"MEDIO":tiene(t,/\balto/)?"ALTO":null},
-    {id:"_lecturas",nom:"lecturas",p:"¿Lecturas de dip y dirección de buzamiento? Por ejemplo, setenta y cinco barra ciento noventa. Si no hay, di ninguna.",opcional:true,
-      vacio:()=>true,leer:t=>{ if(tiene(t,/ningun|no hay/)) return []; const L=R.interpretar(t).lecturas; if(L.length) return L;
-        const a=nums(t); return a.length===2&&a[0]<=90&&a[1]<=360?[{dip:a[0],dipDir:a[1]}]:null; },
-      decir:L=>L.length?L.map(l=>`${l.dip} barra ${l.dipDir}`).join(", "):"sin lecturas"},
-    {id:"observaciones",nom:"observaciones",p:"¿Observaciones geomecánicas? Si no hay, di ninguna.",opcional:true,leer:t=>{ if(tiene(t,/^\s*(ninguna|no|nada)\s*\.?$/)) return ""; const v=String(t).trim(); return v.charAt(0).toUpperCase()+v.slice(1)+(/[.!?]$/.test(v)?"":"."); },decir:v=>v?"anotado":"sin observaciones"}
+    // Bloque 4 · mapeo estructural, en el orden del formulario: tipo → (otro) → por lectura: X, Y, Z, Dip/DD → ¿otra lectura?
+    //            → persistencia, rugosidad, relleno, observaciones → «Agregar estructura» → ¿otra estructura?
+    {id:"_eTipo",el:"eTipo",nom:"tipo de estructura",vacio:()=>true,opcional:true,ops:"junta, falla, sistema de juntas, sistema de fallas, contacto, diaclasa u otro",
+      get p(){ return E.n?"¿Tipo de la siguiente estructura? Junta, falla, sistema de juntas, sistema de fallas, contacto, diaclasa u otro."
+        :"Mapeo estructural. ¿Tipo de estructura? Junta, falla, sistema de juntas, sistema de fallas, contacto, diaclasa u otro. Si no hay estructuras, di ninguna."; },
+      leer:t=>{ if(tiene(t,/ningun|no hay|sin estructura/)) return ""; return tiene(t,/sistemas? de juntas/)?"SJ":tiene(t,/sistemas? de fallas/)?"SF":tiene(t,/\bjunta/)?"J":tiene(t,/\bfalla/)?"F":
+        tiene(t,/contacto/)?"C":tiene(t,/diaclas/)?"D":tiene(t,/\botr[oa]s?\b/)?"O":null; },
+      poner:v=>{ E.activa=true; E.nl=0; E.conX=false; $("eTipo").value=v; $("eTipo").dispatchEvent(new Event("change",{bubbles:true})); },
+      decir:v=>v?textoOpcion("eTipo",v).replace(/^\(\w+\)\s*/,""):"sin estructuras",
+      despues:v=>{ if(v) return undefined; E.activa=false; return Q.findIndex(q=>q.id==="observaciones"); }},
+    {id:"_eOtro",el:"eOtro",nom:"otro tipo",vacio:()=>true,aplica:()=>E.activa&&$("eTipo").value==="O",p:"¿Qué tipo de estructura es?",
+      leer:t=>String(t).trim()||null,poner:v=>{ $("eOtro").value=v; },decir:v=>v},
+    {id:"_eX",el:"eX",nom:"este de la lectura",vacio:()=>true,aplica:()=>E.activa,
+      get p(){ return (E.nl?"Lectura "+(E.nl+1)+". ":"")+"¿Coordenada este de la lectura? Si no la tienes, di omitir."; },
+      leer:t=>coord(t,6),poner:v=>{ $("eX").value=v; E.conX=true; },decir:v=>pares(v)},
+    {id:"_eY",el:"eY",nom:"norte de la lectura",vacio:()=>true,aplica:()=>E.activa&&E.conX,p:"¿Coordenada norte de la lectura?",leer:t=>coord(t,7),poner:v=>{ $("eY").value=v; },decir:v=>pares(v)},
+    {id:"_eZ",el:"eZ",nom:"cota de la lectura",vacio:()=>true,aplica:()=>E.activa&&E.conX,p:"¿Cota de la lectura?",leer:t=>coord(t,4),poner:v=>{ $("eZ").value=v; },decir:v=>pares(v)},
+    {id:"_eLect",el:"eDip",nom:"lectura",vacio:()=>true,aplica:()=>E.activa,p:"¿Dip y dirección de buzamiento? Por ejemplo, setenta y cinco barra ciento noventa.",
+      leer:t=>{ const L=R.interpretar(t).lecturas; if(L.length) return L[0]; const a=nums(t); return a.length>=2&&a[0]<=90&&a[1]<=360?{dip:a[0],dipDir:a[1]%360}:null; },
+      poner:l=>{ $("eDip").value=l.dip; $("eDipDir").value=l.dipDir; $("eDip").dataset.fuente="Voz"; $("eAddLectBtn").click(); E.nl++; E.conX=false; },
+      decir:l=>`${l.dip} barra ${l.dipDir}`},
+    {id:"_eOtraLect",nom:"otra lectura",vacio:()=>true,aplica:()=>E.activa&&E.nl>0,p:"¿Otra lectura de esta estructura?",ops:"sí o no",
+      leer:t=>siNo(t),poner:()=>{},decir:v=>v==="si"?"sí":"no",despues:v=>v==="si"?Q.findIndex(q=>q.id==="_eX"):undefined},
+    {id:"_ePers",el:"ePers",nom:"persistencia de la estructura",vacio:()=>true,aplica:()=>E.activa,p:"¿Persistencia de la estructura, en metros? Si no la registras, di omitir.",
+      ops:"menos de 1 metro, 1 a 3, 3 a 10, 10 a 20, o más de 20 metros",leer:t=>Q.find(q=>q.id==="persistencia").leer(t),poner:v=>condicion("ePers","persistencia",v),decir:v=>textoOpcion("persistencia",v)},
+    {id:"_eRug",el:"eRug",nom:"rugosidad de la estructura",vacio:()=>true,aplica:()=>E.activa,p:"¿Rugosidad de la estructura?",
+      ops:"muy rugosa, rugosa, ligeramente rugosa, lisa, o espejo de falla",leer:t=>Q.find(q=>q.id==="rugosidad").leer(t),poner:v=>condicion("eRug","rugosidad",v),decir:v=>textoOpcion("rugosidad",v)},
+    {id:"_eRell",el:"eRell",nom:"relleno de la estructura",vacio:()=>true,aplica:()=>E.activa,p:"¿Relleno de la estructura?",falta:"Dime también si es mayor o menor a 5 milímetros.",
+      ops:"ninguno, duro menor a 5 milímetros, duro mayor a 5, blando menor a 5, o blando mayor a 5",leer:t=>Q.find(q=>q.id==="relleno").leer(t),poner:v=>condicion("eRell","relleno",v),decir:v=>textoOpcion("relleno",v)},
+    {id:"_eObs",el:"eObs",nom:"observaciones de la estructura",vacio:()=>true,opcional:true,aplica:()=>E.activa,p:"¿Observaciones de la estructura? Si no hay, di ninguna.",
+      leer:t=>{ if(tiene(t,/^\s*(ninguna|no|nada)\s*\.?$/)) return ""; const v=String(t).trim(); return v.charAt(0).toUpperCase()+v.slice(1); },poner:v=>{ $("eObs").value=v; },decir:v=>v?"anotado":"sin observaciones"},
+    // paso interno: agrega la estructura al formulario (como el botón «Agregar estructura»); nunca se pregunta
+    {id:"_eAgregar",nom:"agregar estructura",aplica:()=>{ if(E.activa){ if($("eDip").value&&$("eDipDir").value) $("eAddLectBtn").click();
+        const ok=window.rmrStructs&&window.rmrStructs.lecturas().length&&$("eTipo").value; if(ok){ $("eAddBtn").click(); E.n++; E.recien=true; } E.activa=false; } return false; }},
+    {id:"_eOtra",nom:"otra estructura",vacio:()=>true,aplica:()=>E.recien,p:"Estructura agregada. ¿Registras otra estructura?",ops:"sí o no",
+      leer:t=>siNo(t),poner:()=>{},decir:v=>v==="si"?"sí":"no",despues:v=>{ E.recien=false; return v==="si"?Q.findIndex(q=>q.id==="_eTipo"):undefined; }},
+    {id:"observaciones",nom:"observaciones",p:"¿Observaciones geomecánicas? Si no hay, di ninguna.",opcional:true,leer:t=>{ if(tiene(t,/^\s*(ninguna|no|nada)\s*\.?$/)) return ""; const v=String(t).trim(); return v.charAt(0).toUpperCase()+v.slice(1)+(/[.!?]$/.test(v)?"":"."); },decir:v=>v?"anotado":"sin observaciones"},
+    // Bloque 5 · indicaciones de estabilidad (casilla «Tomar el sostenimiento de la cartilla» o texto dictado)
+    {id:"indicaciones",nom:"indicaciones de estabilidad",vacio:()=>true,opcional:true,
+      get p(){ return $("indCartilla").checked&&$("indicaciones").value.trim()?"Indicaciones de estabilidad: está el sostenimiento de la cartilla. ¿Lo dejas así, o dictas otras indicaciones?"
+        :"¿Indicaciones de estabilidad? Di cartilla para usar el sostenimiento de la cartilla, o dicta las indicaciones."; },
+      leer:t=>{ if(tiene(t,/^\s*(asi|si|dejalo|dejala|dejalas|la cartilla|cartilla|esta bien|correcto|ok|de acuerdo)\b/)) return "_cartilla";
+        if(tiene(t,/^\s*(ninguna|nada)\s*\.?$/)) return ""; const v=String(t).trim(); return v.charAt(0).toUpperCase()+v.slice(1)+(/[.!?]$/.test(v)?"":"."); },
+      poner:v=>{ if(v==="_cartilla"){ if(!$("indCartilla").checked){ $("indCartilla").checked=true; $("indCartilla").dispatchEvent(new Event("change",{bubbles:true})); } return; }
+        $("indCartilla").checked=false; $("indicaciones").value=v; $("indicaciones").dispatchEvent(new Event("input",{bubbles:true})); },
+      decir:v=>v==="_cartilla"?"se usa la cartilla":v?"anotado":"sin indicaciones"}
   ];
+  const E={activa:false,n:0,nl:0,conX:false,recien:false}; // estado del mapeo estructural por voz
+  const siNo=t=>{ const x=sinT(N(t)).replace(/[¿?¡!.,]/g," ").trim(); return /^(si|claro|correcto|dale|ok|okay|otra|otro|de acuerdo)\b/.test(x)?"si":/^(no|ninguna|ninguno|ya no|listo|terminar)\b/.test(x)?"no":null; };
+  // condición de la estructura: la lista del mapeo usa el texto de la opción RMR sin puntaje
+  function condicion(eId,rmrId,valor){ const t=textoOpcion(rmrId,valor); const el=$(eId); const o=[...el.options].find(o=>o.value===t||o.text===t); if(o){ el.value=o.value; el.dispatchEvent(new Event("change",{bubbles:true})); } }
   const textoOpcion=(id,v)=>{ const el=$(id); const o=el&&el.tagName==="SELECT"?[...el.options].find(o=>o.value===String(v)):null; return o?o.text.replace(/\s*—\s*\d+\s*pts?\.?$/,"").replace(/\s*\([^)]*\)\s*$/,"").replace(/\s{2,}/g," "):String(v); };
   function lleno(q){ if(q.vacio) return !q.vacio(); if(q.id==="seccion") return !!seccionValor(); const el=$(q.id); return !!(el&&String(el.value).trim()); }
   function poner(q,v){
-    if(q.id==="_lecturas"){ v.forEach(l=>{ $("eDip").value=l.dip; $("eDipDir").value=l.dipDir; $("eDip").dataset.fuente="Voz"; $("eAddLectBtn").click(); }); return; }
+    if(q.poner){ q.poner(v); return; }
     if(q.id==="seccion"){ seccionPoner(v); $("seccionSel").dispatchEvent(new Event("change",{bubbles:true})); return; }
     if(q.id==="supervisor"){ geoPoner(v); $("supervisor").dispatchEvent(new Event("input",{bubbles:true})); return; }
     const el=$(q.id); el.value=v; el.dispatchEvent(new Event("input",{bubbles:true})); el.dispatchEvent(new Event("change",{bubbles:true}));
   }
   function foco(q){
     document.querySelectorAll(".conv-foco").forEach(e=>e.classList.remove("conv-foco"));
-    const el=q.id==="_lecturas"?$("eDip"):q.id==="seccion"?$("seccionSel"):$(q.id); if(!el) return;
+    const el=q.el?$(q.el):q.id==="seccion"?$("seccionSel"):$(q.id); if(!el) return;
     const f=el.closest(".field")||el; f.classList.add("conv-foco"); try{ f.scrollIntoView({behavior:"smooth",block:"center"}); }catch(_){}
   }
   // ---------- voz ----------
@@ -3769,7 +3814,7 @@ Entendido: ${entendido(r.texto)}`;
   function estado(t,mal){ const e=$("cvOk"); e.textContent=t||""; e.classList.toggle("mal",!!mal); }
   // ---------- flujo ----------
   function siguiente(desde){
-    restaurar(); let i=desde; while(i<Q.length&&((Q[i].aplica&&!Q[i].aplica())||(lleno(Q[i])&&Q[i].id!=="_lecturas"))) i++;
+    restaurar(); let i=desde; while(i<Q.length&&((Q[i].aplica&&!Q[i].aplica())||lleno(Q[i]))) i++;
     if(i>=Q.length){ resumen(); return; }
     idx=i; fase="pregunta"; fallos=0; pendiente=""; const q=Q[i]; foco(q); if(hist[hist.length-1]!==i) hist.push(i);
     $("cvQ").textContent=q.p; $("cvOir").textContent=""; $("cvProg").textContent=`Pregunta ${i+1} de ${Q.length}`;
@@ -3785,8 +3830,8 @@ Entendido: ${entendido(r.texto)}`;
     [/^(terminar|termina|salir|detener|cancelar)\b/,()=>cerrar("Conversación terminada. Puedes seguir en el formulario.")]
   ];
   let respaldo=null; // {q, v}: valor que tenía el control al volver a él
-  function valorDe(q){ if(q.id==="_lecturas") return null; if(q.id==="seccion") return seccionValor(); const el=$(q.id); return el?el.value:""; }
-  function vaciar(q){ if(q.id==="_lecturas") return; if(q.id==="seccion"){ seccionPoner(""); $("seccionSel").dispatchEvent(new Event("change",{bubbles:true})); return; }
+  function valorDe(q){ if(q.id.startsWith("_")||q.vacio) return null; if(q.id==="seccion") return seccionValor(); const el=$(q.id); return el?el.value:""; }
+  function vaciar(q){ if(q.id.startsWith("_")||q.vacio) return; if(q.id==="seccion"){ seccionPoner(""); $("seccionSel").dispatchEvent(new Event("change",{bubbles:true})); return; }
     const el=$(q.id); if(!el) return; el.value=""; el.dispatchEvent(new Event("input",{bubbles:true})); el.dispatchEvent(new Event("change",{bubbles:true})); }
   function restaurar(){ if(respaldo&&respaldo.v&&!valorDe(respaldo.q)){ if(respaldo.q.id==="supervisor") geoPoner(respaldo.v); else if(respaldo.q.id==="seccion") seccionPoner(respaldo.v); else poner(respaldo.q,respaldo.v); } respaldo=null; }
   function volverA(i){ restaurar(); const q=Q[i]; const v=valorDe(q); if(v){ respaldo={q,v}; vaciar(q); } irA(i); }
@@ -3805,14 +3850,14 @@ Entendido: ${entendido(r.texto)}`;
   function nuevo(){
     parar(); callar();
     if(!window.nuevoRMR()){ if(activo) hablar(ultimaFrase,escuchar); return; }
-    hist=[]; idx=-1; pausado=false; estado("✓ Formulario nuevo");
+    hist=[]; idx=-1; pausado=false; E.activa=false; E.n=0; E.nl=0; E.recien=false; estado("✓ Formulario nuevo");
     if(!panel) crear(); activo=true; panel.classList.remove("hidden"); document.body.classList.add("conv-on");
     hablar("Nuevo RMR.",()=>siguiente(0));
   }
   // Campo mencionado por su nombre (el más largo que coincida: «tipo de labor» antes que «labor»)
   const ALIAS={coordX:["x","este","coordenada x"],coordY:["y","coordenada y"],coordZ:["z","cota","coordenada z"],largoL:["l","largo","longitud"],
-    supervisor:["geomecanico","nombre"],seccion:["seccion"],_lecturas:["lecturas","dip","lectura"],buzamiento:["buzamiento","rango de buzamiento","ajuste"],rumbo:["rumbo"],sentido:["sentido","excavacion"],refTopo:["referencia"],agua:["agua"],resistencia:["resistencia"]};
-  const BLOQUES={"1":"supervisor","uno":"supervisor","2":"resistencia","dos":"resistencia","3":"buzamiento","tres":"buzamiento","4":"_lecturas","cuatro":"_lecturas","5":"observaciones","cinco":"observaciones"};
+    supervisor:["geomecanico","nombre"],seccion:["seccion"],_eTipo:["estructura","estructuras","mapeo","mapeo estructural"],_eLect:["lectura","lecturas","dip"],buzamiento:["buzamiento","rango de buzamiento","ajuste"],rumbo:["rumbo"],sentido:["sentido","excavacion"],refTopo:["referencia"],agua:["agua"],resistencia:["resistencia"]};
+  const BLOQUES={"1":"supervisor","uno":"supervisor","2":"resistencia","dos":"resistencia","3":"buzamiento","tres":"buzamiento","4":"_eTipo","cuatro":"_eTipo","5":"observaciones","cinco":"observaciones"};
   const LIBRE=new Set(["supervisor","observaciones","factores","litologia","refTopo"]);
   function campo(texto,libre){
     const t=sinT(texto).replace(/[.,]/g," ").replace(/\s+/g," ").trim();
@@ -3861,7 +3906,8 @@ Entendido: ${entendido(r.texto)}`;
     const dicho=q.decir?q.decir(v):(Array.isArray(v)?"":textoOpcion(q.id,v));
     const mostrado=/^(nivel|block|labor|coordX|coordY|coordZ)$/.test(q.id)?String(v):dicho; // en pantalla el código tal cual; en voz, de dos en dos
     estado("✓ "+q.nom.charAt(0).toUpperCase()+q.nom.slice(1)+": "+mostrado+"  ·  escuché «"+String(t).trim()+"»"+(porIA?" (interpretado por la IA)":""));
-    hablar(q.nom+", "+dicho+".",()=>siguiente(idx+1));
+    const salto=q.despues?q.despues(v):undefined;
+    hablar(q.nom+", "+dicho+".",()=>siguiente(salto!==undefined&&salto>=0?salto:idx+1));
   }
   function resumen(){
     document.querySelectorAll(".conv-foco").forEach(e=>e.classList.remove("conv-foco"));
@@ -3883,7 +3929,7 @@ Entendido: ${entendido(r.texto)}`;
   }
   function crear(){
     panel=document.createElement("div"); panel.className="conv-panel hidden"; panel.id="convPanel"; panel.setAttribute("role","region"); panel.setAttribute("aria-label","Modo conversación");
-    panel.innerHTML=`<div class="conv-in"><div class="conv-top"><span>🗣 Modo conversación · <span id="cvProg"></span> <span style="opacity:.6">· versión 55${NAT?" · app nativa":""}</span></span><span>Di «repite», «anterior», «opciones», «omitir», «ir a …», «corrige …», «pausa», «nuevo RMR» o «terminar»</span></div>
+    panel.innerHTML=`<div class="conv-in"><div class="conv-top"><span>🗣 Modo conversación · <span id="cvProg"></span> <span style="opacity:.6">· versión 56${NAT?" · app nativa":""}</span></span><span>Di «repite», «anterior», «opciones», «omitir», «ir a …», «corrige …», «pausa», «nuevo RMR» o «terminar»</span></div>
       <div class="conv-q" id="cvQ"></div><div class="conv-oir" id="cvOir"></div><div class="conv-ok" id="cvOk"></div>
       <div class="conv-btns"><button type="button" class="btn ok conv-mic" id="cvMic">🎙 Responder</button><button type="button" class="btn" id="cvAnt">⏮ Anterior</button><button type="button" class="btn" id="cvRep">🔁 Repetir</button><button type="button" class="btn" id="cvOmit">⏭ Omitir</button><button type="button" class="btn" id="cvPausa">⏸ Pausa</button><button type="button" class="btn danger" id="cvFin">Terminar</button></div></div>`;
     document.body.appendChild(panel);
@@ -3899,7 +3945,7 @@ Entendido: ${entendido(r.texto)}`;
   $("convBtn").addEventListener("click",()=>{
     if(!panel) crear(); activo=true; pausado=false; $("cvPausa").textContent="⏸ Pausa"; hist=[]; panel.classList.remove("hidden"); document.body.classList.add("conv-on"); estado("");
     document.querySelectorAll(".panel").forEach(p=>p.classList.toggle("active",p.id==="evaluacion")); document.querySelectorAll(".tab").forEach(t=>t.classList.toggle("active",t.dataset.tab==="evaluacion"));
-    const i=Q.findIndex(q=>!lleno(q)||q.id==="_lecturas");
+    E.activa=false; E.n=0; E.nl=0; E.recien=false; const i=Q.findIndex(q=>!lleno(q)&&!(q.aplica&&!q.aplica()));
     hablar("Empecemos. Responde cada pregunta; puedes decir opciones o repite en cualquier momento.",()=>siguiente(Math.max(0,i)));
   });
   // «＋ Nuevo RMR» de la cabecera: si la conversación está abierta, empieza también la conversación desde la primera pregunta
