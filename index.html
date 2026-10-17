@@ -3674,6 +3674,17 @@ Entendido: ${entendido(r.texto)}`;
     {id:"agua",nom:"agua subterránea",p:"¿Agua subterránea?",ops:"seco, húmedo, mojado, goteo, o flujo",
       leer:t=>tiene(t,/flujo|chorro/)?"0":tiene(t,/goteo|gotea/)?"4":tiene(t,/mojad/)?"7":tiene(t,/humed/)?"10":tiene(t,/\bsec[oa]/)?"15":null},
     {id:"ph",nom:"pH",p:"¿pH del agua? Si no se midió, di omitir.",opcional:true,leer:t=>{ const n=num(t); return n!==null&&n>=0&&n<=14?String(n):null; }},
+    // Bloque 3 · ajuste por orientación (rumbo solo si el buzamiento no es 0°–20°; sentido solo si el rumbo es perpendicular)
+    {id:"buzamiento",nom:"rango de buzamiento",ops:"cero a veinte, veinte a cuarenta y cinco, o cuarenta y cinco a noventa grados",
+      get p(){ return "¿Rango de buzamiento? Cero a veinte, veinte a cuarenta y cinco, o cuarenta y cinco a noventa grados."+($("ajSugBtn")?" O di sugerido, para aplicar el ajuste según las lecturas.":""); },
+      leer:t=>{ if(tiene(t,/sugeri|aplica/)&&$("ajSugBtn")){ $("ajSugBtn").click(); return $("buzamiento").value||null; }
+        const a=nums(t).filter(x=>x<=90); if(!a.length) return null; let v=medio(a); if(menos(t)) v=a[0]-0.1; return v<20?"0-20":v<45?"20-45":"45-90"; }},
+    {id:"rumbo",nom:"rumbo",p:"¿El rumbo de las discontinuidades es paralelo o perpendicular al eje de la labor?",ops:"paralelo o perpendicular al eje de la labor",
+      aplica:()=>{ const b=$("buzamiento").value; return !!b&&b!=="0-20"; },
+      leer:t=>tiene(t,/perpendic/)?"perpendicular":tiene(t,/paralel/)?"paralelo":null},
+    {id:"sentido",nom:"sentido de excavación",p:"¿La excavación va con el buzamiento o contra el buzamiento?",ops:"con el buzamiento, o contra el buzamiento",
+      aplica:()=>$("rumbo").value==="perpendicular",
+      leer:t=>tiene(t,/contra|en contra|opuest/)?"contra":tiene(t,/\bcon\b|a favor|mismo sentido/)?"con":null},
     {id:"riesgo",nom:"nivel de riesgo",p:"¿Nivel de riesgo? Bajo, medio o alto.",ops:"bajo, medio o alto",leer:t=>tiene(t,/\bbajo/)?"BAJO":tiene(t,/\bmedio/)?"MEDIO":tiene(t,/\balto/)?"ALTO":null},
     {id:"_lecturas",nom:"lecturas",p:"¿Lecturas de dip y dirección de buzamiento? Por ejemplo, setenta y cinco barra ciento noventa. Si no hay, di ninguna.",opcional:true,
       vacio:()=>true,leer:t=>{ if(tiene(t,/ningun|no hay/)) return []; const L=R.interpretar(t).lecturas; if(L.length) return L;
@@ -3699,7 +3710,7 @@ Entendido: ${entendido(r.texto)}`;
   function voz(){ let V=[]; try{ V=speechSynthesis.getVoices().filter(v=>/^es/i.test(v.lang)); }catch(_){} let g=""; try{ g=localStorage.getItem("ebr-voz")||""; }catch(_){}
     return V.find(v=>v.voiceURI===g)||V.find(v=>v.localService&&/(mejorad|enhanced|premium)/i.test(v.name))||V.find(v=>v.localService)||V[0]||null; }
   // Para la voz: «50–100 MPa» → «50 a 100 megapascales», «(-5)» → «menos 5»
-  function oral(t){ return String(t).replace(/(\d)\s*[–-]\s*(\d)/g,"$1 a $2").replace(/\(\s*-\s*(\d+)\s*\)/g,"menos $1").replace(/\(\s*0\s*\)/g,"cero")
+  function oral(t){ return String(t).replace(/(\d)°\s*[–-]\s*(\d+)°/g,"$1 a $2 grados").replace(/(\d)\s*[–-]\s*(\d)/g,"$1 a $2").replace(/\(\s*-\s*(\d+)\s*\)/g,"menos $1").replace(/\(\s*0\s*\)/g,"cero")
     .replace(/\bMPa\b/g,"megapascales").replace(/\s*%/g," por ciento").replace(/(\d)\s*mm\b/g,"$1 milímetros").replace(/(\d)\s*m\b/g,"$1 metros")
     .replace(/>\s*/g,"más de ").replace(/<\s*/g,"menos de ").replace(/Cal\s*#\s*/gi,"calibre ").replace(/#\s*/g,"número ").replace(/(\d)\s*"/g,"$1 pulgadas").replace(/(\d)\s*ft\b/g,"$1 pies")
     .replace(/@\s*=?\s*/g,"cada ").replace(/\bL\s*=\s*/g,"de ").replace(/\s*\+\s*/g,", más ").replace(/\.{2,}/g,".").replace(/\s+·\s+/g,", ").replace(/\s{2,}/g," "); }
@@ -3758,7 +3769,7 @@ Entendido: ${entendido(r.texto)}`;
   function estado(t,mal){ const e=$("cvOk"); e.textContent=t||""; e.classList.toggle("mal",!!mal); }
   // ---------- flujo ----------
   function siguiente(desde){
-    restaurar(); let i=desde; while(i<Q.length&&lleno(Q[i])&&Q[i].id!=="_lecturas") i++;
+    restaurar(); let i=desde; while(i<Q.length&&((Q[i].aplica&&!Q[i].aplica())||(lleno(Q[i])&&Q[i].id!=="_lecturas"))) i++;
     if(i>=Q.length){ resumen(); return; }
     idx=i; fase="pregunta"; fallos=0; pendiente=""; const q=Q[i]; foco(q); if(hist[hist.length-1]!==i) hist.push(i);
     $("cvQ").textContent=q.p; $("cvOir").textContent=""; $("cvProg").textContent=`Pregunta ${i+1} de ${Q.length}`;
@@ -3787,7 +3798,8 @@ Entendido: ${entendido(r.texto)}`;
   // Control anterior en el orden del formulario (aunque ya esté respondido); su valor se borra para la nueva respuesta
   function anterior(){
     if(fase!=="pregunta"){ volverA(Q.length-1); return; }
-    volverA(Math.max(0,idx-1));
+    let i=Math.max(0,idx-1); while(i>0&&Q[i].aplica&&!Q[i].aplica()) i--; // salta las que no aplican (rumbo / sentido)
+    volverA(i);
   }
   // Empieza un RMR nuevo: limpia el formulario (pide confirmación si hay datos) y la conversación arranca desde la primera pregunta
   function nuevo(){
@@ -3799,8 +3811,8 @@ Entendido: ${entendido(r.texto)}`;
   }
   // Campo mencionado por su nombre (el más largo que coincida: «tipo de labor» antes que «labor»)
   const ALIAS={coordX:["x","este","coordenada x"],coordY:["y","coordenada y"],coordZ:["z","cota","coordenada z"],largoL:["l","largo","longitud"],
-    supervisor:["geomecanico","nombre"],seccion:["seccion"],_lecturas:["lecturas","dip","lectura"],refTopo:["referencia"],agua:["agua"],resistencia:["resistencia"]};
-  const BLOQUES={"1":"supervisor","uno":"supervisor","2":"resistencia","dos":"resistencia","4":"_lecturas","cuatro":"_lecturas","5":"observaciones","cinco":"observaciones"};
+    supervisor:["geomecanico","nombre"],seccion:["seccion"],_lecturas:["lecturas","dip","lectura"],buzamiento:["buzamiento","rango de buzamiento","ajuste"],rumbo:["rumbo"],sentido:["sentido","excavacion"],refTopo:["referencia"],agua:["agua"],resistencia:["resistencia"]};
+  const BLOQUES={"1":"supervisor","uno":"supervisor","2":"resistencia","dos":"resistencia","3":"buzamiento","tres":"buzamiento","4":"_lecturas","cuatro":"_lecturas","5":"observaciones","cinco":"observaciones"};
   const LIBRE=new Set(["supervisor","observaciones","factores","litologia","refTopo"]);
   function campo(texto,libre){
     const t=sinT(texto).replace(/[.,]/g," ").replace(/\s+/g," ").trim();
@@ -3854,7 +3866,7 @@ Entendido: ${entendido(r.texto)}`;
   function resumen(){
     document.querySelectorAll(".conv-foco").forEach(e=>e.classList.remove("conv-foco"));
     const sug=$("ajSugBtn");
-    if(sug){ fase="ajuste"; const txt=($("ajSug").querySelector(".aj-t")||{}).textContent||"";
+    if(sug&&!$("buzamiento").value){ fase="ajuste"; const txt=($("ajSug").querySelector(".aj-t")||{}).textContent||"";
       $("cvQ").textContent="¿Aplico el ajuste por orientación sugerido?"; $("cvProg").textContent="Ajuste";
       hablar(txt.replace("Ajuste sugerido desde el mapeo:","El ajuste sugerido según las lecturas es")+". ¿Lo aplico?",escuchar); return; }
     final();
@@ -3871,7 +3883,7 @@ Entendido: ${entendido(r.texto)}`;
   }
   function crear(){
     panel=document.createElement("div"); panel.className="conv-panel hidden"; panel.id="convPanel"; panel.setAttribute("role","region"); panel.setAttribute("aria-label","Modo conversación");
-    panel.innerHTML=`<div class="conv-in"><div class="conv-top"><span>🗣 Modo conversación · <span id="cvProg"></span> <span style="opacity:.6">· versión 53${NAT?" · app nativa":""}</span></span><span>Di «repite», «anterior», «opciones», «omitir», «ir a …», «corrige …», «pausa», «nuevo RMR» o «terminar»</span></div>
+    panel.innerHTML=`<div class="conv-in"><div class="conv-top"><span>🗣 Modo conversación · <span id="cvProg"></span> <span style="opacity:.6">· versión 55${NAT?" · app nativa":""}</span></span><span>Di «repite», «anterior», «opciones», «omitir», «ir a …», «corrige …», «pausa», «nuevo RMR» o «terminar»</span></div>
       <div class="conv-q" id="cvQ"></div><div class="conv-oir" id="cvOir"></div><div class="conv-ok" id="cvOk"></div>
       <div class="conv-btns"><button type="button" class="btn ok conv-mic" id="cvMic">🎙 Responder</button><button type="button" class="btn" id="cvAnt">⏮ Anterior</button><button type="button" class="btn" id="cvRep">🔁 Repetir</button><button type="button" class="btn" id="cvOmit">⏭ Omitir</button><button type="button" class="btn" id="cvPausa">⏸ Pausa</button><button type="button" class="btn danger" id="cvFin">Terminar</button></div></div>`;
     document.body.appendChild(panel);
