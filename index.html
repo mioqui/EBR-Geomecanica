@@ -3571,7 +3571,9 @@ Entendido: ${entendido(r.texto)}`;
 (function(){
   const $=id=>document.getElementById(id);
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-  if(!SR||!("speechSynthesis" in window)||!window.ebrVozReglas) return;
+  // En la app nativa de iPad: oído (reconocimiento de Apple con vocabulario técnico), voz e IA del equipo
+  const NAT=!!(window.ebrNativo&&typeof window.ebrNativo.escuchar==="function");
+  if(!(NAT||(SR&&"speechSynthesis" in window))||!window.ebrVozReglas) return;
   $("convBtn").classList.remove("hidden");
   const R=window.ebrVozReglas, sinT=t=>String(t||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"");
   const N=t=>R.normalizar(t);
@@ -3693,15 +3695,20 @@ Entendido: ${entendido(r.texto)}`;
     .replace(/\bMPa\b/g,"megapascales").replace(/\s*%/g," por ciento").replace(/(\d)\s*mm\b/g,"$1 milímetros").replace(/(\d)\s*m\b/g,"$1 metros")
     .replace(/>\s*/g,"más de ").replace(/<\s*/g,"menos de ").replace(/Cal\s*#\s*/gi,"calibre ").replace(/#\s*/g,"número ").replace(/(\d)\s*"/g,"$1 pulgadas").replace(/(\d)\s*ft\b/g,"$1 pies")
     .replace(/@\s*=?\s*/g,"cada ").replace(/\bL\s*=\s*/g,"de ").replace(/\s*\+\s*/g,", más ").replace(/\.{2,}/g,".").replace(/\s+·\s+/g,", ").replace(/\s{2,}/g," "); }
+  let idVoz=0, idEsc=-1, esperaHabla=null, forzado=null, sinIA=false;
+  function callar(){ if(NAT){ esperaHabla=null; try{ window.ebrNativo.callar(); }catch(_){} } else { try{ speechSynthesis.cancel(); }catch(_){} } }
   function hablar(texto,luego){
-    ultimaFrase=texto; texto=oral(texto); parar(); try{ speechSynthesis.cancel(); }catch(_){}
+    ultimaFrase=texto; texto=oral(texto); parar(); callar();
+    if(NAT){ let vel=1; try{ vel=Number(localStorage.getItem("ebr-voz-vel"))||1; }catch(_){}
+      let hecho=false; const fin=()=>{ if(hecho) return; hecho=true; esperaHabla=null; if(activo&&!pausado&&luego) setTimeout(()=>{ if(activo&&!pausado) luego(); },250); };
+      const id=++idVoz; esperaHabla={id,fin}; window.ebrNativo.hablar({texto,vel,id}); setTimeout(()=>{ if(esperaHabla&&esperaHabla.id===id) fin(); },Math.min(30000,2500+texto.length*110/vel)); return; }
     const u=new SpeechSynthesisUtterance(texto), v=voz(); if(v){ u.voice=v; u.lang=v.lang; } else u.lang="es-ES";
     let vel=1; try{ vel=Number(localStorage.getItem("ebr-voz-vel"))||1; }catch(_){} u.rate=vel;
     let hecho=false; const fin=()=>{ if(hecho) return; hecho=true; if(activo&&!pausado&&luego) setTimeout(()=>{ if(activo&&!pausado) luego(); },250); };
     u.onend=fin; u.onerror=fin; setTimeout(fin,Math.min(30000,2500+texto.length*110/vel)); // por si el equipo no avisa el final
     try{ speechSynthesis.speak(u); }catch(_){ fin(); }
   }
-  function parar(){ clearTimeout(tSilencio); clearTimeout(tMax); escuchandoYa=false; if(rec){ try{ rec.onend=null; rec.abort(); }catch(_){} rec=null; } micUI(false); }
+  function parar(){ if(NAT&&idEsc>0){ idEsc=-1; try{ window.ebrNativo.detenerEscucha(); }catch(_){} } clearTimeout(tSilencio); clearTimeout(tMax); escuchandoYa=false; if(rec){ try{ rec.onend=null; rec.abort(); }catch(_){} rec=null; } micUI(false); }
   // Une los trozos reconocidos sin repetir: Safari a veces entrega el texto acumulado en cada resultado («39 22» + «39 22»)
   function unirResultados(L){ let acc="";
     L.map(x=>String(x||"").trim()).filter(Boolean).forEach(tr=>{ const a=acc.toLowerCase(), b=tr.toLowerCase();
@@ -3712,6 +3719,7 @@ Entendido: ${entendido(r.texto)}`;
   function escuchar(){
     if(!activo||pausado) return; parar();
     let idioma="es-PE"; try{ idioma=localStorage.getItem("ebr-voz-idioma")||"es-PE"; }catch(_){}
+    if(NAT){ idEsc=++idVoz; window.ebrNativo.escuchar({id:idEsc,idioma}); return; }
     // Escucha continua: termina tras 1.8 s de silencio después de hablar (así no corta entre «treinta y nueve» y «veintidós»)
     const r=new SR(); rec=r; r.lang=idioma; r.interimResults=true; r.continuous=true; r.maxAlternatives=1;
     const cortar=()=>{ try{ r.stop(); }catch(_){} };
@@ -3726,6 +3734,19 @@ Entendido: ${entendido(r.texto)}`;
       if(t) procesar(t); else { $("cvOir").textContent="(no te escuché: toca 🎙 Responder)"; } };
     try{ r.start(); }catch(_){ micUI(false); $("cvOir").textContent="Toca 🎙 Responder para contestar."; }
   }
+  document.addEventListener("ebr-nativo",e=>{ const {tipo,datos}=e.detail||{}; const d=datos||{};
+    if(tipo==="habloFin"){ if(esperaHabla&&d.id===esperaHabla.id&&!d.cancelado) esperaHabla.fin(); return; }
+    if(d.id!==idEsc) return;
+    if(tipo==="escuchando"){ escuchandoYa=true; micUI(true); }
+    else if(tipo==="parcial"){ $("cvOir").textContent="«"+(pendiente?pendiente+" ":"")+(d.texto||"")+"»"; }
+    else if(tipo==="final"){ idEsc=-1; escuchandoYa=false; micUI(false); const t=String(d.texto||"").trim(); if(!activo||pausado) return;
+      if(t) procesar(t); else $("cvOir").textContent="(no te escuché: toca 🎙 Responder)"; }
+    else if(tipo==="errorEscucha"){ idEsc=-1; escuchandoYa=false; micUI(false);
+      estado(d.error==="permiso"?"Permite el micrófono y el reconocimiento de voz para EBR Geomecánica en Ajustes.":"No se pudo escuchar: "+d.error,true); }
+  });
+  // Opciones del campo (listas del formulario) para que la IA del iPad elija cuando las reglas no entienden
+  function opcionesDe(q){ const el=$(q.id); if(!el||el.tagName!=="SELECT") return [];
+    return [...el.options].filter(o=>o.value!==""&&o.value!=="otra").map(o=>({valor:o.value,texto:o.text.replace(/\s*—\s*\d+\s*pts?\.?$/,"")})); }
   function estado(t,mal){ const e=$("cvOk"); e.textContent=t||""; e.classList.toggle("mal",!!mal); }
   // ---------- flujo ----------
   function siguiente(desde){
@@ -3753,7 +3774,7 @@ Entendido: ${entendido(r.texto)}`;
   function irA(i){ if(respaldo&&respaldo.q!==Q[i]) restaurar(); idx=i; fallos=0; pendiente=""; const q=Q[i]; fase="pregunta"; foco(q); if(hist[hist.length-1]!==i) hist.push(i); $("cvQ").textContent=q.p; $("cvProg").textContent=`Pregunta ${i+1} de ${Q.length}`; hablar(q.p,escuchar); }
   // Vuelve a la pregunta anterior (la que se hizo antes, aunque ya esté respondida) para repetirla o corregirla
   // Pausa: deja de hablar y de escuchar sin cerrar la conversación; «Continuar» repite la pregunta pendiente
-  function pausar(){ pausado=true; parar(); try{ speechSynthesis.cancel(); }catch(_){} const b=$("cvPausa"); if(b) b.textContent="▶ Continuar"; estado("⏸ En pausa. Toca «Continuar» para seguir."); $("cvOir").textContent=""; }
+  function pausar(){ pausado=true; parar(); callar(); const b=$("cvPausa"); if(b) b.textContent="▶ Continuar"; estado("⏸ En pausa. Toca «Continuar» para seguir."); $("cvOir").textContent=""; }
   function continuar(){ pausado=false; const b=$("cvPausa"); if(b) b.textContent="⏸ Pausa"; estado(""); if(fase==="pregunta"&&Q[idx]) irA(idx); else hablar(ultimaFrase,escuchar); }
   // Control anterior en el orden del formulario (aunque ya esté respondido); su valor se borra para la nueva respuesta
   function anterior(){
@@ -3762,7 +3783,7 @@ Entendido: ${entendido(r.texto)}`;
   }
   // Empieza un RMR nuevo: limpia el formulario (pide confirmación si hay datos) y la conversación arranca desde la primera pregunta
   function nuevo(){
-    parar(); try{ speechSynthesis.cancel(); }catch(_){}
+    parar(); callar();
     if(!window.nuevoRMR()){ if(activo) hablar(ultimaFrase,escuchar); return; }
     hist=[]; idx=-1; pausado=false; estado("✓ Formulario nuevo");
     if(!panel) crear(); activo=true; panel.classList.remove("hidden"); document.body.classList.add("conv-on");
@@ -3801,7 +3822,13 @@ Entendido: ${entendido(r.texto)}`;
     const q=Q[idx]; if(!q) return;
     const unido=!!pendiente;
     if(pendiente){ const dp=N(pendiente).replace(/\D/g,""), dt=N(t).replace(/\D/g,""); t=(dp&&dt.startsWith(dp))?t:pendiente+" "+t; pendiente=""; }
-    let v=q.leer(t);
+    let v=forzado!==null?forzado:q.leer(t); const porIA=forzado!==null; forzado=null; const saltarIA=sinIA; sinIA=false;
+    // Las reglas no entendieron: en la app nativa, la IA del iPad elige entre las opciones del campo («es bien lisa, casi pulida» → Lisa)
+    if((v===null||v===undefined)&&NAT&&!saltarIA&&typeof window.ebrNativo.interpretar==="function"){ const ops=opcionesDe(q);
+      if(ops.length){ const i0=idx; estado("Interpretando «"+t+"»…"); $("cvOir").textContent="«"+t+"»";
+        window.ebrNativo.interpretar({campo:q.nom,opciones:ops.map(o=>o.texto),texto:t}).then(k=>{ if(!activo||idx!==i0||fase!=="pregunta") return;
+          if(typeof k==="number"&&k>=0&&k<ops.length) forzado=ops[k].valor; else sinIA=true; procesar(t); });
+        return; } }
     if(v&&typeof v==="object"&&!Array.isArray(v)&&"parcial" in v){
       if(!unido){ pendiente=t; $("cvOir").textContent="«"+v.parcial+"…» continúa"; estado(""); escuchar(); return; }
       v=v.parcial; // segunda vez: se acepta tal cual
@@ -3812,7 +3839,7 @@ Entendido: ${entendido(r.texto)}`;
       hablar(fallos>=3?"Lo dejo pendiente. "+q.nom+".":"No entendí. "+extra,fallos>=3?()=>siguiente(idx+1):escuchar); if(fallos>=3) estado("Pendiente: "+q.nom,true); return; }
     if(v!==""&&!(Array.isArray(v)&&!v.length)) poner(q,v); respaldo=null;
     const dicho=q.decir?q.decir(v):(Array.isArray(v)?"":textoOpcion(q.id,v));
-    estado("✓ "+q.nom.charAt(0).toUpperCase()+q.nom.slice(1)+": "+dicho+"  ·  escuché «"+String(t).trim()+"»");
+    estado("✓ "+q.nom.charAt(0).toUpperCase()+q.nom.slice(1)+": "+dicho+"  ·  escuché «"+String(t).trim()+"»"+(porIA?" (interpretado por la IA)":""));
     hablar(q.nom+", "+dicho+".",()=>siguiente(idx+1));
   }
   function resumen(){
@@ -3835,18 +3862,18 @@ Entendido: ${entendido(r.texto)}`;
   }
   function crear(){
     panel=document.createElement("div"); panel.className="conv-panel hidden"; panel.id="convPanel"; panel.setAttribute("role","region"); panel.setAttribute("aria-label","Modo conversación");
-    panel.innerHTML=`<div class="conv-in"><div class="conv-top"><span>🗣 Modo conversación · <span id="cvProg"></span> <span style="opacity:.6">· versión 51</span></span><span>Di «repite», «anterior», «opciones», «omitir», «ir a …», «corrige …», «pausa», «nuevo RMR» o «terminar»</span></div>
+    panel.innerHTML=`<div class="conv-in"><div class="conv-top"><span>🗣 Modo conversación · <span id="cvProg"></span> <span style="opacity:.6">· versión 52${NAT?" · app nativa":""}</span></span><span>Di «repite», «anterior», «opciones», «omitir», «ir a …», «corrige …», «pausa», «nuevo RMR» o «terminar»</span></div>
       <div class="conv-q" id="cvQ"></div><div class="conv-oir" id="cvOir"></div><div class="conv-ok" id="cvOk"></div>
       <div class="conv-btns"><button type="button" class="btn ok conv-mic" id="cvMic">🎙 Responder</button><button type="button" class="btn" id="cvAnt">⏮ Anterior</button><button type="button" class="btn" id="cvRep">🔁 Repetir</button><button type="button" class="btn" id="cvOmit">⏭ Omitir</button><button type="button" class="btn" id="cvPausa">⏸ Pausa</button><button type="button" class="btn danger" id="cvFin">Terminar</button></div></div>`;
     document.body.appendChild(panel);
-    $("cvMic").onclick=()=>{ if(pausado){ continuar(); return; } if(escuchandoYa&&rec){ try{ rec.stop(); }catch(_){} return; } try{ speechSynthesis.cancel(); }catch(_){} escuchar(); };
+    $("cvMic").onclick=()=>{ if(pausado){ continuar(); return; } if(escuchandoYa&&NAT){ try{ window.ebrNativo.terminarEscucha(); }catch(_){} return; } if(escuchandoYa&&rec){ try{ rec.stop(); }catch(_){} return; } callar(); escuchar(); };
     $("cvRep").onclick=()=>{ if(pausado){ continuar(); return; } hablar(ultimaFrase,escuchar); };
     $("cvOmit").onclick=()=>{ if(fase!=="pregunta") return; estado("Omitido: "+(Q[idx]?Q[idx].nom:"")); siguiente(idx+1); };
     $("cvFin").onclick=()=>cerrar();
-    $("cvAnt").onclick=()=>{ try{ speechSynthesis.cancel(); }catch(_){} if(pausado){ pausado=false; $("cvPausa").textContent="⏸ Pausa"; estado(""); } anterior(); };
+    $("cvAnt").onclick=()=>{ callar(); if(pausado){ pausado=false; $("cvPausa").textContent="⏸ Pausa"; estado(""); } anterior(); };
     $("cvPausa").onclick=()=>{ pausado?continuar():pausar(); };
   }
-  function cerrar(msg){ restaurar(); activo=false; parar(); try{ speechSynthesis.cancel(); }catch(_){} if(msg){ try{ const u=new SpeechSynthesisUtterance(msg); const v=voz(); if(v){u.voice=v;u.lang=v.lang;} speechSynthesis.speak(u); }catch(_){} }
+  function cerrar(msg){ restaurar(); activo=false; parar(); callar(); if(msg&&NAT){ try{ window.ebrNativo.hablar({texto:msg,vel:1,id:0}); }catch(_){} } else if(msg){ try{ const u=new SpeechSynthesisUtterance(msg); const v=voz(); if(v){u.voice=v;u.lang=v.lang;} speechSynthesis.speak(u); }catch(_){} }
     document.querySelectorAll(".conv-foco").forEach(e=>e.classList.remove("conv-foco")); if(panel) panel.classList.add("hidden"); document.body.classList.remove("conv-on"); }
   $("convBtn").addEventListener("click",()=>{
     if(!panel) crear(); activo=true; pausado=false; $("cvPausa").textContent="⏸ Pausa"; hist=[]; panel.classList.remove("hidden"); document.body.classList.add("conv-on"); estado("");
