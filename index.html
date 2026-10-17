@@ -681,7 +681,7 @@ html[data-theme="dark"] .kind.map{background:#3a2e12;color:#f0d9a4}
     </div>
     <div class="field" style="margin-top:12px">
       <label>Croquis y representación estructural <span class="small">(se imprimen en la indicación PDF)</span></label>
-      <div class="sk-tiles">
+      <div class="sk-tiles" id="skTiles">
         <button type="button" class="sk-tile" data-sk="croquis"><canvas></canvas><span class="sk-name">✏️ Croquis</span><span class="sk-state"></span></button>
         <button type="button" class="sk-tile" data-sk="rep"><canvas></canvas><span class="sk-name">✏️ Representación estructural</span><span class="sk-state"></span></button>
       </div>
@@ -3305,10 +3305,11 @@ window.indicacionPDF={generar,vistaPrevia,areas:areas(),norteSrc:"data:image/jpe
     document.body.appendChild(modal);
     try{ $("clDecl").value=localStorage.getItem(DECL_KEY)||""; }catch(_){}
     $("clDecl").addEventListener("input",()=>{ try{ localStorage.setItem(DECL_KEY,$("clDecl").value.trim()); }catch(_){} });
-    $("clCancel").onclick=cerrar;
+    $("clCancel").onclick=()=>{ cerrar(); document.dispatchEvent(new CustomEvent("ebr-clino",{detail:{cancelado:true}})); };
     $("clUsar").onclick=()=>{ const f=est.fijo; if(!f) return;
       $("eDip").value=Math.round(f.dip); $("eDipDir").value=Math.round(f.dipDir)%360;
       $("eDip").dataset.fuente="Clinómetro iPad"; cerrar();
+      document.dispatchEvent(new CustomEvent("ebr-clino",{detail:{dip:Math.round(f.dip),dipDir:Math.round(f.dipDir)%360}}));
       $("eAddLectBtn").scrollIntoView({behavior:"smooth",block:"center"}); };
   }
   function cerrar(){ modal.classList.add("hidden"); clearInterval(timer); timer=null; }
@@ -3703,11 +3704,14 @@ Entendido: ${entendido(r.texto)}`;
       leer:t=>coord(t,6),poner:v=>{ $("eX").value=v; E.conX=true; },decir:v=>pares(v)},
     {id:"_eY",el:"eY",nom:"norte de la lectura",vacio:()=>true,aplica:()=>E.activa&&E.conX,p:"¿Coordenada norte de la lectura?",leer:t=>coord(t,7),poner:v=>{ $("eY").value=v; },decir:v=>pares(v)},
     {id:"_eZ",el:"eZ",nom:"cota de la lectura",vacio:()=>true,aplica:()=>E.activa&&E.conX,p:"¿Cota de la lectura?",leer:t=>coord(t,4),poner:v=>{ $("eZ").value=v; },decir:v=>pares(v)},
-    {id:"_eLect",el:"eDip",nom:"lectura",vacio:()=>true,aplica:()=>E.activa,p:"¿Dip y dirección de buzamiento? Por ejemplo, setenta y cinco barra ciento noventa.",
-      leer:t=>{ const L=R.interpretar(t).lecturas; if(L.length) return L[0]; const a=nums(t); return a.length>=2&&a[0]<=90&&a[1]<=360?{dip:a[0],dipDir:a[1]%360}:null; },
-      poner:l=>{ $("eDip").value=l.dip; $("eDipDir").value=l.dipDir; $("eDip").dataset.fuente="Voz"; $("eAddLectBtn").click(); E.nl++; E.conX=false; },
+    {id:"_eLect",el:"eDip",nom:"lectura",vacio:()=>true,aplica:()=>E.activa,
+      p:"¿Dip y dirección de buzamiento? Dícta, por ejemplo, setenta y cinco barra ciento noventa, o toca Medir con el iPad.",
+      botones:[{t:"📐 Medir con el iPad",f:()=>abrirClino()}],
+      espera:v=>{ if(v!=="_medir") return false; abrirClino(); return true; },
+      leer:t=>{ if(tiene(t,/\b(medir|mide|clinometro|con el ipad)\b/)) return "_medir"; const L=R.interpretar(t).lecturas; if(L.length) return L[0]; const a=nums(t); return a.length>=2&&a[0]<=90&&a[1]<=360?{dip:a[0],dipDir:a[1]%360}:null; },
+      poner:l=>{ $("eDip").value=l.dip; $("eDipDir").value=l.dipDir; $("eDip").dataset.fuente=l.fuente||"Voz"; $("eAddLectBtn").click(); E.nl++; E.conX=false; },
       decir:l=>`${l.dip} barra ${l.dipDir}`},
-    {id:"_eOtraLect",nom:"otra lectura",vacio:()=>true,aplica:()=>E.activa&&E.nl>0,p:"¿Otra lectura de esta estructura?",ops:"sí o no",
+    {id:"_eOtraLect",nom:"otra lectura",vacio:()=>true,aplica:()=>E.activa&&E.nl>0,get p(){ return "Van "+E.nl+" lectura"+(E.nl===1?"":"s")+" de esta estructura. ¿Registras otra lectura de dip y dirección?"; },ops:"sí o no",
       leer:t=>siNo(t),poner:()=>{},decir:v=>v==="si"?"sí":"no",despues:v=>v==="si"?Q.findIndex(q=>q.id==="_eX"):undefined},
     {id:"_ePers",el:"ePers",nom:"persistencia de la estructura",vacio:()=>true,aplica:()=>E.activa,p:"¿Persistencia de la estructura, en metros? Si no la registras, di omitir.",
       ops:"menos de 1 metro, 1 a 3, 3 a 10, 10 a 20, o más de 20 metros",leer:t=>Q.find(q=>q.id==="persistencia").leer(t),poner:v=>condicion("ePers","persistencia",v),decir:v=>textoOpcion("persistencia",v)},
@@ -3723,17 +3727,45 @@ Entendido: ${entendido(r.texto)}`;
     {id:"_eOtra",nom:"otra estructura",vacio:()=>true,aplica:()=>E.recien,p:"Estructura agregada. ¿Registras otra estructura?",ops:"sí o no",
       leer:t=>siNo(t),poner:()=>{},decir:v=>v==="si"?"sí":"no",despues:v=>{ E.recien=false; return v==="si"?Q.findIndex(q=>q.id==="_eTipo"):undefined; }},
     {id:"observaciones",nom:"observaciones",p:"¿Observaciones geomecánicas? Si no hay, di ninguna.",opcional:true,leer:t=>{ if(tiene(t,/^\s*(ninguna|no|nada)\s*\.?$/)) return ""; const v=String(t).trim(); return v.charAt(0).toUpperCase()+v.slice(1)+(/[.!?]$/.test(v)?"":"."); },decir:v=>v?"anotado":"sin observaciones"},
+    {id:"_obsMas",nom:"observaciones",vacio:()=>true,opcional:true,aplica:()=>!!$("observaciones").value.trim(),
+      p:"¿Quieres agregar algo más a las observaciones? Dicta lo que agregas, di borrar para empezar de nuevo, o di no.",falta:"Dicta lo que quieres agregar.",
+      leer:t=>masTexto(t),poner:v=>agregarTexto("observaciones",v),decir:v=>v==="_borrar"?"borradas":v?"agregado":"listo",
+      despues:v=>v==="_borrar"?Q.findIndex(q=>q.id==="observaciones"):v?Q.findIndex(q=>q.id==="_obsMas"):undefined},
     // Bloque 5 · indicaciones de estabilidad (casilla «Tomar el sostenimiento de la cartilla» o texto dictado)
     {id:"indicaciones",nom:"indicaciones de estabilidad",vacio:()=>true,opcional:true,
-      get p(){ return $("indCartilla").checked&&$("indicaciones").value.trim()?"Indicaciones de estabilidad: está el sostenimiento de la cartilla. ¿Lo dejas así, o dictas otras indicaciones?"
-        :"¿Indicaciones de estabilidad? Di cartilla para usar el sostenimiento de la cartilla, o dicta las indicaciones."; },
-      leer:t=>{ if(tiene(t,/^\s*(asi|si|dejalo|dejala|dejalas|la cartilla|cartilla|esta bien|correcto|ok|de acuerdo)\b/)) return "_cartilla";
-        if(tiene(t,/^\s*(ninguna|nada)\s*\.?$/)) return ""; const v=String(t).trim(); return v.charAt(0).toUpperCase()+v.slice(1)+(/[.!?]$/.test(v)?"":"."); },
-      poner:v=>{ if(v==="_cartilla"){ if(!$("indCartilla").checked){ $("indCartilla").checked=true; $("indCartilla").dispatchEvent(new Event("change",{bubbles:true})); } return; }
-        $("indCartilla").checked=false; $("indicaciones").value=v; $("indicaciones").dispatchEvent(new Event("input",{bubbles:true})); },
-      decir:v=>v==="_cartilla"?"se usa la cartilla":v?"anotado":"sin indicaciones"}
+      get p(){ const st=$("sostBox").querySelector(".sost-text"); return "Indicaciones de estabilidad. ¿Incluyo el sostenimiento de la cartilla"+(st?": "+st.textContent.trim().replace(/\.+$/,""):"")+"?"; },
+      leer:t=>{ const x=siNo(t); if(x) return x; const v=String(t).trim(); return v.split(/\s+/).length>2?v.charAt(0).toUpperCase()+v.slice(1)+(/[.!?]$/.test(v)?"":"."):null; },
+      poner:v=>{ const c=$("indCartilla");
+        if(v==="si"){ if(!c.checked){ c.checked=true; c.dispatchEvent(new Event("change",{bubbles:true})); } return; }
+        if(v==="no"){ if(c.checked){ c.checked=false; c.dispatchEvent(new Event("change",{bubbles:true})); } return; }
+        c.checked=false; $("indicaciones").value=v; $("indicaciones").dispatchEvent(new Event("input",{bubbles:true})); },
+      decir:v=>v==="si"?"se incluye la cartilla":v==="no"?"sin la cartilla":"anotado"},
+    {id:"_indMas",nom:"indicaciones",vacio:()=>true,opcional:true,
+      get p(){ return $("indicaciones").value.trim()?"¿Quieres agregar o modificar algo en las indicaciones de estabilidad? Dicta lo que agregas, di borrar para empezar de nuevo, o di no."
+        :"¿Dictas las indicaciones de estabilidad? Dicta el texto, o di no."; },falta:"Dicta lo que quieres agregar.",
+      leer:t=>masTexto(t),poner:v=>{ if(v==="_borrar"){ const c=$("indCartilla"); if(c.checked){ c.checked=false; c.dispatchEvent(new Event("change",{bubbles:true})); } } agregarTexto("indicaciones",v); },
+      decir:v=>v==="_borrar"?"borradas":v?"agregado":"listo",
+      despues:v=>v==="_borrar"?Q.findIndex(q=>q.id==="indicaciones"):v?Q.findIndex(q=>q.id==="_indMas"):undefined},
+    // Fotos (máximo 2): el navegador solo abre la cámara o la galería con un toque, por eso se ofrecen botones en el panel
+    {id:"_fotos",el:"photoPreview",nom:"fotos",vacio:()=>true,opcional:true,aplica:()=>currentPhotos.length<2,
+      get p(){ return (currentPhotos.length?"Tienes "+currentPhotos.length+" foto. ¿Agregas otra? ":"¿Quieres tomar una foto o elegir de la galería? ")+"Toca Tomar foto o Galería abajo, o di no."; },
+      botones:[{t:"📷 Tomar foto",f:()=>elegirFoto("photoInput")},{t:"🖼️ Galería",f:()=>elegirFoto("photoInputGal")}],
+      falta:"Toca Tomar foto o Galería en el panel.",leer:t=>siNo(t)==="no"?"":null,poner:()=>{},decir:()=>"sin más fotos"},
+    // Dibujos: se abre el panel de dibujo; al guardarlo o cancelarlo la conversación continúa
+    {id:"_croquis",el:"skTiles",nom:"croquis",vacio:()=>true,opcional:true,
+      get p(){ return (window.sketches&&window.sketches.get("croquis")?"Ya hay un croquis. ¿Quieres modificarlo?":"¿Quieres dibujar el croquis?")+" Di sí para abrir el panel de dibujo, o no."; },
+      ops:"sí o no",leer:t=>siNo(t),poner:()=>{},decir:v=>v==="si"?"abriendo":"sin croquis",
+      espera:v=>{ if(v!=="si") return false; abrirDibujo("croquis"); return true; }},
+    {id:"_rep",el:"skTiles",nom:"representación estructural",vacio:()=>true,opcional:true,
+      get p(){ return (window.sketches&&window.sketches.get("rep")?"Ya hay una representación estructural. ¿Quieres modificarla?":"¿Quieres dibujar la representación estructural?")+" Di sí para abrir el panel de dibujo, o no."; },
+      ops:"sí o no",leer:t=>siNo(t),poner:()=>{},decir:v=>v==="si"?"abriendo":"sin representación",
+      espera:v=>{ if(v!=="si") return false; abrirDibujo("rep"); return true; }},
   ];
   const E={activa:false,n:0,nl:0,conX:false,recien:false}; // estado del mapeo estructural por voz
+  // «agregar algo más»: texto se agrega; «borrar» empieza de nuevo; «no» sigue
+  function masTexto(t){ const s0=sinT(N(t)).replace(/[¿?¡!.,]/g," ").trim(); if(/^(borra|borrar|borralo|de nuevo|empezar de nuevo|vuelve a empezar)\b/.test(s0)) return "_borrar";
+    const x=siNo(t); if(x==="no") return ""; if(x==="si"&&s0.split(" ").length<=2) return null; const v=String(t).trim(); return v.charAt(0).toUpperCase()+v.slice(1)+(/[.!?]$/.test(v)?"":"."); }
+  function agregarTexto(id,v){ const el=$(id); if(v==="_borrar") el.value=""; else if(v) el.value=(el.value.trim()?el.value.trim()+" ":"")+v; el.dispatchEvent(new Event("input",{bubbles:true})); }
   const siNo=t=>{ const x=sinT(N(t)).replace(/[¿?¡!.,]/g," ").trim(); return /^(si|claro|correcto|dale|ok|okay|otra|otro|de acuerdo)\b/.test(x)?"si":/^(no|ninguna|ninguno|ya no|listo|terminar)\b/.test(x)?"no":null; };
   // condición de la estructura: la lista del mapeo usa el texto de la opción RMR sin puntaje
   function condicion(eId,rmrId,valor){ const t=textoOpcion(rmrId,valor); const el=$(eId); const o=[...el.options].find(o=>o.value===t||o.text===t); if(o){ el.value=o.value; el.dispatchEvent(new Event("change",{bubbles:true})); } }
@@ -3779,7 +3811,7 @@ Entendido: ${entendido(r.texto)}`;
       if(!acc) acc=tr; else if(b.startsWith(a)) acc=tr; else if(a.endsWith(b)||a.includes(b)) return; else acc+=" "+tr; });
     const w=acc.split(/\s+/); if(w.length>=2&&w.length%2===0&&w.slice(0,w.length/2).join(" ").toLowerCase()===w.slice(w.length/2).join(" ").toLowerCase()) acc=w.slice(0,w.length/2).join(" ");
     return acc; }
-  function micUI(on){ const b=$("cvMic"); if(!b) return; b.classList.toggle("escuchando",on); b.textContent=on?"⏹ Escuchando… toca para terminar":"🎙 Responder"; }
+  function micUI(on){ const b=$("cvMic"); if(!b) return; b.classList.toggle("escuchando",on); b.textContent=on?"⏹ Escuchando…":"🎙 Responder"; b.title=on?"Toca para terminar la respuesta":""; }
   function escuchar(){
     if(!activo||pausado) return; parar();
     let idioma="es-PE"; try{ idioma=localStorage.getItem("ebr-voz-idioma")||"es-PE"; }catch(_){}
@@ -3817,7 +3849,7 @@ Entendido: ${entendido(r.texto)}`;
     restaurar(); let i=desde; while(i<Q.length&&((Q[i].aplica&&!Q[i].aplica())||lleno(Q[i]))) i++;
     if(i>=Q.length){ resumen(); return; }
     idx=i; fase="pregunta"; fallos=0; pendiente=""; const q=Q[i]; foco(q); if(hist[hist.length-1]!==i) hist.push(i);
-    $("cvQ").textContent=q.p; $("cvOir").textContent=""; $("cvProg").textContent=`Pregunta ${i+1} de ${Q.length}`;
+    $("cvQ").textContent=q.p; $("cvOir").textContent=""; $("cvProg").textContent=`Pregunta ${i+1} de ${Q.length}`; botones(q);
     hablar(q.p,escuchar);
   }
   const COMANDOS=[
@@ -3835,7 +3867,7 @@ Entendido: ${entendido(r.texto)}`;
     const el=$(q.id); if(!el) return; el.value=""; el.dispatchEvent(new Event("input",{bubbles:true})); el.dispatchEvent(new Event("change",{bubbles:true})); }
   function restaurar(){ if(respaldo&&respaldo.v&&!valorDe(respaldo.q)){ if(respaldo.q.id==="supervisor") geoPoner(respaldo.v); else if(respaldo.q.id==="seccion") seccionPoner(respaldo.v); else poner(respaldo.q,respaldo.v); } respaldo=null; }
   function volverA(i){ restaurar(); const q=Q[i]; const v=valorDe(q); if(v){ respaldo={q,v}; vaciar(q); } irA(i); }
-  function irA(i){ if(respaldo&&respaldo.q!==Q[i]) restaurar(); idx=i; fallos=0; pendiente=""; const q=Q[i]; fase="pregunta"; foco(q); if(hist[hist.length-1]!==i) hist.push(i); $("cvQ").textContent=q.p; $("cvProg").textContent=`Pregunta ${i+1} de ${Q.length}`; hablar(q.p,escuchar); }
+  function irA(i){ if(respaldo&&respaldo.q!==Q[i]) restaurar(); idx=i; fallos=0; pendiente=""; const q=Q[i]; fase="pregunta"; foco(q); if(hist[hist.length-1]!==i) hist.push(i); $("cvQ").textContent=q.p; $("cvProg").textContent=`Pregunta ${i+1} de ${Q.length}`; botones(q); hablar(q.p,escuchar); }
   // Vuelve a la pregunta anterior (la que se hizo antes, aunque ya esté respondida) para repetirla o corregirla
   // Pausa: deja de hablar y de escuchar sin cerrar la conversación; «Continuar» repite la pregunta pendiente
   function pausar(){ pausado=true; parar(); callar(); const b=$("cvPausa"); if(b) b.textContent="▶ Continuar"; estado("⏸ En pausa. Toca «Continuar» para seguir."); $("cvOir").textContent=""; }
@@ -3850,13 +3882,13 @@ Entendido: ${entendido(r.texto)}`;
   function nuevo(){
     parar(); callar();
     if(!window.nuevoRMR()){ if(activo) hablar(ultimaFrase,escuchar); return; }
-    hist=[]; idx=-1; pausado=false; E.activa=false; E.n=0; E.nl=0; E.recien=false; estado("✓ Formulario nuevo");
+    hist=[]; idx=-1; pausado=false; E.activa=false; E.n=0; E.nl=0; E.recien=false; reiniciarAnuncios(); estado("✓ Formulario nuevo");
     if(!panel) crear(); activo=true; panel.classList.remove("hidden"); document.body.classList.add("conv-on");
     hablar("Nuevo RMR.",()=>siguiente(0));
   }
   // Campo mencionado por su nombre (el más largo que coincida: «tipo de labor» antes que «labor»)
   const ALIAS={coordX:["x","este","coordenada x"],coordY:["y","coordenada y"],coordZ:["z","cota","coordenada z"],largoL:["l","largo","longitud"],
-    supervisor:["geomecanico","nombre"],seccion:["seccion"],_eTipo:["estructura","estructuras","mapeo","mapeo estructural"],_eLect:["lectura","lecturas","dip"],buzamiento:["buzamiento","rango de buzamiento","ajuste"],rumbo:["rumbo"],sentido:["sentido","excavacion"],refTopo:["referencia"],agua:["agua"],resistencia:["resistencia"]};
+    supervisor:["geomecanico","nombre"],seccion:["seccion"],_eTipo:["estructura","estructuras","mapeo","mapeo estructural"],_eLect:["lectura","lecturas","dip"],_fotos:["foto","fotos","fotografia","fotografias"],_croquis:["croquis","dibujo"],_rep:["representacion","representacion estructural"],buzamiento:["buzamiento","rango de buzamiento","ajuste"],rumbo:["rumbo"],sentido:["sentido","excavacion"],refTopo:["referencia"],agua:["agua"],resistencia:["resistencia"]};
   const BLOQUES={"1":"supervisor","uno":"supervisor","2":"resistencia","dos":"resistencia","3":"buzamiento","tres":"buzamiento","4":"_eTipo","cuatro":"_eTipo","5":"observaciones","cinco":"observaciones"};
   const LIBRE=new Set(["supervisor","observaciones","factores","litologia","refTopo"]);
   function campo(texto,libre){
@@ -3867,6 +3899,39 @@ Entendido: ${entendido(r.texto)}`;
       if(ok&&nm.length>largo){ mejor=i; largo=nm.length; } }));
     return mejor;
   }
+  // Cálculos que la app va obteniendo: sobrerotura, RMR básico y RMR total con tipo de roca y sostenimiento (solo cuando cambian)
+  const AV={sob:null,bas:null,tot:null};
+  function valoresCalculo(){ const sb=$("sobreroturaLive").textContent, m=/Sobrerotura:\s*(-?[\d.]+)\s*%/.exec(sb);
+    const bas=$("basicLive").textContent.trim(), tot=$("totalOrientLive").textContent.trim();
+    return {sob:m?m[1]+"|"+seccionValor():null,sobT:m?sb.replace(/^Sobrerotura:\s*/,"").replace(/\s*\(.*\)\s*$/,""):"",bas:/^\d+$/.test(bas)?bas:null,tot:/^\d+$/.test(tot)?tot:null}; }
+  function anuncios(){ const v=valoresCalculo(), p=[];
+    if(v.sob&&v.sob!==AV.sob) p.push("Sobrerotura: "+v.sobT+".");
+    if(v.bas&&v.bas!==AV.bas&&!(v.tot&&v.tot!==AV.tot)) p.push("RMR básico "+v.bas+".");
+    if(v.tot&&v.tot!==AV.tot){ const roca=$("rockOrientLive").textContent.trim().replace(/^[IVX]+(-[AB]\d?)?\s*·\s*/,""), st=$("sostBox").querySelector(".sost-text");
+      p.push((v.bas!==AV.bas?"RMR básico "+v.bas+". ":"")+"RMR total "+v.tot+", roca "+roca+"."+(st?" Sostenimiento recomendado: "+st.textContent.trim().replace(/\.+$/,"")+".":"")); }
+    AV.sob=v.sob; AV.bas=v.bas; AV.tot=v.tot; return p.join(" "); }
+  function reiniciarAnuncios(){ const v=valoresCalculo(); AV.sob=v.sob; AV.bas=v.bas; AV.tot=v.tot; }
+  // Botones del panel según la pregunta (medir con el iPad, foto, galería)
+  function botones(q){ const c=$("cvExtra"); if(!c) return; const B=(q&&q.botones)||[]; c.innerHTML=B.map((b,i)=>`<button type="button" class="btn ok" data-cvb="${i}">${esc(b.t)}</button>`).join("");
+    c.classList.toggle("hidden",!B.length); c.querySelectorAll("[data-cvb]").forEach(el=>el.onclick=()=>B[+el.dataset.cvb].f()); }
+  // Clinómetro del iPad dentro de la conversación
+  function abrirClino(){ parar(); callar(); fase="clino"; estado("📐 Apoya la parte trasera del iPad sobre la discontinuidad y toca «Usar esta lectura».");
+    try{ window.ebrClino.abrir(); }catch(_){} }
+  document.addEventListener("ebr-clino",e=>{ if(!activo||fase!=="clino") return; fase="pregunta"; const d=e.detail||{};
+    if(d.cancelado){ hablar("Medición cancelada. "+Q[idx].p,escuchar); return; }
+    forzado={dip:d.dip,dipDir:d.dipDir,fuente:"Clinómetro iPad"}; procesar("medido con el iPad"); });
+  // Fotos: el toque en el botón abre la cámara o la galería; al volver, la conversación continúa
+  function elegirFoto(id){ parar(); callar(); fase="foto"; const n0=currentPhotos.length; $(id).click();
+    const fin=()=>{ clearInterval(tf); window.removeEventListener("focus",alVolver); };
+    const tf=setInterval(()=>{ if(currentPhotos.length!==n0){ fin(); fase="pregunta"; hablar("Foto agregada.",()=>siguiente(idx)); } },500);
+    const alVolver=()=>setTimeout(()=>{ if(fase==="foto"&&currentPhotos.length===n0){ fin(); fase="pregunta"; hablar(Q[idx].p,escuchar); } },2500);
+    window.addEventListener("focus",alVolver); setTimeout(()=>{ if(fase==="foto"&&currentPhotos.length===n0){ fin(); fase="pregunta"; } },120000); }
+  // Dibujo: abre el panel; al guardar o cancelar continúa con la siguiente pregunta
+  function abrirDibujo(area){ parar(); callar(); fase="dibujo"; estado("✏️ Dibuja y toca «Guardar dibujo» (o Cancelar) para continuar.");
+    const tile=document.querySelector(`.sk-tile[data-sk="${area}"]`); if(tile) tile.click(); const m0=document.querySelector(".sk-modal"); let visto=!!(m0&&!m0.classList.contains("hidden")), i0=idx;
+    const t=setInterval(()=>{ const m=document.querySelector(".sk-modal"); const abierto=m&&!m.classList.contains("hidden"); if(abierto) visto=true;
+      if(visto&&!abierto){ clearInterval(t); if(!activo) return; fase="pregunta"; const ok=window.sketches&&window.sketches.get(area);
+        hablar(ok?"Dibujo guardado.":"Sin dibujo.",()=>siguiente(i0+1)); } },400); }
   function procesar(t){
     const s=sinT(N(t)).replace(/[¿?¡!.,;:«»"]/g," ").replace(/\s+/g," ").trim();
     // «anterior», «atrás», «ir atrás», «¿anterior?»: en frases cortas siempre es la orden de volver al control anterior
@@ -3902,15 +3967,17 @@ Entendido: ${entendido(r.texto)}`;
       fallos++; estado("No entendí: «"+t+"»",true);
       const extra=q.falta&&fallos===1?q.falta:(q.ops?"Opciones: "+q.ops+".":"Dime el valor otra vez.");
       hablar(fallos>=3?"Lo dejo pendiente. "+q.nom+".":"No entendí. "+extra,fallos>=3?()=>siguiente(idx+1):escuchar); if(fallos>=3) estado("Pendiente: "+q.nom,true); return; }
+    if(q.espera&&q.espera(v)) return; // la pregunta toma el control (clinómetro, dibujo)
     if(v!==""&&!(Array.isArray(v)&&!v.length)) poner(q,v); respaldo=null;
     const dicho=q.decir?q.decir(v):(Array.isArray(v)?"":textoOpcion(q.id,v));
     const mostrado=/^(nivel|block|labor|coordX|coordY|coordZ)$/.test(q.id)?String(v):dicho; // en pantalla el código tal cual; en voz, de dos en dos
     estado("✓ "+q.nom.charAt(0).toUpperCase()+q.nom.slice(1)+": "+mostrado+"  ·  escuché «"+String(t).trim()+"»"+(porIA?" (interpretado por la IA)":""));
     const salto=q.despues?q.despues(v):undefined;
-    hablar(q.nom+", "+dicho+".",()=>siguiente(salto!==undefined&&salto>=0?salto:idx+1));
+    const avisos=anuncios(); if(avisos) $("cvOk").textContent+="  ·  "+avisos;
+    hablar(q.nom+", "+dicho+"."+(avisos?" "+avisos:""),()=>siguiente(salto!==undefined&&salto>=0?salto:idx+1));
   }
   function resumen(){
-    document.querySelectorAll(".conv-foco").forEach(e=>e.classList.remove("conv-foco"));
+    document.querySelectorAll(".conv-foco").forEach(e=>e.classList.remove("conv-foco")); botones(null);
     const sug=$("ajSugBtn");
     if(sug&&!$("buzamiento").value){ fase="ajuste"; const txt=($("ajSug").querySelector(".aj-t")||{}).textContent||"";
       $("cvQ").textContent="¿Aplico el ajuste por orientación sugerido?"; $("cvProg").textContent="Ajuste";
@@ -3922,15 +3989,16 @@ Entendido: ${entendido(r.texto)}`;
     const faltan=["resistencia","rqd","espaciamiento","apertura","rugosidad","relleno","persistencia","alteracion","agua"].filter(id=>!$(id).value).map(id=>Q.find(q=>q.id===id).nom);
     let t;
     if(faltan.length) t=`Faltan ${faltan.length} parámetros: ${faltan.join(", ")}. Puedes decir corrige y el nombre del parámetro.`;
-    else if(total&&total!=="—"){ const st=$("sostBox").querySelector(".sost-text"), sost=st?st.textContent.trim().replace(/\.+$/,""):""; t=`RMR básico ${basico}. RMR total ${total}, ${roca.replace(/^[IVX-]+[AB]?\d?\s*·\s*/,"")}.${sost?" Sostenimiento: "+sost+".":""} ¿Guardo la evaluación?`; }
+    else if(total&&total!=="—"){ const st=$("sostBox").querySelector(".sost-text"), sost=st?st.textContent.trim().replace(/\.+$/,""):""; t=`Evaluación completa. RMR total ${total}, roca ${roca.replace(/^[IVX]+(-[AB]\d?)?\s*·\s*/,"")}. ¿Guardo la evaluación?`; }
     else t=`RMR básico ${basico}. Falta definir el ajuste por orientación en el bloque 3. ¿Guardo la evaluación de todas formas?`;
     fase=faltan.length?"pregunta":"guardar"; $("cvQ").textContent=t; $("cvProg").textContent="Resumen";
     if(faltan.length){ idx=Q.findIndex(q=>q.nom===faltan[0]); hablar(t,()=>irA(idx)); } else hablar(t,escuchar);
   }
   function crear(){
     panel=document.createElement("div"); panel.className="conv-panel hidden"; panel.id="convPanel"; panel.setAttribute("role","region"); panel.setAttribute("aria-label","Modo conversación");
-    panel.innerHTML=`<div class="conv-in"><div class="conv-top"><span>🗣 Modo conversación · <span id="cvProg"></span> <span style="opacity:.6">· versión 56${NAT?" · app nativa":""}</span></span><span>Di «repite», «anterior», «opciones», «omitir», «ir a …», «corrige …», «pausa», «nuevo RMR» o «terminar»</span></div>
+    panel.innerHTML=`<div class="conv-in"><div class="conv-top"><span>🗣 Modo conversación · <span id="cvProg"></span> <span style="opacity:.6">· versión 57${NAT?" · app nativa":""}</span></span><span>Di «repite», «anterior», «opciones», «omitir», «ir a …», «corrige …», «pausa», «nuevo RMR» o «terminar»</span></div>
       <div class="conv-q" id="cvQ"></div><div class="conv-oir" id="cvOir"></div><div class="conv-ok" id="cvOk"></div>
+      <div class="conv-btns hidden" id="cvExtra"></div>
       <div class="conv-btns"><button type="button" class="btn ok conv-mic" id="cvMic">🎙 Responder</button><button type="button" class="btn" id="cvAnt">⏮ Anterior</button><button type="button" class="btn" id="cvRep">🔁 Repetir</button><button type="button" class="btn" id="cvOmit">⏭ Omitir</button><button type="button" class="btn" id="cvPausa">⏸ Pausa</button><button type="button" class="btn danger" id="cvFin">Terminar</button></div></div>`;
     document.body.appendChild(panel);
     $("cvMic").onclick=()=>{ if(pausado){ continuar(); return; } if(escuchandoYa&&NAT){ try{ window.ebrNativo.terminarEscucha(); }catch(_){} return; } if(escuchandoYa&&rec){ try{ rec.stop(); }catch(_){} return; } callar(); escuchar(); };
@@ -3945,7 +4013,7 @@ Entendido: ${entendido(r.texto)}`;
   $("convBtn").addEventListener("click",()=>{
     if(!panel) crear(); activo=true; pausado=false; $("cvPausa").textContent="⏸ Pausa"; hist=[]; panel.classList.remove("hidden"); document.body.classList.add("conv-on"); estado("");
     document.querySelectorAll(".panel").forEach(p=>p.classList.toggle("active",p.id==="evaluacion")); document.querySelectorAll(".tab").forEach(t=>t.classList.toggle("active",t.dataset.tab==="evaluacion"));
-    E.activa=false; E.n=0; E.nl=0; E.recien=false; const i=Q.findIndex(q=>!lleno(q)&&!(q.aplica&&!q.aplica()));
+    E.activa=false; E.n=0; E.nl=0; E.recien=false; reiniciarAnuncios(); const i=Q.findIndex(q=>!lleno(q)&&!(q.aplica&&!q.aplica()));
     hablar("Empecemos. Responde cada pregunta; puedes decir opciones o repite en cualquier momento.",()=>siguiente(Math.max(0,i)));
   });
   // «＋ Nuevo RMR» de la cabecera: si la conversación está abierta, empieza también la conversación desde la primera pregunta
