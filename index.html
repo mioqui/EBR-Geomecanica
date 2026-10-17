@@ -3600,6 +3600,13 @@ Entendido: ${entendido(r.texto)}`;
     if(!num) return null;
     return tipo[1]+num+ala+grad;
   }
+  // Códigos (nivel, block, labor, coordenadas) se leen de dos en dos, como se dicen en mina:
+  // 3922 → «39 22», 990 → «9 90», 362150.5 → «36 21 50 punto 5». Las medidas y puntajes se leen como cantidad normal.
+  function pares(v){ const m=/^(\d+)(?:\.(\d+))?$/.exec(String(v).trim()); if(!m) return String(v);
+    // 3 dígitos: «9 90»; 5 o más impares: pares y al final un trío (8829540 → «88 29 540»)
+    const d=m[1], g=[]; if(d.length===3){ g.push(d[0],d.slice(1)); } else { const fin=d.length%2===1&&d.length>3?d.length-3:d.length;
+      for(let i=0;i<fin;i+=2) g.push(d.slice(i,i+2)); if(fin<d.length) g.push(d.slice(fin)); }
+    return g.join(" ")+(m[2]?" punto "+m[2].split("").join(" "):""); }
   // «cuatro ochenta» → 4.80; «cuatro punto ocho» → 4.8; «tres» → 3
   function dimension(t){ const g=N(t).match(/\d+(?:\.\d+)?/g); if(!g) return null;
     if(g.length>=2&&!g[0].includes(".")&&+g[0]<20&&/^\d{1,2}$/.test(g[1])) return g[0]+"."+g[1].padStart(2,"0").replace(/^(\d)$/,"$10");
@@ -3623,11 +3630,12 @@ Entendido: ${entendido(r.texto)}`;
     {id:"nivel",nom:"nivel",p:"¿Nivel?",leer:t=>{ const g=N(t).match(/\d+/g); if(!g) return null; let v=g.join("");
       if(v.length%2===0&&v.slice(0,v.length/2)===v.slice(v.length/2)) v=v.slice(0,v.length/2); // «3922 3922» → 3922
       if(v.length>4) v=v.slice(0,4); // los niveles tienen 4 dígitos (3922, 4055…)
-      return v.length<4?{parcial:v}:v; }},
-    {id:"block",nom:"block",p:"¿Block?",leer:t=>{ const c=codigo(t); if(!c) return null; return /^\d{1,3}$/.test(c)?{parcial:c}:c; }},
+      return v.length<4?{parcial:v}:v; },decir:v=>pares(v)},
+    {id:"block",nom:"block",p:"¿Block?",leer:t=>{ const c=codigo(t); if(!c) return null; return /^\d{1,3}$/.test(c)?{parcial:c}:c; },
+      decir:v=>{ const m=/^([A-Z]*)(\d+)$/.exec(v); return m?[m[1].split("").join(" "),pares(m[2])].filter(Boolean).join(" "):v; }},
     {id:"labor",nom:"labor",p:"¿Labor?",leer:t=>laborCodigo(t),
       decir:v=>{ const m=/^([A-Z]+)(\d*)([NSEW]?)(\([+-]\))?$/.exec(v); if(!m) return v; const A={N:"norte",S:"sur",E:"este",W:"oeste"};
-        return [m[1].split("").join(" "),m[2],A[m[3]]||"",m[4]?(m[4]==="(+)"?"positiva":"negativa"):""].filter(Boolean).join(" "); }},
+        return [m[1].split("").join(" "),m[2]?pares(m[2]):"",A[m[3]]||"",m[4]?(m[4]==="(+)"?"positiva":"negativa"):""].filter(Boolean).join(" "); }},
     {id:"condicionLabor",nom:"tipo de labor",p:"¿Tipo de labor? Avance permanente, avance temporal, intersección o explotación.",ops:"avance permanente, avance temporal, intersección permanente, intersección temporal o explotación",
       leer:t=>tiene(t,/interse/)?(tiene(t,/tempor/)?"Interseccion temporal":tiene(t,/perman/)?"Interseccion permanente":null):tiene(t,/explot|tajo/)?"Explotacion":tiene(t,/tempor/)?"Temporal":tiene(t,/perman/)?"Permanente":null},
     {id:"litologia",nom:"litología",p:"¿Litología?",leer:t=>{ const w=String(t).trim().replace(/[.]+$/,"").replace(/^(la\s+)?litolog[ií]a\s+(es\s+)?/i,"").trim(); if(!w) return null;
@@ -3639,9 +3647,9 @@ Entendido: ${entendido(r.texto)}`;
     {id:"anchoReal",nom:"ancho",p:"¿Ancho real de la labor, en metros?",leer:t=>dimension(t),decir:v=>v+" metros"},
     {id:"altoReal",nom:"alto",p:"¿Alto real, en metros?",leer:t=>dimension(t),decir:v=>v+" metros"},
     {id:"largoL",nom:"longitud",p:"¿Longitud L, en metros?",leer:t=>dimension(t),decir:v=>v+" metros"},
-    {id:"coordX",nom:"coordenada este",p:"¿Coordenada X, este?",leer:t=>coord(t,6),decir:v=>v},
-    {id:"coordY",nom:"coordenada norte",p:"¿Coordenada Y, norte?",leer:t=>coord(t,7),decir:v=>v},
-    {id:"coordZ",nom:"cota",p:"¿Cota Z?",leer:t=>coord(t,4),decir:v=>v},
+    {id:"coordX",nom:"coordenada este",p:"¿Coordenada X, este?",leer:t=>coord(t,6),decir:v=>pares(v)},
+    {id:"coordY",nom:"coordenada norte",p:"¿Coordenada Y, norte?",leer:t=>coord(t,7),decir:v=>pares(v)},
+    {id:"coordZ",nom:"cota",p:"¿Cota Z?",leer:t=>coord(t,4),decir:v=>pares(v)},
     {id:"factores",nom:"factores influyentes",p:"¿Factores influyentes? Si no hay, di ninguno.",opcional:true,leer:t=>{ if(tiene(t,/^\s*(ninguno|ninguna|no|nada)\s*\.?$/)) return ""; const v=String(t).trim(); return v.charAt(0).toUpperCase()+v.slice(1)+(/[.!?]$/.test(v)?"":"."); },decir:v=>v?"anotado":"sin factores"},
     {id:"resistencia",nom:"resistencia",p:"¿Resistencia de la roca? R1 a R6, o en megapascales.",ops:"R6 más de 250 megapascales, R5 de 100 a 250, R4 de 50 a 100, R3 de 25 a 50, R2 de 5 a 25, R1 de 1 a 5",
       leer:t=>{ const n=N(t), r=/\br\s*([1-6])\b/.exec(n); if(r) return {"6":"15","5":"12","4":"7","3":"4","2":"2","1":"1"}[r[1]];
@@ -3839,7 +3847,8 @@ Entendido: ${entendido(r.texto)}`;
       hablar(fallos>=3?"Lo dejo pendiente. "+q.nom+".":"No entendí. "+extra,fallos>=3?()=>siguiente(idx+1):escuchar); if(fallos>=3) estado("Pendiente: "+q.nom,true); return; }
     if(v!==""&&!(Array.isArray(v)&&!v.length)) poner(q,v); respaldo=null;
     const dicho=q.decir?q.decir(v):(Array.isArray(v)?"":textoOpcion(q.id,v));
-    estado("✓ "+q.nom.charAt(0).toUpperCase()+q.nom.slice(1)+": "+dicho+"  ·  escuché «"+String(t).trim()+"»"+(porIA?" (interpretado por la IA)":""));
+    const mostrado=/^(nivel|block|labor|coordX|coordY|coordZ)$/.test(q.id)?String(v):dicho; // en pantalla el código tal cual; en voz, de dos en dos
+    estado("✓ "+q.nom.charAt(0).toUpperCase()+q.nom.slice(1)+": "+mostrado+"  ·  escuché «"+String(t).trim()+"»"+(porIA?" (interpretado por la IA)":""));
     hablar(q.nom+", "+dicho+".",()=>siguiente(idx+1));
   }
   function resumen(){
@@ -3862,7 +3871,7 @@ Entendido: ${entendido(r.texto)}`;
   }
   function crear(){
     panel=document.createElement("div"); panel.className="conv-panel hidden"; panel.id="convPanel"; panel.setAttribute("role","region"); panel.setAttribute("aria-label","Modo conversación");
-    panel.innerHTML=`<div class="conv-in"><div class="conv-top"><span>🗣 Modo conversación · <span id="cvProg"></span> <span style="opacity:.6">· versión 52${NAT?" · app nativa":""}</span></span><span>Di «repite», «anterior», «opciones», «omitir», «ir a …», «corrige …», «pausa», «nuevo RMR» o «terminar»</span></div>
+    panel.innerHTML=`<div class="conv-in"><div class="conv-top"><span>🗣 Modo conversación · <span id="cvProg"></span> <span style="opacity:.6">· versión 53${NAT?" · app nativa":""}</span></span><span>Di «repite», «anterior», «opciones», «omitir», «ir a …», «corrige …», «pausa», «nuevo RMR» o «terminar»</span></div>
       <div class="conv-q" id="cvQ"></div><div class="conv-oir" id="cvOir"></div><div class="conv-ok" id="cvOk"></div>
       <div class="conv-btns"><button type="button" class="btn ok conv-mic" id="cvMic">🎙 Responder</button><button type="button" class="btn" id="cvAnt">⏮ Anterior</button><button type="button" class="btn" id="cvRep">🔁 Repetir</button><button type="button" class="btn" id="cvOmit">⏭ Omitir</button><button type="button" class="btn" id="cvPausa">⏸ Pausa</button><button type="button" class="btn danger" id="cvFin">Terminar</button></div></div>`;
     document.body.appendChild(panel);
