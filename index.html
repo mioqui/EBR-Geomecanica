@@ -3768,7 +3768,7 @@ Entendido: ${entendido(r.texto)}`;
   ];
   const E={activa:false,n:0,nl:0,conX:false,recien:false}; // estado del mapeo estructural por voz
   // ---- geomecánicos conocidos (corrige lo que el reconocimiento escribe «parecido»: «Grecia Amezcua» → GRECIA MESCUA)
-  const GEO_BASE=["GRECIA MESCUA","JHON ALVAREZ","STIVE VELARDE"];
+  const GEO_BASE=["GRECIA MESCUA","JHON ALVAREZ","STIVE VELARDE","SERGIO HUAICANE"];
   const geoSet=new Set(GEO_BASE);
   try{ (JSON.parse(localStorage.getItem("ebr-geomecanicos")||"[]")||[]).forEach(n=>n&&geoSet.add(String(n).toUpperCase())); }catch(_){}
   function aprenderGeos(){ try{ dbAll().then(L=>L.forEach(x=>{ const n=String(x.supervisor||"").trim().toUpperCase(); if(n.length>3) geoSet.add(n); })).catch(()=>{}); }catch(_){} }
@@ -4020,7 +4020,7 @@ Entendido: ${entendido(r.texto)}`;
   }
   function crear(){
     panel=document.createElement("div"); panel.className="conv-panel hidden"; panel.id="convPanel"; panel.setAttribute("role","region"); panel.setAttribute("aria-label","Modo conversación");
-    panel.innerHTML=`<div class="conv-in"><div class="conv-top"><span>🗣 Modo conversación · <span id="cvProg"></span> <span style="opacity:.6">· versión 58${NAT?" · app nativa":""}</span></span><span>Di «repite», «anterior», «opciones», «omitir», «ir a …», «corrige …», «pausa», «nuevo RMR» o «terminar»</span></div>
+    panel.innerHTML=`<div class="conv-in"><div class="conv-top"><span>🗣 Modo conversación · <span id="cvProg"></span> <span style="opacity:.6">· versión 59${NAT?" · app nativa":""}</span></span><span>Di «repite», «anterior», «opciones», «omitir», «ir a …», «corrige …», «pausa», «nuevo RMR» o «terminar»</span></div>
       <div class="conv-q" id="cvQ"></div><div class="conv-oir" id="cvOir"></div><div class="conv-ok" id="cvOk"></div>
       <div class="conv-btns hidden" id="cvExtra"></div>
       <div class="conv-btns"><button type="button" class="btn ok conv-mic" id="cvMic">🎙 Responder</button><button type="button" class="btn" id="cvAnt">⏮ Anterior</button><button type="button" class="btn" id="cvRep">🔁 Repetir</button><button type="button" class="btn" id="cvOmit">⏭ Omitir</button><button type="button" class="btn" id="cvPausa">⏸ Pausa</button><button type="button" class="btn danger" id="cvFin">Terminar</button></div></div>`;
