@@ -1,4 +1,4 @@
-const CACHE='ebr-rmr-v1-60-glosario';
+const CACHE='ebr-rmr-v1-61-litologia';
 const ASSETS=['./','./index.html','./manifest.webmanifest','./icons/icon-180.png','./icons/icon-192.png'];
 // Con señal débil o intermitente (interior mina), la app no espera más de este tiempo a GitHub:
 // abre la versión guardada y la actualización se descarga en segundo plano para la próxima apertura.
