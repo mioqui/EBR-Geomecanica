@@ -3626,7 +3626,12 @@ Entendido: ${entendido(r.texto)}`;
   // ---------- preguntas (orden del formulario) ----------
   const Q=[
     {id:"turno",nom:"turno",p:"¿Turno día o noche?",ops:"día o noche",leer:t=>tiene(t,/\bdia\b/)?"Día":tiene(t,/\bnoche\b/)?"Noche":null},
-    {id:"supervisor",nom:"geomecánico",p:"¿Nombre del geomecánico?",leer:t=>{ const v=String(t).trim().replace(/^(soy|es|el|la)\s+/i,""); return v.length>1?v:null; },decir:v=>v},
+    // Geomecánico: si se parece a un nombre conocido (lista del área + historial), se usa ese; recuerda el último del iPad
+    {id:"supervisor",nom:"geomecánico",
+      get p(){ const u=ultimoGeo(); return u?"¿Eres "+tituloNombre(u)+"? Di sí, o dime el nombre del geomecánico.":"¿Nombre del geomecánico?"; },
+      leer:t=>{ const u=ultimoGeo(); if(u&&siNo(t)==="si"&&String(t).trim().split(/\s+/).length<=2) return u;
+        const v=String(t).trim().replace(/^(soy|es|el|la|me llamo|mi nombre es)\s+/i,"").replace(/[.,]+$/,""); if(v.length<2) return null; return nombreConocido(v)||v; },
+      poner:v=>{ geoPoner(v); $("supervisor").dispatchEvent(new Event("input",{bubbles:true})); recordarGeo(v); },decir:v=>tituloNombre(v)},
     // Nivel y block se dicen en pares: «treinta y nueve veintidós» → 39 22 → 3922. Si llega solo «39», espera la otra mitad.
     {id:"nivel",nom:"nivel",p:"¿Nivel?",leer:t=>{ const g=N(t).match(/\d+/g); if(!g) return null; let v=g.join("");
       if(v.length%2===0&&v.slice(0,v.length/2)===v.slice(v.length/2)) v=v.slice(0,v.length/2); // «3922 3922» → 3922
@@ -3762,6 +3767,25 @@ Entendido: ${entendido(r.texto)}`;
       espera:v=>{ if(v!=="si") return false; abrirDibujo("rep"); return true; }},
   ];
   const E={activa:false,n:0,nl:0,conX:false,recien:false}; // estado del mapeo estructural por voz
+  // ---- geomecánicos conocidos (corrige lo que el reconocimiento escribe «parecido»: «Grecia Amezcua» → GRECIA MESCUA)
+  const GEO_BASE=["GRECIA MESCUA","JHON ALVAREZ","STIVE VELARDE"];
+  const geoSet=new Set(GEO_BASE);
+  try{ (JSON.parse(localStorage.getItem("ebr-geomecanicos")||"[]")||[]).forEach(n=>n&&geoSet.add(String(n).toUpperCase())); }catch(_){}
+  function aprenderGeos(){ try{ dbAll().then(L=>L.forEach(x=>{ const n=String(x.supervisor||"").trim().toUpperCase(); if(n.length>3) geoSet.add(n); })).catch(()=>{}); }catch(_){} }
+  function recordarGeo(n){ n=String(n||"").trim().toUpperCase(); if(!n) return; geoSet.add(n);
+    try{ localStorage.setItem("ebr-geo-ultimo",n); localStorage.setItem("ebr-geomecanicos",JSON.stringify([...geoSet].filter(x=>!GEO_BASE.includes(x)).slice(-40))); }catch(_){} }
+  function ultimoGeo(){ try{ return localStorage.getItem("ebr-geo-ultimo")||""; }catch(_){ return ""; } }
+  const tituloNombre=n=>String(n).toLowerCase().replace(/(^|\s)\S/g,m=>m.toUpperCase());
+  // comparación fonética simple del español: z/ce/ci→s, v→b, ll→y, h muda, sin tildes ni dobles
+  const fonet=n=>sinT(n).toUpperCase().replace(/[^A-Z ]/g,"").replace(/H/g,"").replace(/Z/g,"S").replace(/C([EI])/g,"S$1").replace(/V/g,"B").replace(/LL/g,"Y").replace(/QU/g,"K").replace(/C/g,"K").replace(/(.)\1+/g,"$1").replace(/\s+/g," ").trim();
+  function lev(a,b){ const m=a.length,n=b.length; if(!m) return n; if(!n) return m; let p=[...Array(n+1).keys()];
+    for(let i=1;i<=m;i++){ const c=[i]; for(let j=1;j<=n;j++) c[j]=Math.min(p[j]+1,c[j-1]+1,p[j-1]+(a[i-1]===b[j-1]?0:1)); p=c; } return p[n]; }
+  function nombreConocido(v){ const a=fonet(v); let mejor=null, sim=0;
+    geoSet.forEach(n=>{ const b=fonet(n); const s1=1-lev(a,b)/Math.max(a.length,b.length);
+      // también solo el apellido o nombre + inicial: «Mescua», «Grecia M.»
+      const s2=b.split(" ").some(w=>w.length>3&&a===w)?0.9:0; const s=Math.max(s1,s2); if(s>sim){ sim=s; mejor=n; } });
+    return sim>=0.75?mejor:null; }
+  window.ebrGeoConocido=nombreConocido;
   // «agregar algo más»: texto se agrega; «borrar» empieza de nuevo; «no» sigue
   function masTexto(t){ const s0=sinT(N(t)).replace(/[¿?¡!.,]/g," ").trim(); if(/^(borra|borrar|borralo|de nuevo|empezar de nuevo|vuelve a empezar)\b/.test(s0)) return "_borrar";
     const x=siNo(t); if(x==="no") return ""; if(x==="si"&&s0.split(" ").length<=2) return null; const v=String(t).trim(); return v.charAt(0).toUpperCase()+v.slice(1)+(/[.!?]$/.test(v)?"":"."); }
@@ -3996,7 +4020,7 @@ Entendido: ${entendido(r.texto)}`;
   }
   function crear(){
     panel=document.createElement("div"); panel.className="conv-panel hidden"; panel.id="convPanel"; panel.setAttribute("role","region"); panel.setAttribute("aria-label","Modo conversación");
-    panel.innerHTML=`<div class="conv-in"><div class="conv-top"><span>🗣 Modo conversación · <span id="cvProg"></span> <span style="opacity:.6">· versión 57${NAT?" · app nativa":""}</span></span><span>Di «repite», «anterior», «opciones», «omitir», «ir a …», «corrige …», «pausa», «nuevo RMR» o «terminar»</span></div>
+    panel.innerHTML=`<div class="conv-in"><div class="conv-top"><span>🗣 Modo conversación · <span id="cvProg"></span> <span style="opacity:.6">· versión 58${NAT?" · app nativa":""}</span></span><span>Di «repite», «anterior», «opciones», «omitir», «ir a …», «corrige …», «pausa», «nuevo RMR» o «terminar»</span></div>
       <div class="conv-q" id="cvQ"></div><div class="conv-oir" id="cvOir"></div><div class="conv-ok" id="cvOk"></div>
       <div class="conv-btns hidden" id="cvExtra"></div>
       <div class="conv-btns"><button type="button" class="btn ok conv-mic" id="cvMic">🎙 Responder</button><button type="button" class="btn" id="cvAnt">⏮ Anterior</button><button type="button" class="btn" id="cvRep">🔁 Repetir</button><button type="button" class="btn" id="cvOmit">⏭ Omitir</button><button type="button" class="btn" id="cvPausa">⏸ Pausa</button><button type="button" class="btn danger" id="cvFin">Terminar</button></div></div>`;
@@ -4013,7 +4037,7 @@ Entendido: ${entendido(r.texto)}`;
   $("convBtn").addEventListener("click",()=>{
     if(!panel) crear(); activo=true; pausado=false; $("cvPausa").textContent="⏸ Pausa"; hist=[]; panel.classList.remove("hidden"); document.body.classList.add("conv-on"); estado("");
     document.querySelectorAll(".panel").forEach(p=>p.classList.toggle("active",p.id==="evaluacion")); document.querySelectorAll(".tab").forEach(t=>t.classList.toggle("active",t.dataset.tab==="evaluacion"));
-    E.activa=false; E.n=0; E.nl=0; E.recien=false; reiniciarAnuncios(); const i=Q.findIndex(q=>!lleno(q)&&!(q.aplica&&!q.aplica()));
+    E.activa=false; E.n=0; E.nl=0; E.recien=false; reiniciarAnuncios(); aprenderGeos(); const i=Q.findIndex(q=>!lleno(q)&&!(q.aplica&&!q.aplica()));
     hablar("Empecemos. Responde cada pregunta; puedes decir opciones o repite en cualquier momento.",()=>siguiente(Math.max(0,i)));
   });
   // «＋ Nuevo RMR» de la cabecera: si la conversación está abierta, empieza también la conversación desde la primera pregunta
